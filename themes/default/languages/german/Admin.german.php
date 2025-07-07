@@ -52,21 +52,21 @@ $txt['admin_agreement_default'] = 'Standard';
 $txt['admin_agreement_select_language'] = 'Sprache zum Bearbeiten';
 $txt['admin_agreement_select_language_change'] = 'Ändern';
 
-$txt['admin_privacypol'] = 'Show and require accepting the privacy policy when registering';
-$txt['admin_checkbox_accept_privacypol'] = 'Force all members to accept this new version of the privacy policy at the next visit to the forum';
+$txt['admin_privacypol'] = 'Datenschutzerklärung beim Registrieren anzeigen und Zustimmung verlangen';
+$txt['admin_checkbox_accept_privacypol'] = 'Alle Mitglieder beim nächsten Besuch des Forums dazu verpflichten, diese neue Version der Datenschutzerklärung zu akzeptieren';
 
 $txt['admin_delete_members'] = 'Ausgewählte Benutzer löschen';
-$txt['admin_change_primary_membergroup'] = 'Change primary member group';
-$txt['admin_change_secondary_membergroup'] = 'Change/add additional member group';
-$txt['confirm_remove_membergroup'] = 'Selecting this all the membergroups will be removed! Are you sure?';
-$txt['confirm_change_primary_membergroup'] = 'Are you sure you want to change the primary group of the selected members?';
-$txt['confirm_change_secondary_membergroup'] = 'Are you sure you want to change the additional group of the selected members?';
-$txt['admin_ban_usernames'] = 'Ban by usernames';
-$txt['admin_ban_useremails'] = 'Ban by email addresses';
-$txt['admin_ban_userips'] = 'Ban by IPs';
-$txt['admin_ban_usernames_and_emails'] = 'Ban by usernames and email addresses';
-$txt['admin_ban_name'] = 'Mass-user Ban';
-$txt['remove_groups'] = 'Remove all groups';
+$txt['admin_change_primary_membergroup'] = 'Primäre Mitgliedergruppe ändern';
+$txt['admin_change_secondary_membergroup'] = 'Zusätzliche Mitgliedergruppe ändern/hinzufügen';
+$txt['confirm_remove_membergroup'] = 'Wenn Du dies auswählst, werden alle Mitgliedergruppen entfernt! Bist Du sicher?';
+$txt['confirm_change_primary_membergroup'] = 'Bist Du sicher, dass Du die primäre Gruppe der ausgewählten Mitglieder ändern möchtest?';
+$txt['confirm_change_secondary_membergroup'] = 'Bist Du sicher, dass Du die zusätzliche Gruppe der ausgewählten Mitglieder ändern möchtest?';
+$txt['admin_ban_usernames'] = 'Nach Mitgliedsnamen sperren';
+$txt['admin_ban_useremails'] = 'Nach E-Mail-Adressen sperren';
+$txt['admin_ban_userips'] = 'Nach IPs sperren';
+$txt['admin_ban_usernames_and_emails'] = 'Nach Mitgliedsnamen und E-Mail-Adressen sperren';
+$txt['admin_ban_name'] = 'Massen-Sperrung von Mitgliedern';
+$txt['remove_groups'] = 'Alle Gruppen entfernen';
 
 $txt['admin_repair'] = 'Repariere alle Boards und Themen';
 $txt['admin_main_welcome'] = 'This is your &quot;%1$s&quot;.  From here, you can edit settings, maintain your forum, view logs, install packages, manage themes, and many other things.<br /><br />If you have any trouble, please look at the &quot;Support &amp; Credits&quot; page.  If the information there doesn\'t help you, feel free to <a href="https://www.elkarte.net/index.php" target="_blank" class="new_win">look to us for help</a> with the problem.<br />You may also find answers to your questions or problems by clicking the <i class="helpicon i-help"><s>Help</s></i> symbols for more information on the related functions.';
@@ -129,12 +129,12 @@ $txt['attachmentdir_files_not_set'] = 'Momentan ist kein Datei-Limit gesetzt.';
 $txt['attachment_delete_admin'] = '[Anhang wurde durch Administrator gelöscht]';
 $txt['live'] = 'Letzte Software-Updates';
 $txt['remove_all'] = 'Alle entfernen';
-$txt['agreement_not_writable'] = 'Warning - agreement.txt is not writable. Any changes you make will NOT be saved.';
-$txt['agreement_backup_not_writable'] = 'Warning - the backup directory in forum_root/packages/backup cannot be created.';
-$txt['privacypol_not_writable'] = 'Warning - privacypolicy.txt is not writable. Any changes you make will NOT be saved.';
-$txt['privacypol_backup_not_writable'] = 'Warning - the backup directory in forum_root/packages/backup cannot be created.';
+$txt['agreement_not_writable'] = 'Warnung – agreement.txt ist nicht beschreibbar. Alle Änderungen, die Sie vornehmen, werden NICHT gespeichert.';
+$txt['agreement_backup_not_writable'] = 'Warnung – Das Backup-Verzeichnis in forum_root/packages/backup kann nicht erstellt werden.';
+$txt['privacypol_not_writable'] = 'Warnung – privacypolicy.txt ist nicht beschreibbar. Alle Änderungen, die Sie vornehmen, werden NICHT gespeichert.';
+$txt['privacypol_backup_not_writable'] = 'Warnung – Das Backup-Verzeichnis in forum_root/packages/backup kann nicht erstellt werden.';
 
-$txt['version_check_desc'] = 'This shows you the versions of your installation\'s files versus those of the latest version. If any of these files are out of date, you should download and upgrade to the latest version at our <a href="https://github.com/elkarte/Elkarte/releases" target="_blank" class="new_win">ElkArte Site</a>.';
+$txt['version_check_desc'] = 'Hier sehen Sie die Versionen Ihrer Installationsdateien im Vergleich zur neuesten Version. Wenn einige dieser Dateien veraltet sind, sollten Sie die aktuelle Version von unserer <a href="https://github.com/elkarte/Elkarte/releases" target="_blank" class="new_win">ElkArte-Seite</a> herunterladen und aktualisieren.';
 $txt['version_check_more'] = '(ausführlicher)';
 
 $txt['lfyi'] = 'Verbindungsaufbau zu ElkArte gescheitert.';
@@ -147,7 +147,7 @@ $txt['smileys_manage'] = 'Smileys & Beitragssymbole';
 $txt['smileys_manage_info'] = 'Installiere neue Smiley-Sets, füge Smileys zu existierenden Sets hinzu und verwalte die Beitragssymbole.';
 
 $txt['bbc_manage'] = 'Bulletin Board Codes (BBC)';
-$txt['bbc_manage_info'] = 'Add, remove, and edit bulletin board codes.';
+$txt['bbc_manage_info'] = 'BBCodes hinzufügen, entfernen und bearbeiten.';
 
 $txt['package_info'] = 'Installiere Pakete mit Modifikationen und prüfe Dateiberechtigungen und FTP-Einstellungen.';
 $txt['theme_admin'] = 'Themes-Management';
@@ -797,10 +797,11 @@ $txt['admin_order_error'] = 'Ein unbekannter Fehler ist während der Verarbeitun
 
 // Known controllers that can work on the front page
 $txt['default'] = 'Standard';
-$txt['front_page'] = 'Select the action to show on the front page:';
+$txt['front_page'] = 'Aktion auswählen, die auf der Startseite angezeigt werden soll:';
 
-$txt['BoardIndex_Controller'] = 'Board Index';
-$txt['MessageIndex_Controller'] = 'Content of a board';
-$txt['message_index_frontpage'] = 'Select the board to show on the front page:';
-$txt['Recent_Controller'] = 'Recent posts';
-$txt['recent_frontpage'] = 'Number of messages to show:';
+$txt['BoardIndex_Controller'] = 'Forenübersicht';
+$txt['MessageIndex_Controller'] = 'Inhalt eines Boards';
+$txt['message_index_frontpage'] = 'Board auswählen, das auf der Startseite angezeigt werden soll:';
+$txt['Recent_Controller'] = 'Neueste Beiträge';
+$txt['recent_frontpage'] = 'Anzahl der anzuzeigenden Nachrichten:';
+
