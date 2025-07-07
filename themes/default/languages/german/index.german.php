@@ -928,11 +928,12 @@ $txt['admin_warning_title'] = 'Achtung!';
 
 $txt['via'] = 'via';
 
-$txt['like_post_stats'] = 'Like stats';
+$txt['like_post_stats'] = 'Gefällt-mir-Statistik';
 
-$txt['otp_token'] = 'Time-based One-time Password';
-$txt['otp_enabled'] = 'Enable two factor authentication';
-$txt['invalid_otptoken'] = 'Time-based One-time Password is invalid';
-$txt['otp_used'] = 'Time-based One-time Password already used.<br /> Please wait a moment and use the next code.';
-$txt['otp_generate'] = 'Generate';
-$txt['otp_show_qr'] = 'Show QR-Code';
+$txt['otp_token'] = 'Zeitbasiertes Einmalpasswort';
+$txt['otp_enabled'] = 'Zwei-Faktor-Authentifizierung aktivieren';
+$txt['invalid_otptoken'] = 'Das zeitbasierte Einmalpasswort ist ungültig';
+$txt['otp_used'] = 'Das zeitbasierte Einmalpasswort wurde bereits verwendet.<br /> Bitte warten Sie einen Moment und verwenden Sie den nächsten Code.';
+$txt['otp_generate'] = 'Generieren';
+$txt['otp_show_qr'] = 'QR-Code anzeigen';
+
