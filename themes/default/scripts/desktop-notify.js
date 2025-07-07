@@ -1,53 +1,37 @@
 /*!
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
- * This bits acts as middle-man between Push and the ElkNotifications
+ * This bits acts as middle-man between the notify (above) and the ElkNotifications
  * providing the interface required by the latter.
  */
 
-(function() {
-	const ElkDesktop = (function(opt) {
-
+(function () {
+	var ElkDesktop = (function (opt) {
+		'use strict';
 		opt = (opt) ? opt : {};
 
-		let canRun = true;
-
-		const send = function(request) {
-			if (canRun && request.desktop_notifications && parseInt(request.desktop_notifications.new_from_last, 10) !== 0)
-			{
-				if (hasPermissions())
+		var send = function (request) {
+			if (request.desktop_notifications.new_from_last > 0) {
+				if (hasPermissions(request))
 				{
 					Push.create(request.desktop_notifications.title, {
 						body: request.desktop_notifications.message,
 						icon: opt.icon,
-						link: request.desktop_notifications.link,
-						onClick: function() {
-							window.focus();
-							this.close();
-						}
+						link: request.desktop_notifications.link
 					});
 				}
 			}
-
-			// Reset the flag and start the timer again
-			canRun = false;
-			setTimeout(function() {
-				canRun = true;
-			}, 30000);
 		};
 
-		const hasPermissions = function() {
+		var hasPermissions = function () {
 			if (Push.Permission.has())
-			{
 				return true;
-			}
 
-			if (Push.Permission.get() === 'default')
-			{
+			if (Push.Permission.get() === "default") {
 				return Push.Permission.request();
 			}
 

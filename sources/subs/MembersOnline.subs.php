@@ -3,20 +3,17 @@
 /**
  * Function to support online user functions
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
-
-use ElkArte\Cache\Cache;
-use ElkArte\Helper\Util;
-use ElkArte\User;
 
 /**
  * Retrieve a list and several other statistics of the users currently online.
@@ -25,13 +22,13 @@ use ElkArte\User;
  * - Also returns the membergroups of the users that are currently online.
  * - (optionally) hides members that chose to hide their online presence.
  *
+ * @package Members
  * @param mixed[] $membersOnlineOptions
  * @return array
- * @package Members
  */
 function getMembersOnlineStats($membersOnlineOptions)
 {
-	global $modSettings, $txt;
+	global $scripturl, $user_info, $modSettings, $txt;
 
 	$db = database();
 
@@ -54,17 +51,13 @@ function getMembersOnlineStats($membersOnlineOptions)
 
 	// Not allowed sort method? Bang! Error!
 	elseif (!in_array($membersOnlineOptions['sort'], $allowed_sort_options))
-	{
 		trigger_error('Sort method for getMembersOnlineStats() function is not allowed', E_USER_NOTICE);
-	}
 
 	// Get it from the cache and send it back.
 	$temp = array();
 	$cache = Cache::instance();
 	if ($cache->levelHigherThan(1) && $cache->getVar($temp, 'membersOnlineStats-' . $membersOnlineOptions['sort'], 240))
-	{
 		return filter_members_online($temp, empty($membersOnlineOptions['reverse_sort']) ? 'ksort' : 'krsort');
-	}
 
 	// Initialize the array that'll be returned later on.
 	$membersOnlineStats = array(
@@ -82,9 +75,7 @@ function getMembersOnlineStats($membersOnlineOptions)
 	$spiders = array();
 	$spider_finds = array();
 	if (!empty($modSettings['show_spider_online']) && ($modSettings['show_spider_online'] < 3 || allowedTo('admin_forum')) && !empty($modSettings['spider_name_cache']))
-	{
 		$spiders = Util::unserialize($modSettings['spider_name_cache']);
-	}
 
 	// Load the users online right now.
 	$request = $db->query('', '
@@ -98,7 +89,7 @@ function getMembersOnlineStats($membersOnlineOptions)
 			'reg_mem_group' => 0,
 		)
 	);
-	while (($row = $request->fetch_assoc()))
+	while ($row = $db->fetch_assoc($request))
 	{
 		if (empty($row['real_name']))
 		{
@@ -120,20 +111,14 @@ function getMembersOnlineStats($membersOnlineOptions)
 			continue;
 		}
 
-		$href = getUrl('profile', ['action' => 'profile', 'u' => $row['id_member'], 'name' => $row['real_name']]);
-
 		// Some basic color coding...
 		if (!empty($row['online_color']))
-		{
-			$link = '<a href="' . $href . '" style="color: ' . $row['online_color'] . ';">' . $row['real_name'] . '</a>';
-		}
+			$link = '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '" style="color: ' . $row['online_color'] . ';">' . $row['real_name'] . '</a>';
 		else
-		{
-			$link = '<a href="' . $href . '">' . $row['real_name'] . '</a>';
-		}
+			$link = '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '">' . $row['real_name'] . '</a>';
 
 		// Buddies get counted and highlighted.
-		$is_buddy = in_array($row['id_member'], User::$info->buddies);
+		$is_buddy = in_array($row['id_member'], $user_info['buddies']);
 		if ($is_buddy)
 		{
 			$membersOnlineStats['num_buddies']++;
@@ -146,7 +131,7 @@ function getMembersOnlineStats($membersOnlineOptions)
 			'username' => $row['member_name'],
 			'name' => $row['real_name'],
 			'group' => $row['id_group'],
-			'href' => $href,
+			'href' => $scripturl . '?action=profile;u=' . $row['id_member'],
 			'link' => $link,
 			'is_buddy' => $is_buddy,
 			'hidden' => empty($row['show_online']),
@@ -155,15 +140,13 @@ function getMembersOnlineStats($membersOnlineOptions)
 
 		// Store all distinct (primary) membergroups that are shown.
 		if (!isset($membersOnlineStats['online_groups'][$row['id_group']]))
-		{
 			$membersOnlineStats['online_groups'][$row['id_group']] = array(
 				'id' => $row['id_group'],
 				'name' => $row['group_name'],
 				'color' => $row['online_color']
 			);
-		}
 	}
-	$request->free_result();
+	$db->free_result($request);
 
 	// If there are spiders only and we're showing the detail, add them to the online list - at the bottom.
 	if (!empty($spider_finds) && $modSettings['show_spider_online'] > 1)
@@ -200,10 +183,10 @@ function getMembersOnlineStats($membersOnlineOptions)
  * Needed mainly for when the cache is enabled and online users have to be
  * filtered out based on permissions.
  *
+ * @package Members
  * @param mixed[] $membersOnlineStats
  * @param string $sortFunction
  * @return mixed[]
- * @package Members
  */
 function filter_members_online($membersOnlineStats, $sortFunction)
 {
@@ -238,8 +221,8 @@ function filter_members_online($membersOnlineStats, $sortFunction)
 /**
  * Check if the number of users online is a record and store it.
  *
- * @param int $total_users_online
  * @package Members
+ * @param int $total_users_online
  */
 function trackStatsUsersOnline($total_users_online)
 {
@@ -251,12 +234,10 @@ function trackStatsUsersOnline($total_users_online)
 
 	// More members on now than ever were?  Update it!
 	if (!isset($modSettings['mostOnline']) || $total_users_online >= $modSettings['mostOnline'])
-	{
 		$settingsToUpdate = array(
 			'mostOnline' => $total_users_online,
 			'mostDate' => time()
 		);
-	}
 
 	$date = Util::strftime('%Y-%m-%d', forum_time(false));
 
@@ -264,8 +245,7 @@ function trackStatsUsersOnline($total_users_online)
 	if (!isset($modSettings['mostOnlineUpdated']) || $modSettings['mostOnlineUpdated'] != $date)
 	{
 		$request = $db->query('', '
-			SELECT 
-				most_on
+			SELECT most_on
 			FROM {db_prefix}log_activity
 			WHERE date = {date:date}
 			LIMIT 1',
@@ -275,7 +255,7 @@ function trackStatsUsersOnline($total_users_online)
 		);
 
 		// The log_activity hasn't got an entry for today?
-		if ($request->num_rows() === 0)
+		if ($db->num_rows($request) === 0)
 		{
 			$db->insert('ignore',
 				'{db_prefix}log_activity',
@@ -287,20 +267,19 @@ function trackStatsUsersOnline($total_users_online)
 		// There's an entry in log_activity on today...
 		else
 		{
-			list ($modSettings['mostOnlineToday']) = $request->fetch_row();
+			list ($modSettings['mostOnlineToday']) = $db->fetch_row($request);
 
 			if ($total_users_online > $modSettings['mostOnlineToday'])
-			{
 				trackStats(array('most_on' => $total_users_online));
-			}
 
 			$total_users_online = max($total_users_online, $modSettings['mostOnlineToday']);
 		}
-		$request->free_result();
+		$db->free_result($request);
 
 		$settingsToUpdate['mostOnlineUpdated'] = $date;
 		$settingsToUpdate['mostOnlineToday'] = $total_users_online;
 	}
+
 	// Highest number of users online today?
 	elseif ($total_users_online > $modSettings['mostOnlineToday'])
 	{
@@ -309,7 +288,5 @@ function trackStatsUsersOnline($total_users_online)
 	}
 
 	if (!empty($settingsToUpdate))
-	{
 		updateSettings($settingsToUpdate);
-	}
 }

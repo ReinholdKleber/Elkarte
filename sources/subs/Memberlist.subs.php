@@ -3,20 +3,17 @@
 /**
  * Handle memberlist functions
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
-
-use BBC\ParserWrapper;
-use ElkArte\Helper\Util;
-use ElkArte\MembersList;
 
 /**
  * Reads the custom profile fields table and gets all items that were defined
@@ -34,9 +31,8 @@ function ml_CustomProfile()
 	$context['custom_profile_fields'] = array();
 
 	// Find any custom profile fields that are to be shown for the memberlist?
-	$db->fetchQuery('
-		SELECT 
-			col_name, field_name, field_desc, field_type, bbc, enclose, vieworder, default_value, field_options
+	$request = $db->query('', '
+		SELECT col_name, field_name, field_desc, field_type, bbc, enclose, vieworder, default_value, field_options
 		FROM {db_prefix}custom_fields
 		WHERE active = {int:active}
 			AND show_memberlist = {int:show}
@@ -47,49 +43,44 @@ function ml_CustomProfile()
 			'show' => 1,
 			'private_level' => 2,
 		)
-	)->fetch_callback(
-		function ($row) {
-			global $context;
-
-			// Avoid collisions
-			$curField = 'cust_' . $row['col_name'];
-
-			// Load the standard column info
-			$context['custom_profile_fields']['columns'][$curField] = array(
-				'label' => $row['field_name'],
-				'class' => $row['field_name'],
-				'type' => $row['field_type'],
-				'bbc' => !empty($row['bbc']),
-				'enclose' => $row['enclose'],
-				'default_value' => $row['default_value'],
-				'field_options' => explode(',', $row['field_options']),
-			);
-
-			// Have they selected to sort on a custom column? .., then we build the query
-			if (isset($_REQUEST['sort']) && $_REQUEST['sort'] === $curField)
-			{
-				// Build the sort queries.
-				if ($row['field_type'] != 'check')
-				{
-					$context['custom_profile_fields']['columns'][$curField]['sort'] = array(
-						'down' => 'LENGTH(cfd' . $curField . '.value) > 0 ASC, COALESCE(cfd' . $curField . '.value, 1=1) DESC, cfd' . $curField . '.value DESC',
-						'up' => 'LENGTH(cfd' . $curField . '.value) > 0 DESC, COALESCE(cfd' . $curField . '.value, 1=1) ASC, cfd' . $curField . '.value ASC'
-					);
-				}
-				else
-				{
-					$context['custom_profile_fields']['columns'][$curField]['sort'] = array(
-						'down' => 'cfd' . $curField . '.value DESC',
-						'up' => 'cfd' . $curField . '.value ASC'
-					);
-				}
-
-				// Build the join and parameters for the sort query
-				$context['custom_profile_fields']['join'] = 'LEFT JOIN {db_prefix}custom_fields_data AS cfd' . $curField . ' ON (cfd' . $curField . '.variable = {string:cfd' . $curField . '} AND cfd' . $curField . '.id_member = mem.id_member)';
-				$context['custom_profile_fields']['parameters']['cfd' . $curField] = $row['col_name'];
-			}
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+	{
+		// Avoid collisions
+		$curField = 'cust_' . $row['col_name'];
+
+		// Load the standard column info
+		$context['custom_profile_fields']['columns'][$curField] = array(
+			'label' => $row['field_name'],
+			'class' => $row['field_name'],
+			'type' => $row['field_type'],
+			'bbc' => !empty($row['bbc']),
+			'enclose' => $row['enclose'],
+			'default_value' => $row['default_value'],
+			'field_options' => explode(',', $row['field_options']),
+		);
+
+		// Have they selected to sort on a custom column? .., then we build the query
+		if (isset($_REQUEST['sort']) && $_REQUEST['sort'] === $curField)
+		{
+			// Build the sort queries.
+			if ($row['field_type'] != 'check')
+				$context['custom_profile_fields']['columns'][$curField]['sort'] = array(
+					'down' => 'LENGTH(cfd' . $curField . '.value) > 0 ASC, COALESCE(cfd' . $curField . '.value, 1=1) DESC, cfd' . $curField . '.value DESC',
+					'up' => 'LENGTH(cfd' . $curField . '.value) > 0 DESC, COALESCE(cfd' . $curField . '.value, 1=1) ASC, cfd' . $curField . '.value ASC'
+				);
+			else
+				$context['custom_profile_fields']['columns'][$curField]['sort'] = array(
+					'down' => 'cfd' . $curField . '.value DESC',
+					'up' => 'cfd' . $curField . '.value ASC'
+				);
+
+			// Build the join and parameters for the sort query
+			$context['custom_profile_fields']['join'] = 'LEFT JOIN {db_prefix}custom_fields_data AS cfd' . $curField . ' ON (cfd' . $curField . '.variable = {string:cfd' . $curField . '} AND cfd' . $curField . '.id_member = mem.id_member)';
+			$context['custom_profile_fields']['parameters']['cfd' . $curField] = $row['col_name'];
+		}
+	}
+	$db->free_result($request);
 
 	return !empty($context['custom_profile_fields']);
 }
@@ -100,8 +91,6 @@ function ml_CustomProfile()
  *   - Pointers are later used to limit the member data retrieval
  *
  * @param int $cache_step_size
- *
- * @return array
  */
 function ml_memberCache($cache_step_size)
 {
@@ -110,8 +99,7 @@ function ml_memberCache($cache_step_size)
 
 	// Get all of the activated members
 	$request = $db->query('', '
-		SELECT 
-			real_name
+		SELECT real_name
 		FROM {db_prefix}members
 		WHERE is_activated = {int:is_activated}
 		ORDER BY real_name',
@@ -122,21 +110,21 @@ function ml_memberCache($cache_step_size)
 
 	$memberlist_cache = array(
 		'last_update' => time(),
-		'num_members' => $request->num_rows(),
+		'num_members' => $db->num_rows($request),
 		'index' => array(),
 	);
 
 	// Get/Set our pointers in this list, used to later help limit our query
-	for ($i = 0, $n = $request->num_rows(); $i < $n; $i += $cache_step_size)
+	for ($i = 0, $n = $db->num_rows($request); $i < $n; $i += $cache_step_size)
 	{
-		$request->data_seek($i);
-		list ($memberlist_cache['index'][$i]) = $request->fetch_row();
+		$db->data_seek($request, $i);
+		list ($memberlist_cache['index'][$i]) = $db->fetch_row($request);
 	}
 
 	// Set the last one
-	$request->data_seek($memberlist_cache['num_members'] - 1);
-	list ($memberlist_cache['index'][$i]) = $request->fetch_row();
-	$request->free_result();
+	$db->data_seek($request, $memberlist_cache['num_members'] - 1);
+	list ($memberlist_cache['index'][$i]) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	// Now we've got the cache...store it.
 	updateSettings(array('memberlist_cache' => serialize($memberlist_cache)));
@@ -152,16 +140,15 @@ function ml_memberCount()
 	$db = database();
 
 	$request = $db->query('', '
-		SELECT 
-			COUNT(*)
+		SELECT COUNT(*)
 		FROM {db_prefix}members
 		WHERE is_activated = {int:is_activated}',
 		array(
 			'is_activated' => 1,
 		)
 	);
-	list ($num_members) = $request->fetch_row();
-	$request->free_result();
+	list ($num_members) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return $num_members;
 }
@@ -170,16 +157,13 @@ function ml_memberCount()
  * Get all all the members who's name starts below a given letter
  *
  * @param string $start single letter to start with
- *
- * @return string
  */
 function ml_alphaStart($start)
 {
 	$db = database();
 
-	$request = $db->fetchQuery('
-		SELECT 
-			COUNT(*)
+	$request = $db->query('substring', '
+		SELECT COUNT(*)
 		FROM {db_prefix}members
 		WHERE LOWER(SUBSTRING(real_name, 1, 1)) < {string:first_letter}
 			AND is_activated = {int:is_activated}',
@@ -188,10 +172,10 @@ function ml_alphaStart($start)
 			'first_letter' => $start,
 		)
 	);
-	list ($start) = $request->fetch_row();
-	$request->free_result();
+	list ($start) = $db->fetch_row($request);
+	$db->free_result($request);
 
-	return (int) $start;
+	return $start;
 }
 
 /**
@@ -211,8 +195,7 @@ function ml_selectMembers($query_parameters, $where = '', $limit = 0, $sort = ''
 
 	// Select the members from the database.
 	$request = $db->query('', '
-		SELECT 
-			mem.id_member
+		SELECT mem.id_member
 		FROM {db_prefix}members AS mem' . ($sort === 'online' ? '
 			LEFT JOIN {db_prefix}log_online AS lo ON (lo.id_member = mem.id_member)' : ($sort === 'id_group' ? '
 			LEFT JOIN {db_prefix}membergroups AS mg ON (mg.id_group = CASE WHEN mem.id_group = {int:regular_id_group} THEN mem.id_post_group ELSE mem.id_group END)' : '')) . '
@@ -225,7 +208,7 @@ function ml_selectMembers($query_parameters, $where = '', $limit = 0, $sort = ''
 	);
 
 	printMemberListRows($request);
-	$request->free_result();
+	$db->free_result($request);
 }
 
 /**
@@ -237,7 +220,7 @@ function ml_selectMembers($query_parameters, $where = '', $limit = 0, $sort = ''
  * @param string|string[]|null $customJoin
  * @param string $where
  * @param int $limit
- * @return int
+ * @return integer
  */
 function ml_searchMembers($query_parameters, $customJoin = '', $where = '', $limit = 0)
 {
@@ -247,8 +230,7 @@ function ml_searchMembers($query_parameters, $customJoin = '', $where = '', $lim
 
 	// Get the number of results
 	$request = $db->query('', '
-		SELECT 
-			COUNT(*)
+		SELECT COUNT(*)
 		FROM {db_prefix}members AS mem
 			LEFT JOIN {db_prefix}membergroups AS mg ON (mg.id_group = CASE WHEN mem.id_group = {int:regular_id_group} THEN mem.id_post_group ELSE mem.id_group END)
 			' . (empty($customJoin) ? '' : implode('
@@ -257,8 +239,8 @@ function ml_searchMembers($query_parameters, $customJoin = '', $where = '', $lim
 			AND mem.is_activated = {int:is_activated}',
 		$query_parameters
 	);
-	list ($numResults) = $request->fetch_row();
-	$request->free_result();
+	list ($numResults) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	// Select the members from the database.
 	$request = $db->query('', '
@@ -277,7 +259,7 @@ function ml_searchMembers($query_parameters, $customJoin = '', $where = '', $lim
 
 	// Place everything context so the template can use it
 	printMemberListRows($request);
-	$request->free_result();
+	$db->free_result($request);
 
 	return $numResults;
 }
@@ -291,11 +273,9 @@ function ml_findSearchableCustomFields()
 
 	$db = database();
 
-	$context['custom_search_fields'] = array();
-	$db->fetchQuery('
-		SELECT 
-			col_name, field_name, field_desc
-		FROM {db_prefix}custom_fields
+	$request = $db->query('', '
+		SELECT col_name, field_name, field_desc
+			FROM {db_prefix}custom_fields
 		WHERE active = {int:active}
 			' . (allowedTo('admin_forum') ? '' : ' AND private < {int:private_level}') . '
 			AND can_search = {int:can_search}
@@ -308,17 +288,15 @@ function ml_findSearchableCustomFields()
 			'field_type_textarea' => 'textarea',
 			'field_type_select' => 'select',
 		)
-	)->fetch_callback(
-		function ($row) {
-			global $context;
-
-			$context['custom_search_fields'][$row['col_name']] = array(
-				'colname' => $row['col_name'],
-				'name' => $row['field_name'],
-				'desc' => $row['field_desc'],
-			);
-		}
 	);
+	$context['custom_search_fields'] = array();
+	while ($row = $db->fetch_assoc($request))
+		$context['custom_search_fields'][$row['col_name']] = array(
+			'colname' => $row['col_name'],
+			'name' => $row['field_name'],
+			'desc' => $row['field_desc'],
+		);
+	$db->free_result($request);
 }
 
 /**
@@ -329,58 +307,49 @@ function ml_findSearchableCustomFields()
  */
 function printMemberListRows($request)
 {
-	global $txt, $context, $scripturl, $settings;
+	global $txt, $context, $scripturl, $memberContext, $settings;
 
 	$db = database();
 
 	// Get the max post number for the bar graph
 	$result = $db->query('', '
-		SELECT 
-			MAX(posts)
+		SELECT MAX(posts)
 		FROM {db_prefix}members',
-		array()
+		array(
+		)
 	);
-	list ($most_posts) = $result->fetch_row();
-	$result->free_result();
+	list ($most_posts) = $db->fetch_row($result);
+	$db->free_result($result);
 
 	// Avoid division by zero...
 	if ($most_posts == 0)
-	{
 		$most_posts = 1;
-	}
 
 	$members = array();
-	while (($row = $request->fetch_assoc($request)))
-	{
+	while ($row = $db->fetch_assoc($request))
 		$members[] = $row['id_member'];
-	}
 
 	// Load all the members for display.
-	MembersList::load($members);
+	loadMemberData($members);
 
-	$bbc_parser = ParserWrapper::instance();
+	$bbc_parser = \BBC\ParserWrapper::instance();
 
 	$context['members'] = array();
 	foreach ($members as $member)
 	{
-		$member_context = MembersList::get($member);
-		$member_context->loadContext(true);
-		if ($member_context->isEmpty())
-		{
+		if (!loadMemberContext($member, true))
 			continue;
-		}
 
-		$context['members'][$member] = $member_context;
+		$context['members'][$member] = $memberContext[$member];
 		$context['members'][$member]['post_percent'] = round(($context['members'][$member]['real_posts'] * 100) / $most_posts);
 		$context['members'][$member]['registered_date'] = Util::strftime('%Y-%m-%d', $context['members'][$member]['registered_timestamp']);
 		$context['members'][$member]['real_name'] = $context['members'][$member]['link'];
 		$context['members'][$member]['avatar'] = '<a href="' . $context['members'][$member]['href'] . '">' . $context['members'][$member]['avatar']['image'] . '</a>';
 		$context['members'][$member]['email_address'] = $context['members'][$member]['email'];
-		$context['members'][$member]['website_url'] = $context['members'][$member]['website']['url'] != '' ? '<a href="' . $context['members'][$member]['website']['url'] . '" target="_blank" rel="noopener noreferrer nofollow ugc" class="new_win"><i class="icon i-website" title="' . $context['members'][$member]['website']['title'] . '" title="' . $context['members'][$member]['website']['title'] . '"></i></a>' : '';
+		$context['members'][$member]['website_url'] = $context['members'][$member]['website']['url'] != '' ? '<a href="' . $context['members'][$member]['website']['url'] . '" target="_blank" rel="noopener noreferrer" class="new_win"><i class="icon i-website" title="' . $context['members'][$member]['website']['title'] . '" title="' . $context['members'][$member]['website']['title'] . '"></i></a>' : '';
 		$context['members'][$member]['id_group'] = empty($context['members'][$member]['group']) ? $context['members'][$member]['post_group'] : $context['members'][$member]['group'];
 		$context['members'][$member]['date_registered'] = $context['members'][$member]['registered'];
 
-		$member_options = $context['members'][$member]['options'];
 		// Take care of the custom fields if any are being displayed
 		if (!empty($context['custom_profile_fields']['columns']))
 		{
@@ -389,45 +358,40 @@ function printMemberListRows($request)
 				$curField = substr($key, 5);
 
 				// Does this member even have it filled out?
-				if (!isset($member_options[$curField]) && $context['custom_profile_fields']['columns'][$key]['default_value'] === '')
+				if (!isset($context['members'][$member]['options'][$curField]) && $context['custom_profile_fields']['columns'][$key]['default_value'] === '')
 				{
-					$member_options[$curField] = '';
+					$context['members'][$member]['options'][$curField] = '';
 					continue;
 				}
 				// Otherwise use the default value
-				if (!isset($member_options[$curField]))
+				if (!isset($context['members'][$member]['options'][$curField]))
 				{
-					$member_options[$curField] = $context['custom_profile_fields']['columns'][$key]['default_value'];
-					$member_options[$curField . '_key'] = $curField . '_0';
+					$context['members'][$member]['options'][$curField] = $context['custom_profile_fields']['columns'][$key]['default_value'];
+					$context['members'][$member]['options'][$curField . '_key'] = $curField . '_0';
 				}
 
 				// Should it be enclosed for display?
-				if (!empty($column['enclose']) && !empty($member_options[$curField]))
+				if (!empty($column['enclose']) && !empty($context['members'][$member]['options'][$curField]))
 				{
 					$replacements = array(
 						'{SCRIPTURL}' => $scripturl,
 						'{IMAGES_URL}' => $settings['images_url'],
 						'{DEFAULT_IMAGES_URL}' => $settings['default_images_url'],
-						'{INPUT}' => $member_options[$curField],
+						'{INPUT}' => $context['members'][$member]['options'][$curField],
 					);
 					if (in_array($column['type'], array('radio', 'select')))
 					{
-						$replacements['{KEY}'] = $member_options[$curField . '_key'];
+						$replacements['{KEY}'] = $context['members'][$member]['options'][$curField . '_key'];
 					}
-					$member_options[$curField] = strtr($column['enclose'], $replacements);
+					$context['members'][$member]['options'][$curField] = strtr($column['enclose'], $replacements);
 				}
 
 				// Anything else to make it look "nice"
 				if ($column['bbc'])
-				{
-					$member_options[$curField] = strip_tags($bbc_parser->parseCustomFields($member_options[$curField]));
-				}
+					$context['members'][$member]['options'][$curField] = strip_tags($bbc_parser->parseCustomFields($context['members'][$member]['options'][$curField]));
 				elseif ($column['type'] === 'check')
-				{
-					$member_options[$curField] = $member_options[$curField] == 0 ? $txt['no'] : $txt['yes'];
-				}
+					$context['members'][$member]['options'][$curField] = $context['members'][$member]['options'][$curField] == 0 ? $txt['no'] : $txt['yes'];
 			}
 		}
-		$context['members'][$member]['options'] = $member_options;
 	}
 }

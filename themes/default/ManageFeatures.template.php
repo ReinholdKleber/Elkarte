@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.4
  *
  */
 
@@ -123,7 +124,7 @@ function template_edit_profile_field()
 							<span class="smalltext">', $txt['custom_edit_enclose_desc'], '</span>
 						</dt>
 						<dd>
-							<textarea name="enclose" id="enclose" rows="10" cols="50">' . ($context['field']['enclose'] ?? '') . '</textarea>
+							<textarea name="enclose" id="enclose" rows="10" cols="50">' . (isset($context['field']['enclose']) ? $context['field']['enclose'] : '') . '</textarea>
 						</dd>
 					</dl>
 				</fieldset>
@@ -257,10 +258,8 @@ function template_edit_profile_field()
 					<input type="submit" name="save" value="', $txt['save'], '" />';
 
 	if ($context['fid'])
-	{
 		echo '
 					<input type="submit" name="delete" value="', $txt['delete'], '" onclick="return confirm(\'', $txt['custom_edit_delete_sure'], '\');" />';
-	}
 
 	echo '
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />

@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -28,11 +29,6 @@ function template_options()
 		array(
 			'id' => 'show_no_avatars',
 			'label' => $txt['show_no_avatars'],
-			'default' => true,
-		),
-		array(
-			'id' => 'show_no_smileys',
-			'label' => $txt['show_no_smileys'],
 			'default' => true,
 		),
 		array(
@@ -120,8 +116,18 @@ function template_options()
 			'default' => true,
 		),
 		array(
+			'id' => 'use_editor_quick_reply',
+			'label' => $txt['use_editor_quick_reply'],
+			'default' => true,
+		),
+		array(
 			'id' => 'display_quick_mod',
 			'label' => $txt['display_quick_mod'],
+			'options' => array(
+				0 => $txt['display_quick_mod_none'],
+				1 => $txt['display_quick_mod_check'],
+				2 => $txt['display_quick_mod_image'],
+			),
 			'default' => true,
 		),
 	);
@@ -165,7 +171,6 @@ function template_settings()
 			),
 			'type' => 'select',
 		),
-		'',
 		array(
 			'id' => 'smiley_sets_default',
 			'label' => $txt['smileys_default_set_for_theme'],
@@ -181,10 +186,13 @@ function template_settings()
 		),
 		'',
 		array(
+			'id' => 'linktree_link',
+			'label' => $txt['current_pos_text_img'],
+		),
+		array(
 			'id' => 'show_mark_read',
 			'label' => $txt['enable_mark_as_read'],
 		),
-		'',
 		array(
 			'id' => 'enable_news',
 			'label' => $txt['enable_news'],
@@ -248,47 +256,46 @@ function template_settings()
 		),
 		'',
 		array(
+			'id' => 'show_modify',
+			'label' => $txt['last_modification'],
+		),
+		array(
+			'id' => 'show_profile_buttons',
+			'label' => $txt['show_view_profile_button'],
+		),
+		array(
+			'id' => 'show_user_images',
+			'label' => $txt['user_avatars'],
+		),
+		array(
+			'id' => 'hide_post_group',
+			'label' => $txt['hide_post_group'],
+			'description' => $txt['hide_post_group_desc'],
+		),
+		'',
+		array(
 			'id' => 'additional_options_collapsible',
 			'label' => $txt['additional_options_collapsible'],
 		),
-		array(
-			'id' => 'show_keyinfo_above',
-			'label' => $txt['show_keyinfo_above'],
-		),
 	);
 
-	// This is a special case as theme settings will trigger new ThemeLoader() which essentially clears inline JS
-	$context['html_headers'] = '
-	<script>
-	document.addEventListener("DOMContentLoaded", function() {
+	addInlineJavascript('
 		// Hide the option first
-		document.getElementById("dt_newsfader_time").style.display = "none";
-		document.getElementById("dd_newsfader_time").style.display = "none";
-		
-		// Update visibility based on the current value
-		toggleNewsFaderTime(document.getElementById("enable_news").value);
-		
+		$("#dt_newsfader_time, #dd_newsfader_time").hide();
+
+		// Update visablity based on the select value
+		toggleNewsFaderTime($("#enable_news").val());
+
 		// Set up the onchange event
-		document.getElementById("enable_news").addEventListener("change", function() {
-		    toggleNewsFaderTime(this.value);
+		$("#enable_news").on("change", function() {
+			toggleNewsFaderTime($(this).val());
 		});
-		
-		function toggleNewsFaderTime(value)
+
+		function toggleNewsFaderTime(val)
 		{
-		    let dtElem = document.getElementById("dt_newsfader_time"),
-		        ddElem = document.getElementById("dd_newsfader_time");
-		  
-		    if (value === "2")
-		    {
-		        dtElem.fadeIn(500);
-		        ddElem.fadeIn(500);
-		    }
-		    else
-		    {
-		        dtElem.fadeOut(500);
-		        ddElem.fadeOut(500);
-		    }
-		}
-	});
-	</script>';
+			if (val == 2)
+				$("#dt_newsfader_time, #dd_newsfader_time").fadeIn();
+			else
+				$("#dt_newsfader_time, #dd_newsfader_time").fadeOut();
+		}', true);
 }

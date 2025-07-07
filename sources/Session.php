@@ -9,27 +9,24 @@
  *  - It uses the databaseSession_lifetime setting for garbage collection.
  *  - The custom session handler is set by loadSession().
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:		BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.6
  *
  */
-
-use ElkArte\Helper\TokenHash;
-use ElkArte\Http\Headers;
-use ElkArte\Sessions\SessionHandler\DatabaseHandler;
 
 /**
  * Attempt to start the session, unless it already has been.
  */
 function loadSession()
 {
-	global $modSettings, $boardurl, $context;
+	global $modSettings, $boardurl, $sc;
 
 	// Attempt to change a few PHP settings.
 	@ini_set('session.use_cookies', true);
@@ -37,23 +34,17 @@ function loadSession()
 	@ini_set('url_rewriter.tags', '');
 	@ini_set('session.use_trans_sid', false);
 	@ini_set('arg_separator.output', '&amp;');
-	// @todo admin panel setting?
-	@ini_set('session.cookie_samesite', 'Lax');
 
 	// Secure PHPSESSIONID
 	if (parse_url($boardurl, PHP_URL_SCHEME) === 'https')
-	{
 		@ini_set('session.cookie_secure', true);
-	}
 
 	if (!empty($modSettings['globalCookies']))
 	{
 		$parsed_url = parse_url($boardurl);
 
 		if (preg_match('~^\d{1,3}(\.\d{1,3}){3}$~', $parsed_url['host']) == 0 && preg_match('~(?:[^\.]+\.)?([^\.]{2,}\..+)\z~i', $parsed_url['host'], $parts) == 1)
-		{
 			@ini_set('session.cookie_domain', '.' . $parts[1]);
-		}
 	}
 
 	// @todo Set the session cookie path?
@@ -62,14 +53,12 @@ function loadSession()
 	{
 		// Attempt to end the already-started session.
 		if (ini_get('session.auto_start') == 1)
-		{
 			session_write_close();
-		}
 
 		// This is here to stop people from using bad junky PHPSESSIDs.
 		if (isset($_REQUEST[session_name()]) && preg_match('~^[A-Za-z0-9,-]{16,64}$~', $_REQUEST[session_name()]) == 0 && !isset($_COOKIE[session_name()]))
 		{
-			$tokenizer = new TokenHash();
+			$tokenizer = new Token_Hash();
 			$session_id = hash('md5', hash('md5', 'elk_sess_' . time()) . $tokenizer->generate_hash(8));
 			$_REQUEST[session_name()] = $session_id;
 			$_GET[session_name()] = $session_id;
@@ -82,14 +71,14 @@ function loadSession()
 			@ini_set('session.serialize_handler', 'php');
 			@ini_set('session.gc_probability', '1');
 
-			$handler = new DatabaseHandler(database());
+			$handler = new ElkArte\sources\subs\SessionHandler\DatabaseHandler(database());
 			session_set_save_handler(
-				[$handler, 'open'],
-				[$handler, 'close'],
-				static fn(string $sessionId): string => $handler->read($sessionId),
-				static fn(string $sessionId, string $data): bool => $handler->write($sessionId, $data),
-				static fn(string $sessionId): bool => $handler->destroy($sessionId),
-				static fn(int $maxLifetime): int|bool => $handler->gc($maxLifetime)
+				array($handler, 'open'),
+				array($handler, 'close'),
+				array($handler, 'read'),
+				array($handler, 'write'),
+				array($handler, 'destroy'),
+				array($handler, 'gc')
 			);
 
 			/*
@@ -107,30 +96,24 @@ function loadSession()
 			// APC destroys static class members before sessions can be written.  To work around this we
 			// explicitly call session_write_close on script end/exit bugs.php.net/bug.php?id=60657
 			if (extension_loaded('apc') && ini_get('apc.enabled') && !extension_loaded('apcu'))
-			{
 				register_shutdown_function('session_write_close');
-			}
 		}
 
 		// Start the session
 		session_start();
 
 		// Change it so the cache settings are a little looser than default.
-		if (!empty($modSettings['databaseSession_loose']) || (isset($_REQUEST['action']) && $_REQUEST['action'] === 'search'))
-		{
-			Headers::instance()->header('Cache-Control', 'private');
-		}
+		if (!empty($modSettings['databaseSession_loose']) || (isset($_REQUEST['action']) && $_REQUEST['action'] == 'search'))
+			header('Cache-Control: private');
 	}
 
 	// Set the randomly generated code.
 	if (!isset($_SESSION['session_var']))
 	{
-		$tokenizer = new TokenHash();
+		$tokenizer = new Token_Hash();
 		$_SESSION['session_value'] = $tokenizer->generate_hash(32, session_id());
 		$_SESSION['session_var'] = substr(preg_replace('~^\d+~', '', $tokenizer->generate_hash(16, session_id())), 0, rand(7, 12));
 	}
 
-	// For injection into hidden form fields...
-	$context['session_var'] = $_SESSION['session_var'];
-	$context['session_id'] = $_SESSION['session_value'];
+	$sc = $_SESSION['session_value'];
 }

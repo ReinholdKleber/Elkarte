@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -36,10 +37,8 @@ function template_report_type()
 					</dt>';
 
 		if (isset($type['description']))
-		{
 			echo '
 					<dd>', $type['description'], '</dd>';
-		}
 	}
 
 	echo '
@@ -66,9 +65,7 @@ function template_generate_report()
 		<div id="report_buttons">';
 
 	if (!empty($context['report_buttons']))
-	{
-		template_button_strip($context['report_buttons']);
-	}
+		template_button_strip($context['report_buttons'], 'right');
 
 	echo '
 		</div>
@@ -81,7 +78,6 @@ function template_generate_report()
 		<table class="table_grid report_results">';
 
 		if (!empty($table['title']))
-		{
 			echo '
 			<thead>
 				<tr class="table_head">
@@ -89,33 +85,28 @@ function template_generate_report()
 				</tr>
 			</thead>
 			<tbody>';
-		}
 
 		// Now do each row!
 		$row_number = 0;
 		foreach ($table['data'] as $row)
 		{
 			if ($row_number == 0 && !empty($table['shading']['top']))
-			{
 				echo '
 				<tr class="table_caption">';
-			}
 			else
-			{
 				echo '
-				<tr class="', empty($row[0]['separator']) ? '' : 'category_header', '">';
-			}
+				<tr class="', !empty($row[0]['separator']) ? 'category_header' : '', '">';
 
 			// Now do each column.
 			$column_number = 0;
 
-			foreach ($row as $data)
+			foreach ($row as $key => $data)
 			{
 				// If this is a special separator, skip over!
 				if (!empty($data['separator']) && $column_number == 0)
 				{
 					echo '
-					<td colspan="', $table['column_count'], '">
+					<td colspan="', $table['column_count'], '" class="smalltext">
 						', $data['v'], ':
 					</td>';
 					break;
@@ -123,19 +114,15 @@ function template_generate_report()
 
 				// Shaded?
 				if ($column_number == 0 && !empty($table['shading']['left']))
-				{
 					echo '
-					<td class="table_caption ', $table['align']['shaded'], 'text" style="', $table['width']['shaded'] !== 'auto' ? 'width:' . $table['width']['shaded'] . 'px;"' : '"', '>
+					<td class="table_caption ', $table['align']['shaded'], 'text" style="', $table['width']['shaded'] != 'auto' ? 'width:' . $table['width']['shaded'] . 'px;"' : '"', '>
 						', $data['v'] == $table['default_value'] ? '' : ($data['v'] . (empty($data['v']) ? '' : ':')), '
 					</td>';
-				}
 				else
-				{
 					echo '
-					<td class="', $table['align']['normal'], 'text" style="', $table['width']['normal'] !== 'auto' ? 'width:' . $table['width']['normal'] . 'px' : '', empty($data['style']) ? '"' : ';' . $data['style'] . '"', '>
+					<td class="', $table['align']['normal'], 'text" style="', $table['width']['normal'] != 'auto' ? 'width:' . $table['width']['normal'] . 'px' : '', !empty($data['style']) ? ';' . $data['style'] . '"' : '"', '>
 						', $data['v'], '
 					</td>';
-				}
 
 				$column_number++;
 			}
@@ -185,37 +172,31 @@ function template_print()
 	foreach ($context['tables'] as $table)
 	{
 		echo '
-		<div style="overflow: visible;', $table['max_width'] !== 'auto' ? ' width:' . $table['max_width'] . 'px;' : '', '">
+		<div style="overflow: visible;', $table['max_width'] != 'auto' ? ' width:' . $table['max_width'] . 'px;' : '', '">
 			<table class="table_grid">';
 
 		if (!empty($table['title']))
-		{
 			echo '
 				<tr class="table_head">
 					<td colspan="', $table['column_count'], '">
 						', $table['title'], '
 					</td>
 				</tr>';
-		}
 
 		// Now do each row!
 		$row_number = 0;
 		foreach ($table['data'] as $row)
 		{
-			if ($row_number === 0 && !empty($table['shading']['top']))
-			{
+			if ($row_number == 0 && !empty($table['shading']['top']))
 				echo '
 				<tr class="secondary_header">';
-			}
 			else
-			{
 				echo '
 				<tr>';
-			}
 
 			// Now do each column!!
 			$column_number = 0;
-			foreach ($row as $data)
+			foreach ($row as $key => $data)
 			{
 				// If this is a special separator, skip over!
 				if (!empty($data['separator']) && $column_number == 0)
@@ -228,20 +209,16 @@ function template_print()
 				}
 
 				// Shaded?
-				if ($column_number === 0 && !empty($table['shading']['left']))
-				{
+				if ($column_number == 0 && !empty($table['shading']['left']))
 					echo '
-					<td class="secondary_header ', $table['align']['shaded'], 'text" style="', $table['width']['shaded'] !== 'auto' ? 'width:' . $table['width']['shaded'] . 'px"' : '"', '>
-						', $data['v'] === $table['default_value'] ? '' : ($data['v'] . (empty($data['v']) ? '' : ':')), '
+					<td class="secondary_header ', $table['align']['shaded'], 'text" style="', $table['width']['shaded'] != 'auto' ? 'width:' . $table['width']['shaded'] . 'px"' : '"', '>
+						', $data['v'] == $table['default_value'] ? '' : ($data['v'] . (empty($data['v']) ? '' : ':')), '
 					</td>';
-				}
 				else
-				{
 					echo '
-					<td class="', $table['align']['normal'], 'text" style="', $table['width']['normal'] !== 'auto' ? 'width:' . $table['width']['normal'] . 'px' : '', empty($data['style']) ? '"' : ';' . $data['style'] . '"', '>
+					<td class="', $table['align']['normal'], 'text" style="', $table['width']['normal'] != 'auto' ? 'width:' . $table['width']['normal'] . 'px' : '', !empty($data['style']) ? ';' . $data['style'] . '"' : '"', '>
 						', $data['v'], '
 					</td>';
-				}
 
 				$column_number++;
 			}

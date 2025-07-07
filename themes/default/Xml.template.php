@@ -1,18 +1,30 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
 
-use ElkArte\Helper\Util;
+/**
+ * @deprecated since 1.0
+ */
+function template_sendbody()
+{
+	global $context;
+
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
+<elk>
+	<message view="', $context['view'], '">', cleanXml($context['message']), '</message>
+</elk>';
+}
 
 /**
  * Returns the text of a post in response to a quote request for loading into the current editing text box
@@ -21,7 +33,7 @@ function template_quotefast()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<quote>', cleanXml($context['quote']['xml']), '</quote>
 </elk>';
@@ -34,7 +46,7 @@ function template_modifyfast()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<subject><![CDATA[', cleanXml($context['message']['subject']), ']]></subject>
 	<message id="msg_', $context['message']['id'], '"><![CDATA[', cleanXml($context['message']['body']), ']]></message>
@@ -48,7 +60,7 @@ function template_modifydone()
 {
 	global $context, $txt;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<message id="msg_', $context['message']['id'], '">';
 	if (empty($context['message']['errors']))
@@ -59,10 +71,8 @@ function template_modifydone()
 		<body><![CDATA[', $context['message']['body'], ']]></body>';
 	}
 	else
-	{
 		echo '
 		<error in_subject="', $context['message']['error_in_subject'] ? '1' : '0', '" in_body="', cleanXml($context['message']['error_in_body']) ? '1' : '0', '"><![CDATA[', implode('<br />', $context['message']['errors']), ']]></error>';
-	}
 
 	echo '
 	</message>
@@ -76,7 +86,7 @@ function template_modifytopicdone()
 {
 	global $context, $txt;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<message id="msg_', $context['message']['id'], '">';
 	if (empty($context['message']['errors']))
@@ -84,17 +94,12 @@ function template_modifytopicdone()
 		echo '
 		<modified><![CDATA[', empty($context['message']['modified']['time']) ? '' : cleanXml('&#171; <em>' . sprintf($txt['last_edit_by'], $context['message']['modified']['time'], $context['message']['modified']['name']) . '</em> &#187;'), ']]></modified>';
 		if (!empty($context['message']['subject']))
-		{
 			echo '
 		<subject><![CDATA[', cleanXml($context['message']['subject']), ']]></subject>';
-		}
 	}
 	else
-	{
 		echo '
 		<error in_subject="', $context['message']['error_in_subject'] ? '1' : '0', '"><![CDATA[', cleanXml(implode('<br />', $context['message']['errors'])), ']]></error>';
-	}
-
 	echo '
 	</message>
 </elk>';
@@ -107,22 +112,18 @@ function template_post()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<preview>
 		<subject><![CDATA[', $context['preview_subject'], ']]></subject>
 		<body><![CDATA[', $context['preview_message'], ']]></body>
 	</preview>
-	<errors serious="', empty($context['errors']['type']) || $context['errors']['type'] !== 'serious' ? '0' : '1', '" topic_locked="', $context['locked'] ? '1' : '0', '">';
+	<errors serious="', empty($context['errors']['type']) || $context['errors']['type'] != 'serious' ? '0' : '1', '" topic_locked="', $context['locked'] ? '1' : '0', '">';
 
 	if (!empty($context['post_error']['errors']))
-	{
 		foreach ($context['post_error']['errors'] as $key => $message)
-		{
 			echo '
 		<error code="', cleanXml($key), '"><![CDATA[', cleanXml($message), ']]></error>';
-		}
-	}
 
 	echo '
 		<caption name="guestname" class="', isset($context['post_error']['long_name']) || isset($context['post_error']['no_name']) || isset($context['post_error']['bad_name']) ? 'error' : '', '" />
@@ -131,14 +132,13 @@ function template_post()
 		<caption name="subject" class="', isset($context['post_error']['no_subject']) ? 'error' : '', '" />
 		<caption name="question" class="', isset($context['post_error']['no_question']) ? 'error' : '', '" />
 	</errors>
-	<last_msg>', $context['topic_last_message'] ?? '0', '</last_msg>';
+	<last_msg>', isset($context['topic_last_message']) ? $context['topic_last_message'] : '0', '</last_msg>';
 
 	if (!empty($context['previous_posts']))
 	{
 		echo '
 	<new_posts>';
 		foreach ($context['previous_posts'] as $post)
-		{
 			echo '
 		<post id="', $post['id'], '">
 			<time><![CDATA[', $post['time'], ']]></time>
@@ -146,8 +146,6 @@ function template_post()
 			<message><![CDATA[', cleanXml($post['body']), ']]></message>
 			<is_ignored>', $post['is_ignored'] ? '1' : '0', '</is_ignored>
 		</post>';
-		}
-
 		echo '
 	</new_posts>';
 	}
@@ -163,7 +161,7 @@ function template_generic_preview()
 {
 	global $context, $txt;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<preview>
 		<subject><![CDATA[', empty($context['preview_subject']) ? $txt['not_applicable'] : $context['preview_subject'], ']]></subject>
@@ -172,13 +170,9 @@ function template_generic_preview()
 	<errors serious="', empty($context['error_type']) || $context['error_type'] != 'serious' ? '0' : '1', '">';
 
 	if (!empty($context['post_error']['errors']))
-	{
 		foreach ($context['post_error']['errors'] as $key => $message)
-		{
 			echo '
 		<error code="', cleanXml($key), '"><![CDATA[', cleanXml($message), ']]></error>';
-		}
-	}
 
 	// This is the not so generic section, mainly used by PM preview, can be used by others as well
 	echo '
@@ -200,25 +194,19 @@ function template_stats()
 {
 	global $context, $modSettings;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>';
 	foreach ($context['yearly'] as $year)
-	{
 		foreach ($year['months'] as $month)
 		{
 			echo '
 	<month id="', $month['date']['year'], $month['date']['month'], '">';
 			foreach ($month['days'] as $day)
-			{
 				echo '
 		<day date="', $day['year'], '-', $day['month'], '-', $day['day'], '" new_topics="', $day['new_topics'], '" new_posts="', $day['new_posts'], '" new_members="', $day['new_members'], '" most_members_online="', $day['most_members_online'], '"', empty($modSettings['hitStats']) ? '' : ' hits="' . $day['hits'] . '"', ' />';
-			}
-
 			echo '
 	</month>';
 		}
-	}
-
 	echo '
 </elk>';
 }
@@ -230,19 +218,16 @@ function template_split()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<pageIndex section="not_selected" startFrom="', $context['not_selected']['start'], '"><![CDATA[', $context['not_selected']['page_index'], ']]></pageIndex>
 	<pageIndex section="selected" startFrom="', $context['selected']['start'], '"><![CDATA[', $context['selected']['page_index'], ']]></pageIndex>';
 	foreach ($context['changes'] as $change)
 	{
-		if ($change['type'] === 'remove')
-		{
+		if ($change['type'] == 'remove')
 			echo '
 	<change id="', $change['id'], '" curAction="remove" section="', $change['section'], '" />';
-		}
 		else
-		{
 			echo '
 	<change id="', $change['id'], '" curAction="insert" section="', $change['section'], '">
 		<subject><![CDATA[', cleanXml($change['insert_value']['subject']), ']]></subject>
@@ -250,7 +235,6 @@ function template_split()
 		<body><![CDATA[', cleanXml($change['insert_value']['body']), ']]></body>
 		<poster><![CDATA[', cleanXml($change['insert_value']['poster']), ']]></poster>
 	</change>';
-		}
 	}
 
 	echo '
@@ -263,20 +247,18 @@ function template_split()
 function template_results()
 {
 	global $context, $txt;
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>';
 
 	if (empty($context['topics']))
-	{
 		echo '
-		<noresults>', $txt['find_no_results'], '</noresults>';
-	}
+		<noresults>', $txt['search_no_results'], '</noresults>';
 	else
 	{
 		echo '
 		<results>';
 
-		while (($topic = $context['get_topics']()))
+		while ($topic = $context['get_topics']())
 		{
 			echo '
 			<result>
@@ -333,7 +315,7 @@ function template_jump_to()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>';
 
 	foreach ($context['categories'] as $category)
@@ -341,10 +323,8 @@ function template_jump_to()
 		echo '
 	<item type="category" id="', $category['id'], '"><![CDATA[', cleanXml($category['name']), ']]></item>';
 		foreach ($category['boards'] as $board)
-		{
 			echo '
 	<item type="board" id="', $board['id'], '" childlevel="', $board['child_level'], '"><![CDATA[', cleanXml($board['name']), ']]></item>';
-		}
 	}
 
 	echo '
@@ -358,14 +338,12 @@ function template_message_icons()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>';
 
 	foreach ($context['icons'] as $icon)
-	{
 		echo '
 	<icon value="', $icon['value'], '" url="', $icon['url'], '"><![CDATA[', cleanXml($icon['name']), ']]></icon>';
-	}
 
 	echo '
 </elk>';
@@ -378,7 +356,7 @@ function template_check_username()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<username valid="', $context['valid_username'] ? 1 : 0, '">', cleanXml($context['checked_username']), '</username>
 </elk>';
@@ -393,17 +371,15 @@ function template_generic_xml_buttons()
 
 	$tag = empty($context['xml_data']['error']) ? 'button' : 'error';
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <elk>
 	<', $tag, '>';
 
 	foreach ($context['xml_data'] as $key => $val)
 	{
-		if ($key !== 'error')
-		{
+		if ($key != 'error')
 			echo '
 			<', $key, '><![CDATA[', cleanXml($val), ']]></', $key, '>';
-		}
 	}
 
 	echo '
@@ -418,7 +394,7 @@ function template_generic_xml()
 {
 	global $context;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>';
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>';
 
 	// Show the data.
 	template_generic_xml_recursive($context['xml_data'], 'elk', '', -1);
@@ -443,21 +419,15 @@ function template_generic_xml_recursive($xml_data, $parent_ident, $child_ident, 
 	{
 		// A group?
 		if (is_array($data) && isset($data['identifier']))
-		{
 			template_generic_xml_recursive($data['children'], $key, $data['identifier'], $level);
-		}
 		// An item...
 		elseif (is_array($data) && isset($data['value']))
 		{
 			echo "\n", str_repeat("\t", $level), '<', $child_ident;
 
 			if (!empty($data['attributes']))
-			{
 				foreach ($data['attributes'] as $k => $v)
-				{
 					echo ' ' . $k . '="' . $v . '"';
-				}
-			}
 
 			echo '><![CDATA[', cleanXml($data['value']), ']]></', $child_ident, '>';
 		}
@@ -468,7 +438,7 @@ function template_generic_xml_recursive($xml_data, $parent_ident, $child_ident, 
 
 /**
  * Formats data retrieved in other functions into xml format.
- * Additionally, formats data based on the specific format passed.
+ * Additionally formats data based on the specific format passed.
  * This function is recursively called to handle sub arrays of data.
  *
  * @param mixed[] $data the array to output as xml data
@@ -478,25 +448,21 @@ function template_generic_xml_recursive($xml_data, $parent_ident, $child_ident, 
  */
 function template_xml_news($data, $i, $tag = null, $xml_format = 'rss')
 {
-	require_once(SUBSDIR . '/News.subs.php');
-
 	// For every array in the data...
 	foreach ($data as $key => $val)
 	{
 		// Skip it, it's been set to null.
 		if ($val === null)
-		{
 			continue;
-		}
 
 		// If a tag was passed, use it instead of the key.
-		$key = $tag ?? $key;
+		$key = isset($tag) ? $tag : $key;
 
 		// First let's indent!
 		echo "\n", str_repeat("\t", $i);
 
 		// Grr, I hate kludges... almost worth doing it properly, here, but not quite.
-		if ($xml_format === 'atom' && $key === 'link')
+		if ($xml_format == 'atom' && $key == 'link')
 		{
 			echo '<link rel="alternate" type="text/html" href="', fix_possible_url($val), '" />';
 			continue;
@@ -504,30 +470,22 @@ function template_xml_news($data, $i, $tag = null, $xml_format = 'rss')
 
 		// If it's empty/0/nothing simply output an empty tag.
 		if ($val == '')
-		{
 			echo '<', $key, ' />';
-		}
-		elseif ($xml_format === 'atom' && $key === 'category')
-		{
+		elseif ($xml_format == 'atom' && $key == 'category')
 			echo '<', $key, ' term="', $val, '" />';
-		}
 		else
 		{
 			// Beginning tag.
-			if ($xml_format === 'rdf' && $key === 'item' && isset($val['link']))
+			if ($xml_format == 'rdf' && $key == 'item' && isset($val['link']))
 			{
 				echo '<', $key, ' rdf:about="', fix_possible_url($val['link']), '">';
 				echo "\n", str_repeat("\t", $i + 1);
 				echo '<dc:format>text/html</dc:format>';
 			}
-			elseif ($xml_format === 'atom' && $key === 'summary')
-			{
+			elseif ($xml_format == 'atom' && $key == 'summary')
 				echo '<', $key, ' type="html">';
-			}
 			else
-			{
 				echo '<', $key, '>';
-			}
 
 			if (is_array($val))
 			{
@@ -537,14 +495,10 @@ function template_xml_news($data, $i, $tag = null, $xml_format = 'rss')
 			}
 			// A string with returns in it.... show this as a multiline element.
 			elseif (strpos($val, "\n") !== false || strpos($val, '<br />') !== false)
-			{
 				echo "\n", fix_possible_url($val), "\n", str_repeat("\t", $i), '</', $key, '>';
-			}
 			// A simple string.
 			else
-			{
 				echo fix_possible_url($val), '</', $key, '>';
-			}
 		}
 	}
 }
@@ -566,10 +520,8 @@ function template_rdf()
 				<rdf:Seq>';
 
 	foreach ($context['recent_posts_data'] as $item)
-	{
 		echo '
 					<rdf:li rdf:resource="', $item['link'], '" />';
-	}
 
 	echo '
 				</rdf:Seq>
@@ -590,7 +542,7 @@ function template_feedatom()
 {
 	global $context, $scripturl, $txt;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<?xml version="1.0" encoding="UTF-8"?' . '>
 	<feed xmlns="http://www.w3.org/2005/Atom">
 		<title>', $context['feed_title'], '</title>
 		<link rel="alternate" type="text/html" href="', $scripturl, '" />
@@ -619,8 +571,8 @@ function template_feedrss()
 {
 	global $context, $scripturl, $txt;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
-	<rss version=', $context['xml_format'] === 'rss2' ? '"2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"' : '"0.92"', ' xml:lang="', strtr($txt['lang_locale'], '_', '-'), '">
+	echo '<?xml version="1.0" encoding="UTF-8"?' . '>
+	<rss version=', $context['xml_format'] == 'rss2' ? '"2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"' : '"0.92"', ' xml:lang="', strtr($txt['lang_locale'], '_', '-'), '">
 		<channel>
 			<title>', $context['feed_title'], '</title>
 			<link>', $scripturl, '</link>
@@ -643,39 +595,15 @@ function template_feedrss()
 }
 
 /**
- * Returns xml response to a draft autosave request
+ * Returns an xml response to a draft autosave request
  * provides the id of the draft saved and the time it was saved in the response
  */
 function template_xml_draft()
 {
 	global $context, $txt;
 
-	echo '<?xml version="1.0" encoding="UTF-8"?>
+	echo '<', '?xml version="1.0" encoding="UTF-8"?', '>
 <drafts>
 	<draft id="', $context['id_draft'], '"><![CDATA[', $txt['draft_saved_on'], ': ', standardTime($context['draft_saved_on']), ']]></draft>
-</drafts>';
-}
-
-/**
- * Returns xml response to a draft load request
- * provides the subject of the draft saved and the link to load
- */
-function template_xml_load_draft()
-{
-	global $context;
-
-	echo '<?xml version="1.0" encoding="UTF-8"?>
-<drafts>';
-	foreach ($context['drafts'] as $key => $draft)
-	{
-		echo '
-	<draft id="', $key, '">
-		<subject><![CDATA[', cleanXml($draft['subject']), ']]></subject>
-		<time><![CDATA[', cleanXml($draft['poster_time']), ']]></time>
-		<link><![CDATA[', cleanXml($draft['link']), ']]></link>
-	</draft>';
-	}
-
-	echo '
 </drafts>';
 }

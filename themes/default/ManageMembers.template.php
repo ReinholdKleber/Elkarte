@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -151,7 +152,6 @@ function template_search_members()
 					<tbody>';
 
 	foreach ($context['membergroups'] as $membergroup)
-	{
 		echo '
 						<tr>
 							<td>', $membergroup['name'], '</td>
@@ -162,7 +162,6 @@ function template_search_members()
 								', $membergroup['can_be_additional'] ? '<input type="checkbox" name="membergroups[2][]" value="' . $membergroup['id'] . '" checked="checked" />' : '', '
 							</td>
 						</tr>';
-	}
 
 	echo '
 						<tr>
@@ -191,7 +190,6 @@ function template_search_members()
 					<tbody>';
 
 	foreach ($context['postgroups'] as $postgroup)
-	{
 		echo '
 						<tr>
 							<td>
@@ -201,7 +199,6 @@ function template_search_members()
 								<input type="checkbox" name="postgroups[]" value="', $postgroup['id'], '" checked="checked" />
 							</td>
 						</tr>';
-	}
 
 	echo '
 						<tr>
@@ -295,8 +292,8 @@ function template_admin_browse()
 					<input type="hidden" name="sort" value="', $context['approve_list']['sort']['id'], '" />
 					<input type="hidden" name="start" value="', $context['approve_list']['start'], '" />
 					<input type="hidden" name="orig_filter" value="', $context['current_filter'], '" />
-					<input type="hidden" name="sa" value="approve" />', empty($context['approve_list']['sort']['desc']) ? '' : '
-					<input type="hidden" name="desc" value="1" />', '
+					<input type="hidden" name="sa" value="approve" />', !empty($context['approve_list']['sort']['desc']) ? '
+					<input type="hidden" name="desc" value="1" />' : '', '
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
 				</div>
 			</div>
@@ -339,6 +336,8 @@ function template_users_multiactions($groups)
 			</option>';
 	}
 
-	return $select . ('</select>
-					<input type="submit" name="maction_on_members" value="' . $txt['quick_mod_go'] . '" onclick="return confirm(\'' . $txt['quickmod_confirm'] . '\');" />');
+	$select .= '</select>
+					<input type="submit" name="maction_on_members" value="' . $txt['quick_mod_go'] . '" onclick="return confirm(\'' . $txt['quickmod_confirm'] . '\');" />';
+
+	return $select;
 }

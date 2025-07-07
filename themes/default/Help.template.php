@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -40,3 +41,28 @@ function template_popup()
 </html>';
 }
 
+/**
+ * The main help page.
+ */
+function template_manual()
+{
+	global $context, $scripturl, $txt;
+
+	echo '
+			<h2 class="category_header">', $txt['manual_elkarte_user_help'], '</h2>
+			<div id="help_container">
+				<div id="helpmain" class="content">
+					<p>', sprintf($txt['manual_welcome'], $context['forum_name']), '</p>
+					<p>', $txt['manual_introduction'], '</p>
+					<ul>';
+
+	foreach ($context['manual_sections'] as $section_id => $wiki_id)
+		echo '
+						<li><a href="', $context['wiki_url'], '/', $wiki_id, ($txt['lang_dictionary'] != 'en' && $txt['lang_dictionary'] != 'english' ? '/' . $txt['lang_dictionary'] : ''), '" target="_blank" class="new_win">', $txt['manual_section_' . $section_id . '_title'], '</a> - ', $txt['manual_section_' . $section_id . '_desc'], '</li>';
+
+	echo '
+					</ul>
+					<p>', sprintf($txt['manual_docs_and_credits'], $context['wiki_url'], $scripturl . '?action=who;sa=credits'), '</p>
+				</div>
+			</div>';
+}

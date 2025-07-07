@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
 
@@ -17,7 +18,7 @@
  */
 function template_ProfileInfo_init()
 {
-	global $settings, $context;
+	global $settings;
 
 	// This piece is used to style attachments awaiting approval in the list
 	$settings['attachments_awaiting_approval'] = '{attachment_link}&nbsp;(<em>{txt_awaiting}</em>)';
@@ -26,11 +27,7 @@ function template_ProfileInfo_init()
 	// in the user's profile summary, change it to a number if you need any
 	$settings['attachments_on_summary'] = 10;
 
-	theme()->getTemplates()->load('GenericMessages');
-	if (!empty($context['start_tabs']))
-	{
-		theme()->addInlineJavascript('start_tabs();', true);
-	}
+	loadTemplate('GenericMessages');
 }
 
 /**
@@ -59,7 +56,7 @@ function template_action_summary()
 			$tab_num++;
 			echo '
 						<li>
-							<a href="', ($context['summarytabs'][$tab]['href'] ?? '#tab_' . $tab_num), '">', $context['summarytabs'][$tab]['name'], '</a>
+							<a href="', (isset($context['summarytabs'][$tab]['href']) ? $context['summarytabs'][$tab]['href'] : '#tab_' . $tab_num), '">', $context['summarytabs'][$tab]['name'], '</a>
 						</li>';
 		}
 
@@ -71,9 +68,7 @@ function template_action_summary()
 		foreach ($tabs as $tab)
 		{
 			if (isset($context['summarytabs'][$tab]['href']))
-			{
 				continue;
-			}
 
 			// Start a tab
 			$tab_num++;
@@ -133,14 +128,12 @@ function template_action_showPosts()
 				', empty($context['is_topics']) ? $txt['showMessages'] : $txt['showTopics'], $context['user']['is_owner'] ? '' : ' - ' . $context['member']['name'], '
 			</h2>';
 
-	// No posts? Just end the table with an informative message.
+	// No posts? Just end the table with a informative message.
 	if (empty($context['posts']))
-	{
 		echo '
 				<div class="content">
 					', $context['is_topics'] ? $txt['show_topics_none'] : $txt['show_posts_none'], '
 				</div>';
-	}
 	else
 	{
 		// For every post to be displayed, give it its own div, and show the important details of the post.
@@ -151,13 +144,11 @@ function template_action_showPosts()
 			$post['class'] = 'content';
 
 			if (!$post['approved'])
-			{
 				$post['body'] = '
 						<div class="approve_post">
 							<em>' . $txt['post_awaiting_approval'] . '</em>
 						</div>' . '
 					' . $post['body'];
-			}
 
 			template_simple_message($post);
 		}
@@ -178,7 +169,7 @@ function template_action_showPermissions()
 	global $context, $scripturl, $txt;
 
 	echo '
-		<h2 class="category_header hdicon i-user">
+		<h2 class="category_header hdicon cat_img_profile">
 			', $txt['showPermissions'], '
 		</h2>';
 
@@ -200,10 +191,8 @@ function template_action_showPermissions()
 				<div class="content smalltext">', $txt['showPermissions_restricted_boards_desc'], ':<br />';
 
 			foreach ($context['no_access_boards'] as $no_access_board)
-			{
 				echo '
 					', $no_access_board['name'], $no_access_board['is_last'] ? '' : ', ';
-			}
 
 			echo '
 				</div>';
@@ -236,15 +225,11 @@ function template_action_showPermissions()
 								<td class="smalltext">';
 
 				if ($permission['is_denied'])
-				{
 					echo '
 									<span class="alert">', $txt['showPermissions_denied'], ':&nbsp;', implode(', ', $permission['groups']['denied']), '</span>';
-				}
 				else
-				{
 					echo '
 									', $txt['showPermissions_given'], ':&nbsp;', implode(', ', $permission['groups']['allowed']);
-				}
 
 				echo '
 								</td>
@@ -257,10 +242,8 @@ function template_action_showPermissions()
 				</div><br />';
 		}
 		else
-		{
 			echo '
 			<p class="description">', $txt['showPermissions_none_general'], '</p>';
-		}
 
 		// Board permission section.
 		echo '
@@ -272,17 +255,13 @@ function template_action_showPermissions()
 							<option value="0"', $context['board'] == 0 ? ' selected="selected"' : '', '>', $txt['showPermissions_global'], '&nbsp;</option>';
 
 		if (!empty($context['boards']))
-		{
 			echo '
 							<option value="" disabled="disabled">', str_repeat('&#8212;', strlen($txt['showPermissions_global'])), '</option>';
-		}
 
 		// Fill the box with any local permission boards.
 		foreach ($context['boards'] as $board)
-		{
 			echo '
 							<option value="', $board['id'], '"', $board['selected'] ? ' selected="selected"' : '', '>', $board['name'], ' (', $board['profile_name'], ')</option>';
-		}
 
 		echo '
 						</select>
@@ -311,15 +290,11 @@ function template_action_showPermissions()
 							<td class="smalltext">';
 
 				if ($permission['is_denied'])
-				{
 					echo '
 								<span class="alert">', $txt['showPermissions_denied'], ':&nbsp;', implode(', ', $permission['groups']['denied']), '</span>';
-				}
 				else
-				{
 					echo '
 								', $txt['showPermissions_given'], ': &nbsp;', implode(', ', $permission['groups']['allowed']);
-				}
 
 				echo '
 							</td>
@@ -331,10 +306,8 @@ function template_action_showPermissions()
 				</table>';
 		}
 		else
-		{
 			echo '
 			<p class="description">', $txt['showPermissions_none_board'], '</p>';
-		}
 
 		echo '
 			</div>
@@ -347,7 +320,7 @@ function template_action_showPermissions()
  */
 function template_action_statPanel()
 {
-	global $context, $txt, $modSettings;
+	global $context, $txt;
 
 	// First, show a few text statistics such as post/topic count.
 	echo '
@@ -364,18 +337,7 @@ function template_action_statPanel()
 					<dt>', $txt['statPanel_users_polls'], ':</dt>
 					<dd>', $context['num_polls'], ' ', $txt['statPanel_polls'], '</dd>
 					<dt>', $txt['statPanel_users_votes'], ':</dt>
-					<dd>', $context['num_votes'], ' ', $txt['statPanel_votes'], '</dd>';
-
-	if ($modSettings['likes_enabled'])
-	{
-		echo '
-					<dt>', $txt['likes_given'], ':</dt>
-					<dd>', $context['likes_given'], '</dd>
-					<dt>', $txt['likes_received'], ':</dt>
-					<dd>', $context['likes_received'], '</dd>';
-	}
-
-	echo '
+					<dd>', $context['num_votes'], ' ', $txt['statPanel_votes'], '</dd>
 				</dl>
 			</div>
 		</div>';
@@ -384,26 +346,34 @@ function template_action_statPanel()
 	echo '
 		<div class="separator"></div>
 		<div id="activitytime" class="flow_hidden">
-			<h2 class="category_header hdicon i-calendar">
+			<h2 class="category_header hdicon cat_img_clock">
 				', $txt['statPanel_activityTime'], '
 			</h2>
 			<div class="content content_noframe">';
 
 	// If they haven't post at all, don't draw the graph.
 	if (empty($context['posts_by_time']))
-	{
 		echo '
 				<span class="centertext">', $txt['statPanel_noPosts'], '</span>';
-	}
 	// Otherwise do!
 	else
 	{
 		echo '
-				<ul class="activity_stats flow_hidden">
-					<canvas id="hourStats" height="200" style="width:80%"></canvas>';
+				<ul class="activity_stats flow_hidden">';
 
-		setHourData($context['posts_by_time']);
-		showHourChart('posts');
+		// The labels.
+		foreach ($context['posts_by_time'] as $time_of_day)
+		{
+			echo '
+					<li', $time_of_day['is_last'] ? ' class="last"' : '', '>
+						<div class="bar" style="padding-top: ', ((int) (100 - $time_of_day['relative_percent'])), 'px;" title="', sprintf($txt['statPanel_activityTime_posts'], $time_of_day['posts'], $time_of_day['posts_percent']), '">
+							<div style="height: ', (int) $time_of_day['relative_percent'], 'px;">
+								<span>', sprintf($txt['statPanel_activityTime_posts'], $time_of_day['posts'], $time_of_day['posts_percent']), '</span>
+							</div>
+						</div>
+						<span class="stats_hour">', $time_of_day['hour_format'], '</span>
+					</li>';
+		}
 
 		echo '
 				</ul>';
@@ -418,16 +388,15 @@ function template_action_statPanel()
 	echo '
 		<div class="flow_hidden">
 			<div id="popularposts">
-				<h2 class="category_header hdicon i-pencil">
+				<h2 class="category_header hdicon cat_img_write">
 					', $txt['statPanel_topBoards'], '
 				</h2>
 				<div class="content content_noframe">';
 
 	if (empty($context['popular_boards']))
-	{
 		echo '
 					<span class="centertext">', $txt['statPanel_noPosts'], '</span>';
-	}
+
 	else
 	{
 		echo '
@@ -436,11 +405,14 @@ function template_action_statPanel()
 		// Draw a bar for every board.
 		foreach ($context['popular_boards'] as $board)
 		{
+			$position = intval(((int) $board['posts_percent'] / 5)) * 20;
+
 			echo '
 						<dt>', $board['link'], '</dt>
 						<dd>
-							<div class="profile_pie" title="', sprintf($txt['statPanel_topBoards_memberposts'], $board['posts'], $board['total_posts_member'], $board['posts_percent']), '">',
-								template_pieHole($board['posts_percent']), '</div>
+							<div class="profile_pie" style="background-position: -', $position, 'px 0;" title="', sprintf($txt['statPanel_topBoards_memberposts'], $board['posts'], $board['total_posts_member'], $board['posts_percent']), '">
+								', sprintf($txt['statPanel_topBoards_memberposts'], $board['posts'], $board['total_posts_member'], $board['posts_percent']), '
+							</div>
 							<span>', empty($context['hide_num_posts']) ? $board['posts'] : '', '</span>
 						</dd>';
 		}
@@ -453,16 +425,14 @@ function template_action_statPanel()
 				</div>
 			</div>
 			<div id="popularactivity">
-				<h2 class="category_header hdicon i-pie-chart">
+				<h2 class="category_header hdicon cat_img_piechart">
 					', $txt['statPanel_topBoardsActivity'], '
 				</h2>
 				<div class="content content_noframe">';
 
 	if (empty($context['board_activity']))
-	{
 		echo '
 					<span>', $txt['statPanel_noPosts'], '</span>';
-	}
 	else
 	{
 		echo '
@@ -471,11 +441,13 @@ function template_action_statPanel()
 		// Draw a bar for every board.
 		foreach ($context['board_activity'] as $activity)
 		{
+			$position = intval(((int) $activity['percent'] / 5)) * 20;
+
 			echo '
 						<dt>', $activity['link'], '</dt>
 						<dd>
-							<div class="profile_pie" title="', sprintf($txt['statPanel_topBoards_posts'], $activity['posts'], $activity['total_posts'], $activity['posts_percent']), '">
-								', template_pieHole($activity['percent']), '
+							<div class="profile_pie" style="background-position: -', $position, 'px 0;" title="', sprintf($txt['statPanel_topBoards_posts'], $activity['posts'], $activity['total_posts'], $activity['posts_percent']), '">
+								', sprintf($txt['statPanel_topBoards_posts'], $activity['posts'], $activity['total_posts'], $activity['posts_percent']), '
 							</div>
 							<span>', $activity['percent'], '%</span>
 						</dd>';
@@ -493,23 +465,6 @@ function template_action_statPanel()
 }
 
 /**
- * Create a svg donut.  Segment lenght of $value (% of circumference)
- */
-function template_pieHole($value, $segmentWidth = 10)
-{
-	$radius = 100 / (2 * M_PI);
-	$segment = round($value, 0);
-	$remainder = 100 - $segment;
-
-	return '
-	<svg viewBox="0 0 50 50" class="donut">
-		<circle class="profile_pie_hole" cx="25" cy="25" r="' . $radius . '" fill="transparent"></circle>
-		<circle class="profile_pie_ring" cx="25" cy="25" r="' . $radius . '" fill="transparent" stroke="grey" stroke-width="' . $segmentWidth . '"></circle>
-		<circle class="profile_pie_segment" cx="25" cy="25" r="' . $radius . '" fill="transparent" stroke="blue" stroke-width="' . $segmentWidth . '" stroke-dasharray="' . $segment . ' ' . $remainder . '" stroke-dashoffset="25"></circle>
-	</svg>';
-}
-
-/**
  * Show all warnings of a user
  */
 function template_viewWarning()
@@ -519,7 +474,7 @@ function template_viewWarning()
 	template_load_warning_variables();
 
 	echo '
-		<h2 class="category_header hdicon i-user">
+		<h2 class="category_header hdicon cat_img_profile">
 			', sprintf($txt['profile_viewwarning_for_user'], $context['member']['name']), '
 		</h2>
 		<p class="description">', $txt['viewWarning_help'], '</p>
@@ -535,14 +490,14 @@ function template_viewWarning()
 					<strong>', $txt['profile_warning_level'], ':</strong>
 				</dt>
 				<dd>
-					<div class="progress_bar progress_compact">
-						<div class="green_percent" style="width: ', $context['member']['warning'], '%;">', $context['member']['warning'], '%</div>
+					<div class="progress_bar progress_bar_compact">
+						<div class="full_bar full_bar_compact">', $context['member']['warning'], '%</div>
+						<div class="green_percent green_percent_compact" style="width: ', $context['member']['warning'], '%;">&nbsp;</div>
 					</div>
 				</dd>';
 
 	// There's some impact of this?
 	if (!empty($context['level_effects'][$context['current_level']]))
-	{
 		echo '
 				<dt>
 					<strong>', $txt['profile_viewwarning_impact'], ':</strong>
@@ -550,7 +505,6 @@ function template_viewWarning()
 				<dd>
 					', $context['level_effects'][$context['current_level']], '
 				</dd>';
-	}
 
 	echo '
 			</dl>
@@ -567,16 +521,16 @@ function template_viewWarning()
  */
 function template_profile_block_summary()
 {
-	global $txt, $context, $modSettings;
+	global $txt, $context, $modSettings, $scripturl;
 
 	echo '
 			<div class="profileblock_left">
-				<h2 class="category_header hdicon i-user">
-					', ($context['user']['is_owner']) ? '<a href="' . getUrl('profile', ['action' => 'profile', 'area' => 'forumprofile', 'u' => $context['member']['id'], 'name' => $context['member']['name']]) . '">' . $txt['profile_user_summary'] . '</a>' : $txt['profile_user_summary'], '
+				<h2 class="category_header hdicon cat_img_profile">
+					', ($context['user']['is_owner']) ? '<a href="' . $scripturl . '?action=profile;area=forumprofile;u=' . $context['member']['id'] . '">' . $txt['profile_user_summary'] . '</a>' : $txt['profile_user_summary'], '
 				</h2>
 				<div id="basicinfo">
 					<div class="username">
-						<h4>', (empty($context['member']['group']) ? $context['member']['post_group'] : $context['member']['group']), '</h4>
+						<h4><span class="position">', (!empty($context['member']['group']) ? $context['member']['group'] : $context['member']['post_group']), '</span></h4>
 					</div>
 					', $context['member']['avatar']['image'], '
 					<span id="userstatus">', template_member_online($context['member']), '<span class="smalltext"> ' . $context['member']['online']['label'] . '</span>', '</span>
@@ -591,66 +545,51 @@ function template_profile_block_summary()
 
 	// The username if allowed
 	if ($context['user']['is_owner'] || $context['user']['is_admin'])
-	{
 		echo '
 						<dt>', $txt['username'], ':</dt>
 						<dd>', $context['member']['username'], '</dd>';
-	}
 
 	// Some posts stats for fun
 	if (!isset($context['disabled_fields']['posts']))
-	{
 		echo '
 						<dt>', $txt['profile_posts'], ':</dt>
 						<dd>', $context['member']['posts'], ' (', $context['member']['posts_per_day'], ' ', $txt['posts_per_day'], ')</dd>';
-	}
 
 	// Title?
 	if (!empty($modSettings['titlesEnable']) && !empty($context['member']['title']))
-	{
 		echo '
 						<dt>', $txt['custom_title'], ':</dt>
 						<dd>', $context['member']['title'], '</dd>';
-	}
 
 	// If karma is enabled show the members karma.
 	if ($modSettings['karmaMode'] == '1')
-	{
 		echo '
 						<dt>', $modSettings['karmaLabel'], '</dt>
 						<dd>', ($context['member']['karma']['good'] - $context['member']['karma']['bad']), '</dd>';
-	}
 	elseif ($modSettings['karmaMode'] == '2')
-	{
 		echo '
 						<dt>', $modSettings['karmaLabel'], '</dt>
 						<dd>+', $context['member']['karma']['good'], '/-', $context['member']['karma']['bad'], '</dd>';
-	}
 
 	// What do they like?
 	if (!empty($modSettings['likes_enabled']))
-	{
 		echo '
 						<dt>', $txt['likes'], ': </dt>
 						<dd>', $txt['likes_profile_given'], ': ', $context['member']['likes']['given'], ' / ', $txt['likes_profile_received'], ': ', $context['member']['likes']['received'], '</dd>';
-	}
 
 	// Some links to this users fine work
 	echo '
 						<dt>', $txt['profile_activity'], ': </dt>
 						<dd>
-							<a href="', getUrl('profile', ['action' => 'profile', 'area' => 'showposts', 'u' => $context['member']['id'], 'name' => $context['member']['name']]), '">', $txt['showPosts'], '</a>
+							<a href="', $scripturl, '?action=profile;area=showposts;u=', $context['id_member'], '">', $txt['showPosts'], '</a>
 							<br />';
 
 	if ($context['user']['is_owner'] && !empty($modSettings['drafts_enabled']))
-	{
 		echo '
-							<a href="', getUrl('profile', ['action' => 'profile', 'area' => 'showdrafts', 'u' => $context['member']['id'], 'name' => $context['member']['name']]), '">', $txt['drafts_show'], '</a>
+							<a href="', $scripturl, '?action=profile;area=showdrafts;u=', $context['id_member'], '">', $txt['drafts_show'], '</a>
 							<br />';
-	}
-
 	echo '
-							<a href="', getUrl('profile', ['action' => 'profile', 'area' => 'statistics', 'u' => $context['member']['id'], 'name' => $context['member']['name']]), '">', $txt['statPanel'], '</a>
+							<a href="', $scripturl, '?action=profile;area=statistics;u=', $context['id_member'], '">', $txt['statPanel'], '</a>
 						</dd>';
 
 	// close this block up
@@ -673,8 +612,8 @@ function template_profile_block_user_info()
 
 	echo '
 		<div class="profileblock_right">
-			<h2 class="category_header hdicon i-pie-chart">
-				', ($context['user']['is_owner']) ? '<a href="' . getUrl('profile', ['action' => 'profile', 'area' => 'forumprofile', 'u' => $context['member']['id'], 'name' => $context['member']['name']]) . '">' . $txt['profile_user_info'] . '</a>' : $txt['profile_user_info'], '
+			<h2 class="category_header hdicon cat_img_stats_info">
+				', ($context['user']['is_owner']) ? '<a href="' . $scripturl . '?action=profile;area=forumprofile;u=' . $context['member']['id'] . '">' . $txt['profile_user_info'] . '</a>' : $txt['profile_user_info'], '
 			</h2>
 			<div class="profileblock">
 					<dl>';
@@ -696,27 +635,21 @@ function template_profile_block_user_info()
 	if ($context['can_see_ip'])
 	{
 		if (!empty($context['member']['ip']))
-		{
 			echo '
 						<dt>', $txt['ip'], ':</dt>
 						<dd><a href="', $scripturl, '?action=profile;area=history;sa=ip;searchip=', $context['member']['ip'], ';u=', $context['member']['id'], '">', $context['member']['ip'], '</a></dd>';
-		}
 
 		if (empty($modSettings['disableHostnameLookup']) && !empty($context['member']['ip']))
-		{
 			echo '
 						<dt>', $txt['hostname'], ':</dt>
 						<dd>', $context['member']['hostname'], '</dd>';
-		}
 	}
 
 	// Users language
 	if (!empty($modSettings['userLanguage']) && !empty($context['member']['language']))
-	{
 		echo '
 						<dt>', $txt['language'], ':</dt>
 						<dd>', $context['member']['language'], '</dd>';
-	}
 
 	// And their time settings
 	echo '
@@ -725,11 +658,9 @@ function template_profile_block_user_info()
 
 	// What are they up to?
 	if (!isset($context['disabled_fields']['action']) && !empty($context['member']['action']))
-	{
 		echo '
 						<dt>', $txt['profile_action'], ':</dt>
 						<dd>', $context['member']['action'], '</dd>';
-	}
 
 	// nuff about them, lets get back to me!
 	echo '
@@ -755,7 +686,7 @@ function template_profile_block_contact()
 
 	echo '
 		<div class="profileblock_left">
-			<h2 class="category_header hdicon i-contact">
+			<h2 class="category_header hdicon cat_img_contacts">
 				', $txt['profile_contact'], '
 			</h2>
 			<div class="profileblock">
@@ -807,7 +738,7 @@ function template_profile_block_contact()
 						<i class="icon i-website" title="', $txt['website'], '"></i>
 					</dt>
 					<dd>
-						<a href="', $context['member']['website']['url'], '" target="_blank" rel="noopener noreferrer nofollow ugc" class="new_win">', $context['member']['website']['title'] == '' ? $context['member']['website']['url'] : $context['member']['website']['title'], '</a>
+						<a href="', $context['member']['website']['url'], '" target="_blank" rel="noopener noreferrer" class="new_win">', $context['member']['website']['title'] == '' ? $context['member']['website']['url'] : $context['member']['website']['title'], '</a>
 					</dd>';
 	}
 
@@ -838,18 +769,14 @@ function template_profile_block_contact()
 		}
 
 		if (!empty($cf_show))
-		{
 			echo '
 				</ul>';
-		}
 	}
 
 	// No way to contact this member at all ... welcome home freak!
-	if ($ci_empty)
-	{
+	if ($ci_empty === true)
 		echo
 		$txt['profile_contact_no'];
-	}
 
 	echo '
 			</div>
@@ -864,12 +791,12 @@ function template_profile_block_contact()
  */
 function template_profile_block_other_info()
 {
-	global $txt, $context;
+	global $txt, $context, $scripturl;
 
 	echo '
 		<div class="profileblock_right">
-			<h2 class="category_header hdicon i-pencil">
-				', ($context['user']['is_owner']) ? '<a href="' . getUrl('profile', ['action' => 'profile', 'area' => 'forumprofile', 'u' => $context['member']['id'], 'name' => $context['member']['name']]) . '">' . $txt['profile_more'] . '</a>' : $txt['profile_more'], '
+			<h2 class="category_header hdicon cat_img_write">
+				', ($context['user']['is_owner']) ? '<a href="' . $scripturl . '?action=profile;area=forumprofile;u=' . $context['member']['id'] . '">' . $txt['profile_more'] . '</a>' : $txt['profile_more'], '
 			</h2>
 			<div class="profileblock profileblock_signature">';
 
@@ -880,9 +807,7 @@ function template_profile_block_other_info()
 		foreach ($context['custom_fields'] as $field)
 		{
 			if ($field['placement'] != 2 || empty($field['output_html']))
-			{
 				continue;
-			}
 
 			if (empty($shown))
 			{
@@ -915,14 +840,10 @@ function template_profile_block_other_info()
 	}
 
 	if (empty($shown))
-	{
 		echo $txt['profile_signature_no'];
-	}
 	else
-	{
 		echo '
 				</dl>';
-	}
 
 	// Done with this block
 	echo '
@@ -937,12 +858,12 @@ function template_profile_block_other_info()
  */
 function template_profile_block_user_customprofileinfo()
 {
-	global $txt, $context;
+	global $txt, $context, $scripturl;
 
 	echo '
 		<div class="profileblock_left">
-			<h2 class="category_header hdicon i-user-plus">
-				', ($context['user']['is_owner']) ? '<a href="' . getUrl('profile', ['action' => 'profile', 'area' => 'forumprofile', 'u' => $context['member']['id'], 'name' => $context['member']['name']]) . '">' . $txt['profile_info'] . '</a>' : $txt['profile_info'], '
+			<h2 class="category_header hdicon cat_img_plus">
+				', ($context['user']['is_owner']) ? '<a href="' . $scripturl . '?action=profile;area=forumprofile;u=' . $context['member']['id'] . '">' . $txt['profile_info'] . '</a>' : $txt['profile_info'], '
 			</h2>
 			<div class="profileblock">';
 
@@ -968,16 +889,12 @@ function template_profile_block_user_customprofileinfo()
 		}
 
 		if (!empty($shown))
-		{
 			echo '
 				</dl>';
-		}
 	}
 
 	if (empty($shown))
-	{
 		echo $txt['profile_additonal_no'];
-	}
 
 	echo '
 			</div>
@@ -1000,7 +917,7 @@ function template_profile_block_moderation()
 	{
 		echo '
 		<div class="profileblock_right">
-			<h2 class="category_header hdicon i-warning">
+			<h2 class="category_header hdicon cat_img_moderation">
 				', $txt['profile_moderation'], '
 			</h2>
 			<div class="profileblock">';
@@ -1016,10 +933,8 @@ function template_profile_block_moderation()
 
 			// Can we provide information on what this means?
 			if (!empty($context['warning_status']))
-			{
 				echo '
 					<span class="smalltext">(', $context['warning_status'], ')</span>';
-			}
 
 			echo '
 					</dd>
@@ -1034,12 +949,10 @@ function template_profile_block_moderation()
 
 			// If the person looking at the summary has permission, and the account isn't activated, give the viewer the ability to do it themselves.
 			if (!empty($context['activate_message']))
-			{
 				echo '
 					<dt class="clear">
 						<span class="alert">', $context['activate_message'], '</span>&nbsp;(<a href="' . $context['activate_url'] . '"', ($context['activate_type'] == 4 ? ' onclick="return confirm(\'' . $txt['profileConfirm'] . '\');"' : ''), '>', $context['activate_link_text'], '</a>)
 					</dt>';
-			}
 
 			// If the current member is banned, show a message and possibly a link to the ban.
 			if (!empty($context['member']['bans']))
@@ -1053,11 +966,9 @@ function template_profile_block_moderation()
 						<strong>', $txt['user_banned_by_following'], ':</strong>';
 
 				foreach ($context['member']['bans'] as $ban)
-				{
 					echo '
 						<br />
 						<span class="smalltext">', $ban['explanation'], '</span>';
-				}
 
 				echo '
 					</dd>';
@@ -1092,7 +1003,7 @@ function template_profile_block_buddies()
 	if (!empty($modSettings['enable_buddylist']) && $context['user']['is_owner'])
 	{
 		echo '
-		<h2 class="category_header hdicon i-users">
+		<h2 class="category_header hdicon cat_img_buddies">
 			<a href="', $scripturl, '?action=profile;area=lists;sa=buddies;u=', $context['member']['id'], '">', $txt['buddies'], '</a>
 		</h2>
 		<div class="flow_auto" ', (isset($div_height) ? 'style="max-height: ' . $div_height . 'px;"' : ''), '>
@@ -1101,13 +1012,13 @@ function template_profile_block_buddies()
 		// Now show them all
 		if (isset($context['buddies']))
 		{
-			foreach ($context['buddies'] as $data)
+			foreach ($context['buddies'] as $buddy_id => $data)
 			{
 				echo '
 				<div class="attachment">
 					<div class="generic_border centertext">
 						', $data['avatar']['image'], '<br />
-						<a href="', getUrl('profile', ['action' => 'profile', 'u' => $data['id'], 'name' => $data['name']]), '">', $data['name'], '</a>
+						<a href="', $scripturl, '?action=profile;u=', $data['id'], '">', $data['name'], '</a>
 						<br />
 						', template_member_online($data), '<em><span class="smalltext"> ' . $txt[$data['online']['is_online'] ? 'online' : 'offline'] . '</span></em>
 						<div class="contact">';
@@ -1127,7 +1038,7 @@ function template_profile_block_buddies()
 				{
 					$im = array();
 
-					foreach ($data['custom_fields'] as $cpf)
+					foreach ($data['custom_fields'] as $key => $cpf)
 					{
 						if ($cpf['placement'] == 1)
 						{
@@ -1137,7 +1048,6 @@ function template_profile_block_buddies()
 
 					echo implode(' ', $im);
 				}
-
 				// Done with the contact information
 				echo '
 						</div>
@@ -1172,10 +1082,12 @@ function template_profile_blocks()
 	{
 		return;
 	}
-
-	foreach ($context['profile_blocks'] as $profile_block)
+	else
 	{
-		$profile_block();
+		foreach ($context['profile_blocks'] as $profile_block)
+		{
+			$profile_block();
+		}
 	}
 }
 
@@ -1186,12 +1098,12 @@ function template_profile_blocks()
  */
 function template_profile_block_attachments()
 {
-	global $txt, $context;
+	global $txt, $context, $scripturl;
 
 	// The attachment div
 	echo '
-	<h2 class="category_header hdicon i-clip">
-		<a href="', getUrl('profile', ['action' => 'profile', 'area' => 'showposts', 'sa' => 'attach', 'u' => $context['member']['id'], 'name' => $context['member']['name']]), '">', $txt['profile_attachments'], '</a>
+	<h2 class="category_header hdicon cat_img_attachments">
+		<a href="', $scripturl, '?action=profile;area=showposts;sa=attach;u=', $context['member']['id'], '">', $txt['profile_attachments'], '</a>
 	</h2>
 	<div class="attachments">';
 
@@ -1213,12 +1125,10 @@ function template_profile_block_attachments()
 	}
 	// No data for this member
 	else
-	{
 		echo '
 		<div class="infobox">
 			', $txt['profile_attachments_no'], '
 		</div>';
-	}
 
 	// All done
 	echo '
@@ -1232,12 +1142,12 @@ function template_profile_block_attachments()
  */
 function template_profile_block_posts()
 {
-	global $txt, $context;
+	global $txt, $context, $scripturl;
 
 	// The posts block
 	echo '
-	<h2 class="category_header hdicon i-post-text">
-		<a href="', getUrl('profile', ['action' => 'profile', 'area' => 'showposts', 'sa' => 'messages', 'u' => $context['member']['id'], 'name' => $context['member']['name']]), '">', $txt['profile_recent_posts'], '</a>
+	<h2 class="category_header hdicon cat_img_posts">
+		<a href="', $scripturl, '?action=profile;area=showposts;sa=messages;u=', $context['member']['id'], '">', $txt['profile_recent_posts'], '</a>
 	</h2>
 	<div class="flow_auto">
 		<table id="ps_recentposts">';
@@ -1246,31 +1156,27 @@ function template_profile_block_posts()
 	{
 		echo '
 			<tr>
-				<th class="recentpost" >', $txt['message'], '</th>
-				<th class="recentposter grid17">', $txt['board'], '</th>
-				<th class="recentboard grid20">', $txt['subject'], '</th>
-				<th class="recenttime grid20">', $txt['date'], '</th>
+				<th class="recentpost">', $txt['message'], '</th>
+				<th class="recentposter">', $txt['board'], '</th>
+				<th class="recentboard">', $txt['subject'], '</th>
+				<th class="recenttime">', $txt['date'], '</th>
 			</tr>';
 
 		foreach ($context['posts'] as $post)
-		{
 			echo '
 			<tr>
 				<td class="recentpost">', $post['body'], '</td>
-				<td class="recentboard grid20">', $post['board']['link'], '</td>
-				<td class="recentsubject grid20">', $post['link'], '</td>
-				<td class="recenttime grid20">', $post['time'], '</td>
+				<td class="recentboard">', $post['board']['link'], '</td>
+				<td class="recentsubject">', $post['link'], '</td>
+				<td class="recenttime">', $post['time'], '</td>
 			</tr>';
-		}
 	}
 	// No data for this member
 	else
-	{
 		echo '
 			<tr>
 				<td class="norecent">', (isset($context['loadaverage']) ? $txt['profile_loadavg'] : $txt['profile_posts_no']), '</td>
 			</tr>';
-	}
 
 	// All done
 	echo '
@@ -1285,12 +1191,12 @@ function template_profile_block_posts()
  */
 function template_profile_block_topics()
 {
-	global $txt, $context;
+	global $txt, $context, $scripturl;
 
 	// The topics block
 	echo '
-	<h2 class="category_header hdicon i-directory">
-		<a href="', getUrl('profile', ['action' => 'profile', 'area' => 'showposts', 'sa' => 'topics', 'u' => $context['member']['id'], 'name' => $context['member']['name']]), '">', $txt['profile_topics'], '</a>
+	<h2 class="category_header hdicon cat_img_topics">
+		<a href="', $scripturl, '?action=profile;area=showposts;sa=topics;u=', $context['member']['id'], '">', $txt['profile_topics'], '</a>
 	</h2>
 	<div class="flow_auto">
 		<table id="ps_recenttopics">';
@@ -1300,149 +1206,27 @@ function template_profile_block_topics()
 		echo '
 			<tr>
 				<th class="recenttopic">', $txt['subject'], '</th>
-				<th class="recentboard grid20">', $txt['board'], '</th>
-				<th class="recenttime grid20">', $txt['date'], '</th>
+				<th class="recentboard">', $txt['board'], '</th>
+				<th class="recenttime">', $txt['date'], '</th>
 			</tr>';
 
 		foreach ($context['topics'] as $post)
-		{
 			echo '
 			<tr>
 				<td class="recenttopic">', $post['link'], '</td>
-				<td class="recentboard grid20">', $post['board']['link'], '</td>
-				<td class="recenttime grid20">', $post['time'], '</td>
+				<td class="recentboard">', $post['board']['link'], '</td>
+				<td class="recenttime">', $post['time'], '</td>
 			</tr>';
-		}
 	}
 	// No data for this member
 	else
-	{
 		echo '
 			<tr>
 				<td class="norecent">', $txt['profile_topics_no'], '</td>
 			</tr>';
-	}
 
 	// All done
 	echo '
 		</table>
 	</div>';
-}
-
-/**
- * Generates JS constant objects with all available data along with titles and colors.
- * This is used in chart.js datasets when click events request the data
- */
-function setHourData($data)
-{
-	global $txt;
-
-	// No data, no chart
-	if (empty($data))
-	{
-		return;
-	}
-
-	$hourData = array(
-		'axis_labels' => [],
-		'relative_percent' => [],
-		'posts' => [],
-		'hour_format' => [],
-		'posts_percent' => [],
-	);
-
-	// Low to high looks best on a chart
-	foreach ($data as $time)
-	{
-		// The year data
-		$hourData['axis_labels'][] = $time['hour_format'];
-		$hourData['relative_percent'][] = $time['relative_percent'];
-		$hourData['posts'][] = $time['posts'];
-		$hourData['posts_percent'][] = $time['posts_percent'];
-	}
-
-	// Colors for the line charts
-	$colors = array(
-		'relative_percent' => '55,187,89',
-		'posts' => '61,110,50',
-		'posts_percent' => '89,55,187',
-	);
-
-	// Chart title so you remember what you are looking at
-	$titles = array(
-		'relative_percent' => $txt['statPanel_activityTime'],
-		'posts' => $txt['statPanel_activityTime'],
-		'posts_percent' => $txt['statPanel_activityTime'],
-		'posts_text' => $txt['posts']
-	);
-
-	// Now dump it out in JS objects
-	echo '
-	<script>
-		let hourtips = [', implode(',', $hourData['posts_percent']), '];
-		const hourdata = ', json_encode($hourData), ';
-		const colors = ', json_encode($colors), ';
-		const titles = ', json_encode($titles), ';
-	</script>';
-}
-
-/**
- * Draws the hour chart on the defined page canvas
- *
- * @param string $type The type, however they all plot the same (the curve looks the same),
- * only the y scale changes, as such we just use posts but the code supports them all.
- */
-function showHourChart($type)
-{
-	echo '
-	<script>
-		let request = "', $type, '",
-			ctx_hourStats = document.getElementById("hourStats").getContext("2d"),
-			hourLabels = Object.values(hourdata["axis_labels"]),
-			hourDataset = {
-				labels: hourLabels,
-				datasets: [{
-					label: titles[request],
-					data: Object.values(hourdata[request]),
-					backgroundColor: [
-						"rgba(" + colors[request] + ", 0.1)",
-					],
-					borderColor: [
-						"rgba(" + colors[request] + ", 1)",
-					],
-					borderWidth: 1,
-					pointStyle: "circle",
-					pointRadius: 4,
-					lineTension: 0.35,
-					fill: "origin"
-				}]
-			},
-			hourConfig = {
-				type: "line",
-				responsive: true,
-				data: hourDataset,
-				options: {
-					scales: {
-						y: {
-							stacked: true,
-							ticks: {beginAtZero: true}
-						}
-					},
-					plugins: {
-						filler: {
-							propagate: false
-						},
-						tooltip: {
-							callbacks: {
-								label: function (context)
-								{
-									return [hourtips[context.dataIndex] + "%", hourdata["posts"][context.dataIndex] + " " + titles["posts_text"]];
-								}
-							}
-						},
-					}
-				}
-			};	
-		new Chart(ctx_hourStats, hourConfig);
-	</script>';
 }

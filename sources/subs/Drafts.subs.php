@@ -3,25 +3,20 @@
 /**
  * Support functions for the drafts controller
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
-
-use ElkArte\Errors\ErrorContext;
-use ElkArte\Helper\Util;
-use ElkArte\Languages\Txt;
-use ElkArte\User;
 
 /**
  * Create PM draft in the database
  *
+ * @package Drafts
  * @param mixed[] $draft
  * @param string[] $recipientList
- * @package Drafts
  */
 function create_pm_draft($draft, $recipientList)
 {
@@ -57,15 +52,15 @@ function create_pm_draft($draft, $recipientList)
 	);
 
 	// Return the new id
-	return $db->insert_id('{db_prefix}user_drafts');
+	return $db->insert_id('{db_prefix}user_drafts', 'id_draft');
 }
 
 /**
  * Update an existing PM draft with the new data
  *
+ * @package Drafts
  * @param mixed[] $draft
  * @param string[] $recipientList
- * @package Drafts
  */
 function modify_pm_draft($draft, $recipientList)
 {
@@ -73,8 +68,7 @@ function modify_pm_draft($draft, $recipientList)
 
 	$db->query('', '
 		UPDATE {db_prefix}user_drafts
-		SET 
-			id_reply = {int:id_reply},
+		SET id_reply = {int:id_reply},
 			type = {int:type},
 			poster_time = {int:poster_time},
 			subject = {string:subject},
@@ -99,8 +93,8 @@ function modify_pm_draft($draft, $recipientList)
 /**
  * Create a new post draft in the database
  *
- * @param mixed[] $draft
  * @package Drafts
+ * @param mixed[] $draft
  */
 function create_post_draft($draft)
 {
@@ -146,14 +140,14 @@ function create_post_draft($draft)
 	);
 
 	// Get the id of the new draft
-	return $db->insert_id('{db_prefix}user_drafts');
+	return $db->insert_id('{db_prefix}user_drafts', 'id_draft');
 }
 
 /**
  * Update a Post draft with the supplied data
  *
- * @param mixed[] $draft
  * @package Drafts
+ * @param mixed[] $draft
  */
 function modify_post_draft($draft)
 {
@@ -197,15 +191,12 @@ function modify_post_draft($draft)
  * - Validates draft id/owner match if check is set to true
  * - Draft id must match the type selected (post or pm)
  *
+ * @package Drafts
  * @param int $id_draft - specific draft number to get from the db
  * @param int $uid - member id who created the draft
  * @param int $type - 0 for post and 1 for pm
  * @param int $drafts_keep_days - number of days to consider a draft is still valid
  * @param bool $check - validate the draft is by the user, true by default
- *
- * @return array
- * @package Drafts
- *
  */
 function load_draft($id_draft, $uid, $type = 0, $drafts_keep_days = 0, $check = true)
 {
@@ -213,8 +204,7 @@ function load_draft($id_draft, $uid, $type = 0, $drafts_keep_days = 0, $check = 
 
 	// Load in a draft from the DB
 	$request = $db->query('', '
-		SELECT 
-			id_draft, id_topic, id_board, id_reply, type, poster_time, id_member, subject,
+		SELECT id_draft, id_topic, id_board, id_reply, type, poster_time, id_member, subject,
 			smileys_enabled, body, icon, locked, is_sticky, to_list, is_usersaved
 		FROM {db_prefix}user_drafts
 		WHERE id_draft = {int:id_draft}' . ($check ? '
@@ -231,14 +221,12 @@ function load_draft($id_draft, $uid, $type = 0, $drafts_keep_days = 0, $check = 
 	);
 
 	// No results?
-	if ($request->num_rows() === 0)
-	{
-		return [];
-	}
+	if (!$db->num_rows($request))
+		return false;
 
 	// Load up the data
-	$draft_info = $request->fetch_assoc();
-	$request->free_result();
+	$draft_info = $db->fetch_assoc($request);
+	$db->free_result($request);
 
 	// A little cleaning
 	$draft_info['body'] = !empty($draft_info['body']) ? str_replace('<br />', "\n", un_htmlspecialchars(stripslashes($draft_info['body']))) : '';
@@ -248,19 +236,16 @@ function load_draft($id_draft, $uid, $type = 0, $drafts_keep_days = 0, $check = 
 }
 
 /**
- * Loads all drafts for a user
+ * Loads all of the drafts for a user
  *
  * - Optionally can load just the drafts for a specific topic (post) or reply (pm)
  *
+ * @package Drafts
  * @param int $member_id - user id to get drafts for
  * @param int $draft_type - 0 for post, 1 for pm
  * @param int|bool $topic - if set, load drafts for that specific topic / pm
  * @param string $order - optional parameter to order the results
  * @param string $limit - optional parameter to limit the number returned 0,15
- *
- * @return array
- * @package Drafts
- *
  */
 function load_user_drafts($member_id, $draft_type = 0, $topic = false, $order = '', $limit = '')
 {
@@ -268,16 +253,9 @@ function load_user_drafts($member_id, $draft_type = 0, $topic = false, $order = 
 
 	$db = database();
 
-	if (!empty($limit))
-	{
-		$limit = array_map('intval', explode(',', $limit));
-		$limit = implode(', ', $limit);
-	}
-
 	// Load the drafts that the user has available for the given type & action
 	return $db->fetchQuery('
-		SELECT 
-			ud.*' . ($draft_type === 0 ? ',b.id_board, b.name AS bname' : '') . '
+		SELECT ud.*' . ($draft_type === 0 ? ',b.id_board, b.name AS bname' : '') . '
 		FROM {db_prefix}user_drafts AS ud' . ($draft_type === 0 ? '
 			INNER JOIN {db_prefix}boards AS b ON (b.id_board = ud.id_board)' : '') . '
 		WHERE ud.id_member = {int:id_member}' . ($draft_type === 0 ? ($topic !== false ? '
@@ -294,50 +272,7 @@ function load_user_drafts($member_id, $draft_type = 0, $topic = false, $order = 
 			'time' => !empty($modSettings['drafts_keep_days']) ? (time() - ($modSettings['drafts_keep_days'] * 86400)) : 0,
 			'order' => $order,
 		)
-	)->fetch_all();
-}
-
-/**
- * Returns if a user has any drafts for a given topic/pm
- *
- * @param int $member_id - user id to get drafts for
- * @param int $draft_type - 0 for post, 1 for pm
- * @param int $topic - if set, load drafts for that specific topic / pm
- *
- * @return int
- * @package Drafts
- */
-function count_user_drafts($member_id, $draft_type = 0, $topic = false)
-{
-	global $modSettings;
-
-	$db = database();
-	$number = 0;
-
-	// count the drafts that the user has available for the given type & action
-	$db->fetchQuery('
-		SELECT 
-			COUNT(id_draft) as number
-		FROM {db_prefix}user_drafts AS ud' . ($draft_type === 0 ? '
-			INNER JOIN {db_prefix}boards AS b ON (b.id_board = ud.id_board)' : '') . '
-		WHERE ud.id_member = {int:id_member}' . ($draft_type === 0 ? '
-			AND id_topic = {int:id_topic}' : '
-			AND id_reply = {int:id_topic}') . '
-			AND type = {int:draft_type}' . (!empty($modSettings['drafts_keep_days']) ? '
-			AND poster_time > {int:time}' : ''),
-		array(
-			'id_member' => $member_id,
-			'id_topic' => (int) $topic,
-			'draft_type' => $draft_type,
-			'time' => !empty($modSettings['drafts_keep_days']) ? (time() - ($modSettings['drafts_keep_days'] * 86400)) : 0,
-		)
-	)->fetch_callback(
-		function ($row) use (&$number) {
-			$number = (int) $row['number'];
-		}
 	);
-
-	return $number;
 }
 
 /**
@@ -348,13 +283,10 @@ function count_user_drafts($member_id, $draft_type = 0, $topic = false)
  * - Validates the drafts are from the user
  * - If supplied an array of drafts will attempt to remove all of them
  *
+ * @package Drafts
  * @param int[]|int $id_draft
  * @param int $member_id
  * @param bool $check
- *
- * @return bool
- * @package Drafts
- *
  */
 function deleteDrafts($id_draft, $member_id = -1, $check = true)
 {
@@ -362,17 +294,13 @@ function deleteDrafts($id_draft, $member_id = -1, $check = true)
 
 	// Only a single draft.
 	if (!is_array($id_draft))
-	{
 		$id_draft = array($id_draft);
-	}
 
 	$id_draft = array_map('intval', $id_draft);
 
 	// Can't delete nothing
 	if (empty($id_draft))
-	{
 		return false;
-	}
 
 	$db->query('', '
 		DELETE FROM {db_prefix}user_drafts
@@ -393,10 +321,10 @@ function deleteDrafts($id_draft, $member_id = -1, $check = true)
  * - This function checks for expired lifetime on drafts (they would be removed
  * by a scheduled task), and doesn't count those.
  *
+ * @package Drafts
  * @param int $member_id
  * @param int $draft_type
- * @return int
- * @package Drafts
+ * @return integer
  */
 function draftsCount($member_id, $draft_type = 0)
 {
@@ -405,8 +333,7 @@ function draftsCount($member_id, $draft_type = 0)
 	$db = database();
 
 	$request = $db->query('', '
-		SELECT 
-			COUNT(id_draft)
+		SELECT COUNT(id_draft)
 		FROM {db_prefix}user_drafts
 		WHERE id_member = {int:id_member}
 			AND type={int:draft_type}' . (!empty($modSettings['drafts_keep_days']) ? '
@@ -417,8 +344,8 @@ function draftsCount($member_id, $draft_type = 0)
 			'time' => !empty($modSettings['drafts_keep_days']) ? (time() - ($modSettings['drafts_keep_days'] * 86400)) : 0,
 		)
 	);
-	list ($msgCount) = $request->fetch_row();
-	$request->free_result();
+	list ($msgCount) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return $msgCount;
 }
@@ -429,14 +356,11 @@ function draftsCount($member_id, $draft_type = 0)
  *
  * - keeps track of bcc and to names for the PM
  *
- * @param int[] $allRecipients
- * @param mixed[] $recipient_ids
- *
- * @return array
+ * @package Drafts
  * @todo this is the same as whats in PersonalMessage.controller, when that gets refactored
  * this should go away and use the refactored PM subs
- *
- * @package Drafts
+ * @param int[] $allRecipients
+ * @param mixed[] $recipient_ids
  */
 function draftsRecipients($allRecipients, $recipient_ids)
 {
@@ -463,27 +387,24 @@ function draftsRecipients($allRecipients, $recipient_ids)
 /**
  * Get all drafts older than x days
  *
- * @param int $days
- *
- * @return array
  * @package Drafts
- *
+ * @param int $days
  */
 function getOldDrafts($days)
 {
 	$db = database();
 
 	// Find all of the old drafts
-	return $db->fetchQuery('
+	return $db->fetchQueryCallback('
 		SELECT
 			id_draft
 		FROM {db_prefix}user_drafts
 		WHERE poster_time <= {int:poster_time_old}',
 		array(
 			'poster_time_old' => time() - (86400 * $days),
-		)
-	)->fetch_callback(
-		function ($row) {
+		),
+		function ($row)
+		{
 			return (int) $row['id_draft'];
 		}
 	);
@@ -495,9 +416,10 @@ function getOldDrafts($days)
  * - The core draft feature must be enabled, as well as the post draft option
  * - Determines if this is a new or an existing draft
  *
- * @param mixed[] $draft
- * @param bool $check_last_save
  * @package Drafts
+ * @param mixed[] $draft
+ * @param boolean $check_last_save
+ * @throws Elk_Exception
  */
 function saveDraft($draft, $check_last_save = false)
 {
@@ -514,8 +436,8 @@ function saveDraft($draft, $check_last_save = false)
 		// Since we were called from the autosave function, send something back
 		if (!empty($id_draft))
 		{
-			Txt::load('Drafts');
-			theme()->getTemplates()->load('Xml');
+			loadLanguage('Drafts');
+			loadTemplate('Xml');
 			$context['sub_template'] = 'xml_draft';
 			$context['id_draft'] = $id_draft;
 			$context['draft_saved_on'] = $draft_info['poster_time'];
@@ -526,10 +448,18 @@ function saveDraft($draft, $check_last_save = false)
 	}
 
 	// Be ready for surprises
-	$post_errors = ErrorContext::context('post', 1);
+	$post_errors = ElkArte\Errors\ErrorContext::context('post', 1);
 
 	// The message and subject still need a bit more work
-	prepareDraft($draft, $draft_info);
+	preparsecode($draft['body']);
+	if (Util::strlen($draft['subject']) > 100)
+		$draft['subject'] = Util::substr($draft['subject'], 0, 100);
+
+	if (!isset($draft['is_usersaved']))
+		$draft['is_usersaved'] = 0;
+
+	if (isset($draft_info['is_usersaved']) && $draft_info['is_usersaved'] == 1)
+		$draft['is_usersaved'] = 1;
 
 	// Modifying an existing draft, like hitting the save draft button or autosave enabled?
 	if (!empty($id_draft) && !empty($draft_info))
@@ -552,9 +482,7 @@ function saveDraft($draft, $check_last_save = false)
 			$context['id_draft'] = $id_draft;
 		}
 		else
-		{
 			$post_errors->addError('draft_not_saved');
-		}
 	}
 }
 
@@ -564,13 +492,11 @@ function saveDraft($draft, $check_last_save = false)
  * - The core draft feature must be enabled, as well as the pm draft option
  * - Determines if this is a new or and update to an existing pm draft
  *
- * @param array $recipientList
- * @param array $draft
- * @param bool $check_last_save
- *
- * @return bool|void
  * @package Drafts
- *
+ * @param mixed[] $recipientList
+ * @param mixed[] $draft
+ * @param boolean $check_last_save
+ * @throws Elk_Exception
  */
 function savePMDraft($recipientList, $draft, $check_last_save = false)
 {
@@ -579,7 +505,7 @@ function savePMDraft($recipientList, $draft, $check_last_save = false)
 	// Read in what was sent
 	$id_pm_draft = $draft['id_pm_draft'];
 	$draft_info = loadDraft($id_pm_draft, 1);
-	$post_errors = ErrorContext::context('pm', 1);
+	$post_errors = ElkArte\Errors\ErrorContext::context('pm', 1);
 
 	// 5 seconds is the same limit we have for posting
 	if ($check_last_save && !empty($draft_info['poster_time']) && time() < $draft_info['poster_time'] + 5)
@@ -587,7 +513,7 @@ function savePMDraft($recipientList, $draft, $check_last_save = false)
 		// Send something back to the javascript caller
 		if (!empty($id_pm_draft))
 		{
-			theme()->getTemplates()->load('Xml');
+			loadTemplate('Xml');
 			$context['sub_template'] = 'xml_draft';
 			$context['id_draft'] = $id_pm_draft;
 			$context['draft_saved_on'] = $draft_info['poster_time'];
@@ -599,12 +525,18 @@ function savePMDraft($recipientList, $draft, $check_last_save = false)
 
 	// Determine who this is being sent to
 	if (!$check_last_save && !empty($draft_info['to_list']) && empty($recipientList))
-	{
 		$recipientList = Util::unserialize($draft_info['to_list']);
-	}
 
 	// message and subject always need a bit more work
-	prepareDraft($draft, $draft_info);
+	preparsecode($draft['body']);
+	if (Util::strlen($draft['subject']) > 100)
+		$draft['subject'] = Util::substr($draft['subject'], 0, 100);
+
+	if (!isset($draft['is_usersaved']))
+		$draft['is_usersaved'] = 0;
+
+	if (isset($draft_info['is_usersaved']) && $draft_info['is_usersaved'] == 1)
+		$draft['is_usersaved'] = 1;
 
 	// Modifying an existing PM draft?
 	if (!empty($id_pm_draft) && !empty($draft_info))
@@ -627,45 +559,20 @@ function savePMDraft($recipientList, $draft, $check_last_save = false)
 			$context['id_pm_draft'] = $id_pm_draft;
 		}
 		else
-		{
 			$post_errors->addError('draft_not_saved');
-		}
 	}
 
 	// if we were called from the autosave function, send something back
 	if (!empty($id_pm_draft) && $check_last_save && !$post_errors->hasError('session_timeout'))
 	{
-		theme()->getTemplates()->load('Xml');
+		loadTemplate('Xml');
 		$context['sub_template'] = 'xml_draft';
 		$context['id_draft'] = $id_pm_draft;
 		$context['draft_saved_on'] = time();
 		obExit();
 	}
-}
 
-/**
- * Prepares the draft body and subject
- *
- * @param array $draft
- * @param array $draft_info
- */
-function prepareDraft(&$draft, $draft_info)
-{
-	preparsecode($draft['body']);
-	if (Util::strlen($draft['subject']) > 100)
-	{
-		$draft['subject'] = Util::substr($draft['subject'], 0, 100);
-	}
-
-	if (!isset($draft['is_usersaved']))
-	{
-		$draft['is_usersaved'] = 0;
-	}
-
-	if (isset($draft_info['is_usersaved']) && $draft_info['is_usersaved'] == 1)
-	{
-		$draft['is_usersaved'] = 1;
-	}
+	return;
 }
 
 /**
@@ -673,20 +580,17 @@ function prepareDraft(&$draft, $draft_info)
  *
  * - Only loads the draft of a given type 0 for post, 1 for pm draft
  * - Validates that the draft is the users draft
- * - Optionally loads the draft in to context or super global for loading in to the form
+ * - Optionally loads the draft in to context or superglobal for loading in to the form
  *
+ * @package Drafts
  * @param int $id_draft - draft to load
  * @param int $type - type of draft
  * @param bool $check - validate the user
  * @param bool $load - load it for use in a form
- *
- * @return array
- * @package Drafts
- *
  */
 function loadDraft($id_draft, $type = 0, $check = true, $load = false)
 {
-	global $context, $modSettings;
+	global $context, $user_info, $modSettings;
 
 	// Like purell always clean to be sure
 	$id_draft = (int) $id_draft;
@@ -694,13 +598,11 @@ function loadDraft($id_draft, $type = 0, $check = true, $load = false)
 
 	// Nothing to read, nothing to do
 	if (empty($id_draft))
-	{
-		return [];
-	}
+		return false;
 
 	// Load in this draft from the DB
 	$drafts_keep_days = !empty($modSettings['drafts_keep_days']) ? (time() - ($modSettings['drafts_keep_days'] * 86400)) : 0;
-	$draft_info = load_draft($id_draft, User::$info->id, $type, $drafts_keep_days, $check);
+	$draft_info = load_draft($id_draft, $user_info['id'], $type, $drafts_keep_days, $check);
 
 	// Load it up for the templates as well
 	if (!empty($load) && !empty($draft_info))
@@ -710,7 +612,7 @@ function loadDraft($id_draft, $type = 0, $check = true, $load = false)
 			// A standard post draft?
 			$context['sticky'] = !empty($draft_info['is_sticky']) ? $draft_info['is_sticky'] : '';
 			$context['locked'] = !empty($draft_info['locked']) ? $draft_info['locked'] : '';
-			$context['use_smileys'] = !empty($draft_info['smileys_enabled']);
+			$context['use_smileys'] = !empty($draft_info['smileys_enabled']) ? true : false;
 			$context['icon'] = !empty($draft_info['icon']) ? $draft_info['icon'] : 'xx';
 			$context['message'] = !empty($draft_info['body']) ? $draft_info['body'] : '';
 			$context['subject'] = !empty($draft_info['subject']) ? $draft_info['subject'] : '';

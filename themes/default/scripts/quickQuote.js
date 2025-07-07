@@ -12,7 +12,7 @@
  *
  * Some specific refactoring done for ElkArte core inclusion
  */
-function Elk_QuickQuote (oOptions)
+function Elk_QuickQuote(oOptions)
 {
 	'use strict';
 
@@ -28,7 +28,8 @@ function Elk_QuickQuote (oOptions)
 /**
  * Get things rolling
  */
-Elk_QuickQuote.prototype.init = function() {
+Elk_QuickQuote.prototype.init = function ()
+{
 	this.treeToBBCode.defaults = {
 		strong: {before: '[b]', after: '[/b]'},
 		b: {before: '[b]', after: '[/b]'},
@@ -41,17 +42,12 @@ Elk_QuickQuote.prototype.init = function() {
 		br: {before: '\n', after: ''}
 	};
 
-	this.postSelector = document.getElementById('topic_summary') ? '.postarea2' : '.postarea';
-
 	// Check if passive is supported, should be for most browsers since 2016
 	let supportsPassive = false;
-	try
-	{
+	try {
 		let opts = Object.defineProperty({}, 'passive', {get: function() {supportsPassive = true;}});
 		window.addEventListener('test', null, opts);
-	}
-	catch (e)
-	{
+	} catch (e) {
 		// Just fall through, it does not support passive mouse events
 	}
 
@@ -61,7 +57,8 @@ Elk_QuickQuote.prototype.init = function() {
 	this.mouseUp = hasPointerEvents ? 'pointerup' : is_touch ? 'touchend' : 'mouseup';
 
 	// Initialize Quick Quote, set event listener to all messageContent areas
-	document.querySelectorAll('.messageContent').forEach((message) => {
+	document.querySelectorAll('.messageContent').forEach((message) =>
+	{
 		message.addEventListener(this.mouseDown, this.getEventStartPosition.bind(this), supportsPassive ? {passive: true} : false);
 		message.addEventListener(this.mouseUp, this.getEventEndPosition.bind(this), supportsPassive ? {passive: true} : false);
 		message.addEventListener(this.mouseUp, this.prepareQuickQuoteButton.bind(this), supportsPassive ? {passive: true} : false);
@@ -79,14 +76,15 @@ Elk_QuickQuote.prototype.init = function() {
  *
  * @param {TouchEvent|MouseEvent} event
  */
-Elk_QuickQuote.prototype.getEventStartPosition = function(event) {
-	if (typeof event.changedTouches === 'undefined')
+Elk_QuickQuote.prototype.getEventStartPosition = function (event)
+{
+	if (typeof event.changedTouches !== 'undefined')
 	{
-		this.startPointerX = event.clientX;
+		this.startPointerX = event.changedTouches[0].pageX;
 	}
 	else
 	{
-		this.startPointerX = event.changedTouches[0].pageX;
+		this.startPointerX = event.clientX;
 	}
 };
 
@@ -95,14 +93,15 @@ Elk_QuickQuote.prototype.getEventStartPosition = function(event) {
  *
  * @param {TouchEvent|MouseEvent} event
  */
-Elk_QuickQuote.prototype.getEventEndPosition = function(event) {
-	if (typeof event.changedTouches === 'undefined')
+Elk_QuickQuote.prototype.getEventEndPosition = function (event)
+{
+	if (typeof event.changedTouches !== 'undefined')
 	{
-		this.endPointerX = event.clientX;
+		this.endPointerX = event.changedTouches[0].pageX;
 	}
 	else
 	{
-		this.endPointerX = event.changedTouches[0].pageX;
+		this.endPointerX = event.clientX;
 	}
 
 	this.pointerDirection = this.endPointerX > this.startPointerX ? 'right' : 'left';
@@ -115,7 +114,8 @@ Elk_QuickQuote.prototype.getEventEndPosition = function(event) {
  * @param {PointerEvent} event
  * @return {Object} Returns the x and y position
  */
-Elk_QuickQuote.prototype.getEventPosition = function(event) {
+Elk_QuickQuote.prototype.getEventPosition = function (event)
+{
 	// Set an approximate position as a backup
 	let posRight = window.innerWidth - event.pageX - 10,
 		posLeft = event.pageX,
@@ -153,7 +153,8 @@ Elk_QuickQuote.prototype.getEventPosition = function(event) {
  * @param {PointerEvent} event The event
  * @param {HTMLElement} button The element to position
  */
-Elk_QuickQuote.prototype.setButtonPosition = function(event, button) {
+Elk_QuickQuote.prototype.setButtonPosition = function (event, button)
+{
 	let clickCoords = this.getEventPosition(event),
 		buttonBottom = clickCoords.bottom + button.offsetHeight,
 		windowBottom = window.scrollY + window.innerHeight;
@@ -188,7 +189,7 @@ Elk_QuickQuote.prototype.setButtonPosition = function(event, button) {
 		}
 		else
 		{
-			button.style.right = clickCoords.right + 'px';
+			button.style.right = clickCoords.right + "px";
 		}
 	}
 	else
@@ -196,11 +197,11 @@ Elk_QuickQuote.prototype.setButtonPosition = function(event, button) {
 		if (clickCoords.left + button.offsetWidth > postPos.right)
 		{
 			let shift = (clickCoords.left + button.offsetWidth) - postPos.right;
-			button.style.right = Math.round(clickCoords.right - shift - 10) + 'px';
+			button.style.right = Math.round(clickCoords.right - shift - 10) + "px";
 		}
 		else
 		{
-			button.style.right = clickCoords.right - button.offsetWidth + 'px';
+			button.style.right = clickCoords.right - button.offsetWidth + "px";
 		}
 	}
 };
@@ -210,7 +211,8 @@ Elk_QuickQuote.prototype.setButtonPosition = function(event, button) {
  *
  * @param {object} node
  */
-Elk_QuickQuote.prototype.setHiddenFlag = function(node) {
+Elk_QuickQuote.prototype.setHiddenFlag = function (node)
+{
 	if (!node)
 	{
 		return;
@@ -218,7 +220,8 @@ Elk_QuickQuote.prototype.setHiddenFlag = function(node) {
 
 	if (typeof node.item === 'function')
 	{
-		node.forEach((asNode) => {
+		node.forEach((asNode) =>
+		{
 			this.setHiddenFlag(asNode);
 		});
 	}
@@ -246,35 +249,18 @@ Elk_QuickQuote.prototype.setHiddenFlag = function(node) {
  * @param {Node} node
  * @returns {string}
  */
-Elk_QuickQuote.prototype.isHidden = function(node) {
+Elk_QuickQuote.prototype.isHidden = function (node)
+{
 	if (node && node.nodeType === Node.ELEMENT_NODE)
 	{
 		let compStyles = getComputedStyle(node, '');
 
-		if (node.nodeName.toLowerCase() === 'br')
-		{
-			return '';
-		}
-		if (compStyles.display === 'none')
-		{
-			return 'display:none';
-		}
-		if (compStyles.visibility === 'hidden')
-		{
-			return 'visibility:hidden';
-		}
-		if (parseFloat(compStyles.opacity) < 0.1)
-		{
-			return 'opacity';
-		}
-		if (node.offsetHeight < 4)
-		{
-			return 'offsetHeight';
-		}
-		if (node.offsetWidth < 4)
-		{
-			return 'offsetWidth';
-		}
+		if (node.nodeName.toLowerCase() === 'br') return '';
+		if (compStyles.display === 'none') return 'display:none';
+		if (compStyles.visibility === 'hidden') return 'visibility:hidden';
+		if (parseFloat(compStyles.opacity) < 0.1) return 'opacity';
+		if (node.offsetHeight < 4) return 'offsetHeight';
+		if (node.offsetWidth < 4) return 'offsetWidth';
 
 		return '';
 	}
@@ -289,20 +275,23 @@ Elk_QuickQuote.prototype.isHidden = function(node) {
  * @param {array} props
  * @returns {{start: string, end: string}}
  */
-Elk_QuickQuote.prototype.checkCSSProps = function(node, props) {
+Elk_QuickQuote.prototype.checkCSSProps = function (node, props)
+{
 	let start = '',
 		end = '',
 		value;
 
-	props.forEach((prop) => {
+	props.forEach((prop) =>
+	{
 		// Check for class name
-		if (typeof prop.isClass === 'undefined')
-		{
-			value = this.trim(node.style[prop.name] || '', ' "');
-		}
-		else
+		if (typeof prop.isClass !== 'undefined')
 		{
 			value = node.classList.contains(prop.name) ? prop.name : '';
+		}
+		// Or style attribute
+		else
+		{
+			value = this.trim(node.style[prop.name] || '', ' "');
 		}
 
 		if ((prop.forceValue && value === prop.forceValue) || (!prop.forceValue && value))
@@ -321,7 +310,8 @@ Elk_QuickQuote.prototype.checkCSSProps = function(node, props) {
  * @param {object} node
  * @returns {string}
  */
-Elk_QuickQuote.prototype.treeToBBCode = function(node) {
+Elk_QuickQuote.prototype.treeToBBCode = function (node)
+{
 	let checked,
 		start,
 		end,
@@ -330,7 +320,8 @@ Elk_QuickQuote.prototype.treeToBBCode = function(node) {
 
 	if (typeof node.item === 'function')
 	{
-		node.forEach((asNode) => {
+		node.forEach((asNode) =>
+		{
 			bb.push(this.treeToBBCode(asNode));
 		});
 
@@ -368,7 +359,7 @@ Elk_QuickQuote.prototype.treeToBBCode = function(node) {
 							bb.push(this.treeToBBCode(node.childNodes));
 							bb.push('[/email]');
 						}
-						else if (node.className.indexOf('attach') >= 0)
+						else if (node.className.indexOf("attach") >= 0)
 						{
 							bb.push('[attach=' + node.href + ']');
 							bb.push(this.treeToBBCode(node.childNodes));
@@ -409,11 +400,12 @@ Elk_QuickQuote.prototype.treeToBBCode = function(node) {
 						];
 						checked = this.checkCSSProps(node, props);
 
-						bb.push((checked.start === '') ? '[list]' : checked.start);
+						bb.push((checked.start !== '') ? checked.start : '[list]');
 
 						let lis = node.querySelectorAll('li');
 
-						lis.forEach((li) => {
+						lis.forEach((li) =>
+						{
 							bb.push('\n  [*] ' + this.trim(this.treeToBBCode(li)));
 						});
 
@@ -451,7 +443,7 @@ Elk_QuickQuote.prototype.treeToBBCode = function(node) {
 						bb.push(this.treeToBBCode(node.childNodes));
 						break;
 					case 'blockquote':
-						if (node.classList.contains('bbc_quote'))
+						if (node.classList.contains("bbc_quote"))
 						{
 							let author = node.getAttribute('data-quoted'),
 								datetime = node.getAttribute('data-datetime'),
@@ -502,7 +494,8 @@ Elk_QuickQuote.prototype.treeToBBCode = function(node) {
  * @param {string|null} charToReplace
  * @returns {string}
  */
-Elk_QuickQuote.prototype.trim = function(str, charToReplace) {
+Elk_QuickQuote.prototype.trim = function (str, charToReplace)
+{
 	if (charToReplace)
 	{
 		return String(str).replace(new RegExp('^[' + charToReplace + ']+|[' + charToReplace + ']+$', 'g'), '');
@@ -517,7 +510,8 @@ Elk_QuickQuote.prototype.trim = function(str, charToReplace) {
  * @param {Object} img
  * @returns {string}
  */
-Elk_QuickQuote.prototype.getSmileyCode = function(img) {
+Elk_QuickQuote.prototype.getSmileyCode = function (img)
+{
 	if (img.alt && img.className && img.classList.contains('smiley'))
 	{
 		// Alternative text corresponds to smiley and emoji code
@@ -532,7 +526,8 @@ Elk_QuickQuote.prototype.getSmileyCode = function(img) {
  *
  * @param {PointerEvent} event
  */
-Elk_QuickQuote.prototype.executeQuickQuote = function(event) {
+Elk_QuickQuote.prototype.executeQuickQuote = function (event)
+{
 	event.preventDefault();
 	event.stopImmediatePropagation();
 
@@ -591,32 +586,58 @@ Elk_QuickQuote.prototype.executeQuickQuote = function(event) {
 
 		let selectedText = this.trim(this.treeToBBCode(selectionContents));
 
-		// Full Editor
-		let $editor = $editor_data[post_box_name],
-			text = startTag + selectedText + endTag;
-
-		// Add the text to the editor
-		$editor.insert(this.trim(text));
-
-		// In wizzy mode, we need to move the cursor out of the quote block
-		let
-			rangeHelper = $editor.getRangeHelper(),
-			parent = rangeHelper.parentNode();
-
-		if (parent && parent.nodeName === 'BLOCKQUOTE')
+		if (typeof oQuickReply === 'undefined' || oQuickReply.bIsFull)
 		{
-			let range = rangeHelper.selectedRange();
+			// Full Editor
+			let $editor = $editor_data[post_box_name],
+				text = startTag + selectedText + endTag;
 
-			range.setStartAfter(parent);
-			rangeHelper.selectRange(range);
+			// Add the text to the editor
+			$editor.insert(this.trim(text));
+
+			// In wizzy mode, we need to move the cursor out of the quote block
+			let
+				rangeHelper = $editor.getRangeHelper(),
+				parent = rangeHelper.parentNode();
+
+			if (parent && parent.nodeName === 'BLOCKQUOTE')
+			{
+				let range = rangeHelper.selectedRange();
+
+				range.setStartAfter(parent);
+				rangeHelper.selectRange(range);
+			}
+			else
+			{
+				$editor.insert('\n');
+			}
 		}
 		else
 		{
-			$editor.insert('\n');
+			// Just the textarea
+			let textarea = document.querySelector('#postmodify').message,
+				newText = (textarea.value ? textarea.value + '\n' : '') + startTag + selectedText + endTag + '\n';
+
+			textarea.value = newText;
+
+			// Reading again, to get normalized white-space
+			newText = textarea.value;
+			textarea.setSelectionRange(newText.length, newText.length);
+
+			// Needed for Webkit/Blink
+			textarea.blur();
+			textarea.focus();
 		}
 
 		// Move to the editor
-		document.getElementById('editor_toolbar_container').scrollIntoView();
+		if (typeof oQuickReply !== 'undefined')
+		{
+			document.getElementById(oQuickReply.opt.sJumpAnchor).scrollIntoView();
+		}
+		else
+		{
+			document.getElementById("editor_toolbar_container").scrollIntoView();
+		}
 	}
 };
 
@@ -625,12 +646,14 @@ Elk_QuickQuote.prototype.executeQuickQuote = function(event) {
  *
  * @param {Element} selectionAncestor
  */
-Elk_QuickQuote.prototype.handleQuote = function(selectionAncestor) {
+Elk_QuickQuote.prototype.handleQuote = function(selectionAncestor)
+{
 	let data_quoted = '',
 		data_link = '',
 		data_datetime = '';
 
-	let cite = selectionAncestor.firstChild;
+	// The quoteheader
+	let cite = selectionAncestor.previousSibling;
 
 	// Extract the cite details
 	if (cite.textContent.includes(':'))
@@ -638,7 +661,7 @@ Elk_QuickQuote.prototype.handleQuote = function(selectionAncestor) {
 		data_quoted = cite.textContent.split(':')[1].trim();
 	}
 
-	// Name and date may be separated by &ndash; as author - date
+	// Check for &ndash; used to seperate name from date
 	let separator = ' ' + String.fromCharCode(8211) + ' ';
 	if (data_quoted.includes(separator))
 	{
@@ -667,7 +690,8 @@ Elk_QuickQuote.prototype.handleQuote = function(selectionAncestor) {
  *
  * @param {PointerEvent} event
  */
-Elk_QuickQuote.prototype.prepareQuickQuoteButton = function(event) {
+Elk_QuickQuote.prototype.prepareQuickQuoteButton = function (event)
+{
 	// The message that this event is attached to
 	let postArea = event.currentTarget;
 
@@ -678,25 +702,21 @@ Elk_QuickQuote.prototype.prepareQuickQuoteButton = function(event) {
 		time_unix;
 
 	// If there is some text selected
-	if (!window.getSelection().isCollapsed && link.classList.contains('hide'))
+	if (!window.getSelection().isCollapsed && msgid && link.classList.contains('hide'))
 	{
 		// Show and then position the button
 		link.classList.remove('hide');
+
+		// These are here to support old themes
+		link.style.display = 'inline-block';
+		link.style.position = 'absolute';
+		link.style.zIndex = '10000';
+
 		this.setButtonPosition(event, link);
 
-		// Topic Display, Grab the name / time from the aside area
-		if (this.postSelector === '.postarea')
-		{
-			username = (postArea.parentNode.previousElementSibling.querySelector('.name').textContent).trim();
-			let keyInfo = document.getElementById('info_' + msgid);
-			time_unix = keyInfo.querySelector('time').getAttribute('data-forumtime');
-		}
-		// Topic Summary on post page
-		else
-		{
-			username = (postArea.parentNode.querySelector('.name').textContent).trim();
-			time_unix = postArea.parentNode.querySelector('time').getAttribute('data-forumtime');
-		}
+		// Grab the name from the aside area
+		username = (postArea.parentNode.previousElementSibling.querySelector('.name').textContent).trim();
+		time_unix = postArea.parentNode.querySelector('time').getAttribute('data-forumtime');
 
 		// Build the quick quote wrapper and set the button click event
 		link.startTag = '[quote' +
@@ -722,7 +742,8 @@ Elk_QuickQuote.prototype.prepareQuickQuoteButton = function(event) {
  * @param {PointerEvent} event
  * @param {boolean} always
  */
-Elk_QuickQuote.prototype.removeQuickQuote = function(event, always = false) {
+Elk_QuickQuote.prototype.removeQuickQuote = function (event, always = false)
+{
 	event.stopImmediatePropagation();
 
 	// Nothing selected, reset the UI and listeners
@@ -734,9 +755,11 @@ Elk_QuickQuote.prototype.removeQuickQuote = function(event, always = false) {
 			link;
 
 		// Reset the UI on de-selection
-		topicContents.forEach((message) => {
+		topicContents.forEach((message) =>
+		{
 			link = message.parentElement.querySelector('.quick_quote_button');
 			link.classList.add('hide');
+			link.style.display = 'none';
 			link.removeEventListener(this.mouseDown, this.execute, true);
 		});
 	}

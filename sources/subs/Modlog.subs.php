@@ -3,19 +3,17 @@
 /**
  * Moderation log helper functions.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.1
  *
  */
-
-use ElkArte\Helper\Util;
-use ElkArte\User;
 
 /**
  * Get the number of mod log entries.
@@ -24,34 +22,34 @@ use ElkArte\User;
  * @param string|null $query_string
  * @param mixed[] $query_params
  * @param int $log_type
- *
- * @return int
  */
 function list_getModLogEntryCount($query_string = '', $query_params = array(), $log_type = 1)
 {
+	global $user_info;
+
 	$db = database();
 
-	$modlog_query = allowedTo('admin_forum') || User::$info->mod_cache['bq'] == '1=1' ? '1=1' : (User::$info->mod_cache['bq'] == '0=1' ? 'lm.id_board = 0 AND lm.id_topic = 0' : (strtr(User::$info->mod_cache['bq'], array('id_board' => 'b.id_board')) . ' AND ' . strtr(User::$info->mod_cache['bq'], array('id_board' => 't.id_board'))));
+	$modlog_query = allowedTo('admin_forum') || $user_info['mod_cache']['bq'] == '1=1' ? '1=1' : ($user_info['mod_cache']['bq'] == '0=1' ? 'lm.id_board = 0 AND lm.id_topic = 0' : (strtr($user_info['mod_cache']['bq'], array('id_board' => 'b.id_board')) . ' AND ' . strtr($user_info['mod_cache']['bq'], array('id_board' => 't.id_board'))));
 
-	$request = $db->query('', '
-		SELECT 
-			COUNT(*)
+	$result = $db->query('', '
+		SELECT COUNT(*)
 		FROM {db_prefix}log_actions AS lm
 			LEFT JOIN {db_prefix}members AS mem ON (mem.id_member = lm.id_member)
 			LEFT JOIN {db_prefix}membergroups AS mg ON (mg.id_group = CASE WHEN mem.id_group = {int:reg_group_id} THEN mem.id_post_group ELSE mem.id_group END)
 			LEFT JOIN {db_prefix}boards AS b ON (b.id_board = lm.id_board)
 			LEFT JOIN {db_prefix}topics AS t ON (t.id_topic = lm.id_topic)
 		WHERE id_log = {int:log_type}
-			AND {raw:modlog_query}'	. (!empty($query_string) ? '
-			AND ' . $query_string : ''),
+			AND {raw:modlog_query}'
+			. (!empty($query_string) ? '
+				AND ' . $query_string : ''),
 		array_merge($query_params, array(
 			'reg_group_id' => 0,
 			'log_type' => $log_type,
 			'modlog_query' => $modlog_query,
 		))
 	);
-	list ($entry_count) = $request->fetch_row();
-	$request->free_result();
+	list ($entry_count) = $db->fetch_row($result);
+	$db->free_result($result);
 
 	return $entry_count;
 }
@@ -61,33 +59,29 @@ function list_getModLogEntryCount($query_string = '', $query_params = array(), $
  * Callback for createList() in Modlog::action_log().
  *
  * @param int $start The item to start with (for pagination purposes)
- * @param int $items_per_page The number of items to show per page
+ * @param int $items_per_page  The number of items to show per page
  * @param string $sort A string indicating how to sort the results
  * @param string|null $query_string
  * @param mixed[] $query_params
  * @param int $log_type
- *
- * @return array
  */
 function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '', $query_params = array(), $log_type = 1)
 {
-	global $context, $scripturl, $txt;
+	global $context, $scripturl, $txt, $user_info;
 
 	$db = database();
 
-	$modlog_query = allowedTo('admin_forum') || User::$info->mod_cache['bq'] == '1=1' ? '1=1' : (User::$info->mod_cache['bq'] == '0=1' ? 'lm.id_board = 0 AND lm.id_topic = 0' : (strtr(User::$info->mod_cache['bq'], array('id_board' => 'b.id_board')) . ' AND ' . strtr(User::$info->mod_cache['bq'], array('id_board' => 't.id_board'))));
+	$modlog_query = allowedTo('admin_forum') || $user_info['mod_cache']['bq'] == '1=1' ? '1=1' : ($user_info['mod_cache']['bq'] == '0=1' ? 'lm.id_board = 0 AND lm.id_topic = 0' : (strtr($user_info['mod_cache']['bq'], array('id_board' => 'b.id_board')) . ' AND ' . strtr($user_info['mod_cache']['bq'], array('id_board' => 't.id_board'))));
 
 	// Do a little bit of self protection.
 	if (!isset($context['hoursdisable']))
-	{
 		$context['hoursdisable'] = 24;
-	}
 
 	// Can they see the IP address?
 	$seeIP = allowedTo('moderate_forum');
 
 	// Here we have the query getting the log details.
-	$request = $db->fetchQuery('
+	$result = $db->query('', '
 		SELECT
 			lm.id_action, lm.id_member, lm.ip, lm.log_time, lm.action, lm.id_board, lm.id_topic, lm.id_msg, lm.extra,
 			mem.real_name, mg.group_name
@@ -98,10 +92,10 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 			LEFT JOIN {db_prefix}topics AS t ON (t.id_topic = lm.id_topic)
 			WHERE id_log = {int:log_type}
 				AND {raw:modlog_query}'
-		. (!empty($query_string) ? '
+			. (!empty($query_string) ? '
 				AND ' . $query_string : '') . '
 		ORDER BY ' . $sort . '
-		LIMIT ' . $items_per_page . '  OFFSET ' . $start,
+		LIMIT ' . $start . ', ' . $items_per_page,
 		array_merge($query_params, array(
 			'reg_group_id' => 0,
 			'log_type' => $log_type,
@@ -115,7 +109,7 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 	$members = array();
 	$messages = array();
 	$entries = array();
-	while (($row = $request->fetch_assoc()))
+	while ($row = $db->fetch_assoc($result))
 	{
 		$row['extra'] = Util::unserialize($row['extra']);
 
@@ -126,44 +120,28 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 		if (!empty($row['id_board']))
 		{
 			if ($row['action'] == 'move')
-			{
 				$row['extra']['board_to'] = $row['id_board'];
-			}
 			else
-			{
 				$row['extra']['board'] = $row['id_board'];
-			}
 		}
 
 		if (!empty($row['id_topic']))
-		{
 			$row['extra']['topic'] = $row['id_topic'];
-		}
-
 		if (!empty($row['id_msg']))
-		{
 			$row['extra']['message'] = $row['id_msg'];
-		}
 
 		// Is this associated with a topic?
 		if (isset($row['extra']['topic']))
-		{
 			$topics[(int) $row['extra']['topic']][] = $row['id_action'];
-		}
-
 		if (isset($row['extra']['new_topic']))
-		{
 			$topics[(int) $row['extra']['new_topic']][] = $row['id_action'];
-		}
 
 		// How about a member?
 		if (isset($row['extra']['member']))
 		{
 			// Guests don't have names!
 			if (empty($row['extra']['member']))
-			{
 				$row['extra']['member'] = $txt['modlog_parameter_guest'];
-			}
 			else
 			{
 				// Try to find it...
@@ -173,68 +151,40 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 
 		// Associated with a board?
 		if (isset($row['extra']['board_to']))
-		{
 			$boards[(int) $row['extra']['board_to']][] = $row['id_action'];
-		}
-
 		if (isset($row['extra']['board_from']))
-		{
 			$boards[(int) $row['extra']['board_from']][] = $row['id_action'];
-		}
-
 		if (isset($row['extra']['board']))
-		{
 			$boards[(int) $row['extra']['board']][] = $row['id_action'];
-		}
 
 		// A message?
 		if (isset($row['extra']['message']))
-		{
 			$messages[(int) $row['extra']['message']][] = $row['id_action'];
-		}
 
 		// IP Info?
 		if (isset($row['extra']['ip_range']))
-		{
 			if ($seeIP)
-			{
 				$row['extra']['ip_range'] = '<a href="' . $scripturl . '?action=trackip;searchip=' . $row['extra']['ip_range'] . '">' . $row['extra']['ip_range'] . '</a>';
-			}
 			else
-			{
 				$row['extra']['ip_range'] = $txt['logged'];
-			}
-		}
 
 		// Email?
 		if (isset($row['extra']['email']))
-		{
 			$row['extra']['email'] = '<a href="mailto:' . $row['extra']['email'] . '">' . $row['extra']['email'] . '</a>';
-		}
 
 		// Bans are complex.
 		if ($row['action'] == 'ban')
 		{
 			if (!isset($row['extra']['new']) || $row['extra']['new'] == 1)
-			{
 				$row['action_text'] = $txt['modlog_ac_ban'];
-			}
 			elseif ($row['extra']['new'] == 0)
-			{
 				$row['action_text'] = $txt['modlog_ac_ban_update'];
-			}
 			else
-			{
 				$row['action_text'] = $txt['modlog_ac_ban_remove'];
-			}
 
 			foreach (array('member', 'email', 'ip_range', 'hostname') as $type)
-			{
 				if (isset($row['extra'][$type]))
-				{
 					$row['action_text'] .= $txt['modlog_ac_ban_trigger_' . $type];
-				}
-			}
 		}
 
 		// The array to go to the template. Note here that action is set to a "default" value of the action doesn't match anything in the descriptions. Allows easy adding of logging events with basic details.
@@ -249,10 +199,10 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 			'editable' => time() > $row['log_time'] + $context['hoursdisable'] * 3600,
 			'extra' => $row['extra'],
 			'action' => $row['action'],
-			'action_text' => $row['action_text'] ?? '',
+			'action_text' => isset($row['action_text']) ? $row['action_text'] : '',
 		);
 	}
-	$request->free_result();
+	$db->free_result($result);
 
 	if (!empty($boards))
 	{
@@ -265,26 +215,19 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 			{
 				// Make the board number into a link - dealing with moving too.
 				if (isset($entries[$action]['extra']['board_to']) && $entries[$action]['extra']['board_to'] == $row['id_board'])
-				{
 					$entries[$action]['extra']['board_to'] = '<a href="' . $scripturl . '?board=' . $row['id_board'] . '.0">' . $row['name'] . '</a>';
-				}
 				elseif (isset($entries[$action]['extra']['board_from']) && $entries[$action]['extra']['board_from'] == $row['id_board'])
-				{
 					$entries[$action]['extra']['board_from'] = '<a href="' . $scripturl . '?board=' . $row['id_board'] . '.0">' . $row['name'] . '</a>';
-				}
 				elseif (isset($entries[$action]['extra']['board']) && $entries[$action]['extra']['board'] == $row['id_board'])
-				{
 					$entries[$action]['extra']['board'] = '<a href="' . $scripturl . '?board=' . $row['id_board'] . '.0">' . $row['name'] . '</a>';
-				}
 			}
 		}
 	}
 
 	if (!empty($topics))
 	{
-		$request = $db->fetchQuery('
-			SELECT 
-				ms.subject, t.id_topic
+		$request = $db->query('', '
+			SELECT ms.subject, t.id_topic
 			FROM {db_prefix}topics AS t
 				INNER JOIN {db_prefix}messages AS ms ON (ms.id_msg = t.id_first_msg)
 			WHERE t.id_topic IN ({array_int:topic_list})
@@ -293,7 +236,7 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 				'topic_list' => array_keys($topics),
 			)
 		);
-		while (($row = $request->fetch_assoc()))
+		while ($row = $db->fetch_assoc($request))
 		{
 			foreach ($topics[$row['id_topic']] as $action)
 			{
@@ -309,23 +252,18 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 
 				// Make the topic number into a link - dealing with splitting too.
 				if (isset($this_action['extra']['topic']) && $this_action['extra']['topic'] == $row['id_topic'])
-				{
 					$this_action['extra']['topic'] = '<a href="' . $scripturl . '?topic=' . $row['id_topic'] . '.' . (isset($this_action['extra']['message']) ? 'msg' . $this_action['extra']['message'] . '#msg' . $this_action['extra']['message'] : '0') . '">' . $row['subject'] . '</a>';
-				}
 				elseif (isset($this_action['extra']['new_topic']) && $this_action['extra']['new_topic'] == $row['id_topic'])
-				{
 					$this_action['extra']['new_topic'] = '<a href="' . $scripturl . '?topic=' . $row['id_topic'] . '.' . (isset($this_action['extra']['message']) ? 'msg' . $this_action['extra']['message'] . '#msg' . $this_action['extra']['message'] : '0') . '">' . $row['subject'] . '</a>';
-				}
 			}
 		}
-		$request->free_result();
+		$db->free_result($request);
 	}
 
 	if (!empty($messages))
 	{
 		$request = $db->query('', '
-			SELECT 
-				id_msg, subject
+			SELECT id_msg, subject
 			FROM {db_prefix}messages
 			WHERE id_msg IN ({array_int:message_list})
 			LIMIT ' . count(array_keys($messages)),
@@ -333,7 +271,7 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 				'message_list' => array_keys($messages),
 			)
 		);
-		while (($row = $request->fetch_assoc()))
+		while ($row = $db->fetch_assoc($request))
 		{
 			foreach ($messages[$row['id_msg']] as $action)
 			{
@@ -349,12 +287,10 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 
 				// Make the message number into a link.
 				if (isset($this_action['extra']['message']) && $this_action['extra']['message'] == $row['id_msg'])
-				{
 					$this_action['extra']['message'] = '<a href="' . $scripturl . '?msg=' . $row['id_msg'] . '">' . $row['subject'] . '</a>';
-				}
 			}
 		}
-		$request->free_result();
+		$db->free_result($request);
 	}
 
 	if (!empty($members))
@@ -382,29 +318,21 @@ function list_getModLogEntries($start, $items_per_page, $sort, $query_string = '
 	}
 
 	// Do some formatting of the action string.
-	$callback = new ModLogEntriesReplacement();
+	$callback = new ModLogEntriesReplacement;
 	$callback->entries = $entries;
 	foreach ($entries as $k => $entry)
 	{
 		// Make any message info links so its easier to go find that message.
 		if (isset($entry['extra']['message']) && (empty($entry['message']) || empty($entry['message']['id'])))
-		{
 			$entries[$k]['extra']['message'] = '<a href="' . $scripturl . '?msg=' . $entry['extra']['message'] . '">' . $entry['extra']['message'] . '</a>';
-		}
 
 		// Mark up any deleted members, topics and boards.
 		foreach (array('board', 'board_from', 'board_to', 'member', 'topic', 'new_topic') as $type)
-		{
 			if (!empty($entry['extra'][$type]) && is_numeric($entry['extra'][$type]))
-			{
 				$entries[$k]['extra'][$type] = sprintf($txt['modlog_id'], $entry['extra'][$type]);
-			}
-		}
 
 		if (empty($entries[$k]['action_text']))
-		{
-			$entries[$k]['action_text'] = $txt['modlog_ac_' . $entry['action']] ?? $entry['action'];
-		}
+			$entries[$k]['action_text'] = isset($txt['modlog_ac_' . $entry['action']]) ? $txt['modlog_ac_' . $entry['action']] : $entry['action'];
 
 		$callback->key = $k;
 		$entries[$k]['action_text'] = preg_replace_callback('~\{([A-Za-z\d_]+)\}~i', array($callback, 'callback'), $entries[$k]['action_text']);
@@ -429,12 +357,13 @@ class ModLogEntriesReplacement
 	 * Matching function to return the value in the callback
 	 *
 	 * @param string[] $matches
-	 *
-	 * @return string
 	 */
 	public function callback($matches)
 	{
-		return $this->entries[$this->key]['extra'][$matches[1]] ?? '';
+		if (isset($this->entries[$this->key]['extra'][$matches[1]]))
+			return $this->entries[$this->key]['extra'][$matches[1]];
+		else
+			return '';
 	}
 }
 
@@ -467,16 +396,13 @@ function deleteLogAction($id_log, $time, $delete = null)
  *
  * @param string $action Name of the action
  * @param int $time Timeframe since the last time the action has been performed
- *
- * @return bool
  */
 function recentlyLogged($action, $time = 60)
 {
 	$db = database();
 
 	$request = $db->query('', '
-		SELECT 
-			COUNT(*)
+		SELECT COUNT(*)
 		FROM {db_prefix}log_actions
 		WHERE action = {string:action}
 			AND log_time >= {int:last_logged}',
@@ -485,8 +411,8 @@ function recentlyLogged($action, $time = 60)
 			'last_logged' => time() - $time,
 		)
 	);
-	list ($present) = $request->fetch_row();
-	$request->free_result();
+	list ($present) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return !empty($present);
 }

@@ -1,109 +1,79 @@
 /*!
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * This file contains code covered by:
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:		BSD, See included LICENSE.TXT for terms and conditions.
+ *
+ * @version 1.1.9
  */
 
 /**
  * This file contains javascript associated with the current theme
  */
 
-// Normal JS document ready event
-document.addEventListener('DOMContentLoaded', function() {
-
-	// If they touch the screen, then we switch to click menus
-	window.addEventListener('touchstart', onFirstTouch, false);
-
-	// Or if they specifically only want click menus
+$(function() {
+	// Menu drop downs
 	if (use_click_menu)
-	{
-		useClickMenu();
-	}
-
-	// Fix code blocks so they are as compact as possible
-	if (typeof elk_codefix === 'function')
-	{
-		elk_codefix();
-	}
-
-	if (typeof elk_quotefix === 'function')
-	{
-		elk_quotefix();
-	}
-
-	// If you want a sticky menu on scroll, add an appropriate .sticky css class to your theme
-	stickyMenu();
+		$('#main_menu, ul.admin_menu, ul.sidebar_menu, ul.poster, ul.quickbuttons, #sort_by').superclick({speed: 150, animation: {opacity:'show', height:'toggle'}, speedOut: 0, activeClass: 'sfhover'});
+	else
+		$('#main_menu, ul.admin_menu, ul.sidebar_menu, ul.poster, ul.quickbuttons, #sort_by').superfish({delay : 300, speed: 175, hoverClass: 'sfhover'});
 
 	// Smooth scroll to top.
-	document.getElementById('gotop').addEventListener('click', function(e) {
+	$("a[href='#top']").on("click", function(e) {
 		e.preventDefault();
-		window.scrollTo({top: 0, behavior: 'smooth'});
+		$("html,body").animate({scrollTop: 0}, 1200);
 	});
 
 	// Smooth scroll to bottom.
-	document.getElementById('gobottom').addEventListener('click', function(e) {
+	$("a[href='#bot']").on("click", function(e) {
 		e.preventDefault();
 
 		// Don't scroll all the way down to the footer, just the content bottom
-		let link = document.querySelector('#footer_section'),
-			linkY = link.offsetHeight,
-			heightDiff = link.getBoundingClientRect().top + linkY - window.innerHeight;
+		var link = $('#bot'),
+			link_y = link.height();
 
-		window.scrollBy({top: heightDiff, behavior: 'smooth'});
+		$("html,body").animate({scrollTop:link.offset().top + link_y - $(window).height()}, 1200);
 	});
+
+	// Tooltips
+	if ((!is_mobile && !is_touch) || use_click_menu)
+		$('.preview').SiteTooltip({hoverIntent: {sensitivity: 10, interval: 750, timeout: 50}});
 
 	// Find all nested linked images and turn off the border
-	let elements = document.querySelectorAll('a.bbc_link img.bbc_img');
-	for (let i = 0; i < elements.length; i++)
-	{
-		let parentElement = elements[i].parentNode;
-		parentElement.style.border = '0';
-	}
+	$('a.bbc_link img.bbc_img').parent().css('border', '0');
 
-	// Expand the moderation hamburger icon/button view for mobile devices
-	let hamburger = document.querySelector('.hamburger_30');
-	if (hamburger)
-	{
-		hamburger.addEventListener('click', function(e) {
-			let id = this.getAttribute('data-id');
-			e.preventDefault();
-			document.getElementById(id).classList.add('visible');
-			this.classList.add('visible');
-		});
-	}
+	// Fix code blocks so they are as compact as possible
+	if (typeof elk_codefix === 'function')
+		elk_codefix();
+
+	// Remove "show more" from short quotes
+	if (typeof elk_quotefix === 'function')
+		elk_quotefix();
+
+	// Enable the ... page expansion
+	$('.expand_pages').expand_pages();
 
 	// Collapsible fieldsets, pure candy
-	document.querySelector('body').addEventListener('click', function(event) {
-		if (event.target.matches('legend'))
-		{
-			let siblings = elkGetSiblings(event.target);
-			siblings.forEach(sib => sib.slideToggle());
-			event.target.parentNode.classList.toggle('collapsed');
-		}
+	$(document).on('click', 'legend', function() {
+		$(this).siblings().slideToggle("fast");
+		$(this).parent().toggleClass("collapsed");
 	});
 
-	// For any legends with data-collapsed="true", start them collapsed
-	document.querySelectorAll('legend').forEach(function(el) {
-		if (el.getAttribute('data-collapsed') !== null)
-		{
-			el.click();
-		}
+	$('legend').each(function () {
+		if ($(this).data('collapsed'))
+			$(this).click();
 	});
 
 	// Spoiler
-	document.querySelectorAll('.spoilerheader').forEach(element => {
-		element.addEventListener('click', function() {
-			element.nextElementSibling.children[0].slideToggle(250);
-		});
+	$('.spoilerheader').click(function() {
+		var $img = $(this).find('img');
+		var $box = $(this).next().children();
+		$img.attr("src", elk_images_url + ($box.is(":hidden") !== true ? "/selected.png" : "/selected_open.png"));
+		$box.slideToggle("fast");
 	});
-});
-
-// Jquery document ready
-$(function() {
-	// Enable the ... page expansion
-	$('.expand_pages').expand_pages();
 
 	// Attachment thumbnail expand on click, you can turn off this namespaced click
 	// event with $('[data-lightboximage]').off('click.elk_lb');
@@ -116,15 +86,13 @@ $(function() {
 	$('img').each(function() {
 		// Not a resized image? Skip it.
 		if ($(this).hasClass('bbc_img resized') === false)
-		{
 			return true;
-		}
 
 		$(this).css({'cursor': 'pointer'});
 
 		// Note to addon authors, if you want to enable your own click events to bbc images
 		// you can turn off this namespaced click event with $("img").off("click.elk_bbc")
-		$(this).on('click.elk_bbc', function() {
+		$(this).on( "click.elk_bbc", function() {
 			var $this = $(this);
 
 			// No saved data, then lets set it to auto
@@ -147,10 +115,10 @@ $(function() {
 			else
 			{
 				// Was clicked and saved, so set it back
-				$this.css({'width': $this.data('bbc_img').width});
-				$this.css({'height': $this.data('bbc_img').height});
-				$this.css({'max-width': $this.data('bbc_img')['max-width']});
-				$this.css({'max-height': $this.data('bbc_img')['max-height']});
+				$this.css({'width': $this.data("bbc_img").width});
+				$this.css({'height': $this.data("bbc_img").height});
+				$this.css({'max-width': $this.data("bbc_img")['max-width']});
+				$this.css({'max-height': $this.data("bbc_img")['max-height']});
 
 				// Remove the data
 				$this.removeData('bbc_img');
@@ -161,6 +129,13 @@ $(function() {
 			}
 		});
 	});
+
+	$('.hamburger_30').click(function(e) {
+		e.preventDefault();
+		var id = $(this).data('id');
+		$('#' + id).addClass('visible');
+		$(this).addClass('visible');
+	});
 });
 
 /**
@@ -170,20 +145,20 @@ $(function() {
  * @param {boolean} bUseImage
  * @param {object} oOptions
  */
-function elk_addButton (sButtonStripId, bUseImage, oOptions)
+function elk_addButton(sButtonStripId, bUseImage, oOptions)
 {
-	let oButtonStrip = document.getElementById(sButtonStripId),
+	var oButtonStrip = document.getElementById(sButtonStripId),
 		aItems = oButtonStrip.getElementsByTagName('span');
 
 	// Remove the 'last' class from the last item.
 	if (aItems.length > 0)
 	{
-		let oLastSpan = aItems[aItems.length - 1];
+		var oLastSpan = aItems[aItems.length - 1];
 		oLastSpan.className = oLastSpan.className.replace(/\s*last/, 'position_holder');
 	}
 
 	// Add the button.
-	let oButtonStripList = oButtonStrip.getElementsByTagName('ul')[0],
+	var oButtonStripList = oButtonStrip.getElementsByTagName('ul')[0],
 		oNewButton = document.createElement('li'),
 		oRole = document.createAttribute('role');
 
@@ -191,59 +166,8 @@ function elk_addButton (sButtonStripId, bUseImage, oOptions)
 	oNewButton.setAttributeNode(oRole);
 
 	if ('sId' in oOptions)
-	{
 		oNewButton.id = oOptions.sId;
-	}
-
-	oNewButton.innerHTML = '' +
-		'<a class="linklevel1" href="' + oOptions.sUrl + '" ' + ('sCustom' in oOptions ? oOptions.sCustom : '') + '>' +
-		('sImage' in oOptions && bUseImage ? '<i class="icon ' + oOptions.sImage + '"></i>' : '') +
-		'   <span class="last"' + ('sId' in oOptions ? ' id="' + oOptions.sId + '_text"' : '') + '>' +
-		oOptions.sText +
-		'   </span>' +
-		'</a>';
-
-	if (oOptions.aEvents)
-	{
-		oOptions.aEvents.forEach(function(e) {
-			oNewButton.addEventListener(e[0], e[1]);
-		});
-	}
+	oNewButton.innerHTML = '<a class="linklevel1" href="' + oOptions.sUrl + '" ' + ('sCustom' in oOptions ? oOptions.sCustom : '') + '><span class="last"' + ('sId' in oOptions ? ' id="' + oOptions.sId + '_text"': '') + '>' + oOptions.sText + '</span></a>';
 
 	oButtonStripList.appendChild(oNewButton);
-}
-
-function onFirstTouch ()
-{
-	useClickMenu();
-}
-
-function useClickMenu ()
-{
-	// Click Menu drop downs
-	let menus = ['#main_menu', '#sort_by', 'ul.poster', 'ul.quickbuttons', 'ul.admin_menu', 'ul.sidebar_menu'];
-
-	menus.forEach((area) => new elkMenu(area));
-
-	window.removeEventListener('touchstart', onFirstTouch, false);
-}
-
-function stickyMenu ()
-{
-	let menu = document.getElementById('menu_nav');
-
-	if (menu)
-	{
-		let offset = menu.getBoundingClientRect().y;
-		window.onscroll = function() {
-			if (window.scrollY > offset - 5)
-			{
-				menu.classList.add('sticky');
-			}
-			else if (window.scrollY < offset - 20)
-			{
-				menu.classList.remove('sticky');
-			}
-		};
-	}
 }

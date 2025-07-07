@@ -3,95 +3,80 @@
 /**
  * Functions that deal with the database work involved with mentions
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
 
-use ElkArte\User;
-
 /**
- * Counts the number of mentions for a user.
+ * Count the mentions of the current user
+ * callback for createList in action_list of Mentions_Controller
  *
- * @param bool $all Specifies whether to count all mentions or only unread.
- * @param string $type Specifies the type of mention to count. Empty string to count all types.
- * @param int|null $id_member Specifies the ID of the member. If null, the current user's ID will be used.
- *
- * @return int|array The total count of mentions if $type is empty, otherwise an array with counts for each type.
+ * @package Mentions
+ * @param bool $all : if true counts all the mentions, otherwise only the unread
+ * @param string[]|string $type : the type of the mention can be a string or an array of strings.
+ * @param string|null $id_member : the id of the member the counts are for, defaults to user_info['id']
  */
 function countUserMentions($all = false, $type = '', $id_member = null)
 {
+	global $user_info;
 	static $counts;
 
 	$db = database();
-	$id_member = $id_member === null ? User::$info->id : (int) $id_member;
+	$id_member = $id_member === null ? $user_info['id'] : (int) $id_member;
 
-	if (isset($counts[$id_member][$type]))
-	{
-		return $counts[$id_member][$type];
-	}
+	if (isset($counts[$id_member]))
+		return $counts[$id_member];
 
-	$allTypes = getMentionTypes($id_member, $all === true ? 'system' : 'user');
-	foreach ($allTypes as $thisType)
-	{
-		$counts[$id_member][$thisType] = 0;
-	}
-	$counts[$id_member]['total'] = 0;
-
-	$db->fetchQuery('
-		SELECT 
-			mention_type, COUNT(*) AS cnt
+	$request = $db->query('', '
+		SELECT COUNT(*)
 		FROM {db_prefix}log_mentions as mtn
 		WHERE mtn.id_member = {int:current_user}
 			AND mtn.is_accessible = {int:is_accessible}
-			AND mtn.status IN ({array_int:status})
-			AND mtn.mention_type IN ({array_string:all_type})
-		GROUP BY mtn.mention_type',
-		[
+			AND mtn.status IN ({array_int:status})' . (empty($type) ? '' : (is_array($type) ? '
+			AND mtn.mention_type IN ({array_string:current_type})' : '
+			AND mtn.mention_type = {string:current_type}')),
+		array(
 			'current_user' => $id_member,
-			'status' => $all ? [0, 1] : [0],
+			'current_type' => $type,
+			'status' => $all ? array(0, 1) : array(0),
 			'is_accessible' => 1,
-			'all_type' => empty($allTypes) ? [$type] : $allTypes,
-		]
-	)->fetch_callback(function ($row) use (&$counts, $id_member) {
-		$counts[$id_member][$row['mention_type']] = (int) $row['cnt'];
-		$counts[$id_member]['total'] += $row['cnt'];
-	});
+		)
+	);
+	list ($counts[$id_member]) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	// Counts as maintenance! :P
-	if ($all === false)
+	if ($all === false && empty($type))
 	{
 		require_once(SUBSDIR . '/Members.subs.php');
-		updateMemberData($id_member, ['mentions' => $counts[$id_member]['total']]);
+		updateMemberData($id_member, array('mentions' => $counts[$id_member]));
 	}
 
-	return empty($type) ? $counts[$id_member]['total'] : $counts[$id_member][$type] ?? 0;
+	return $counts[$id_member];
 }
 
 /**
  * Retrieve all the info to render the mentions page for the current user
- * callback for createList in action_list of \ElkArte\Controller\Mentions
+ * callback for createList in action_list of Mentions_Controller
  *
+ * @package Mentions
  * @param int $start Query starts sending results from here
  * @param int $limit Number of mentions returned
  * @param string $sort Sorting
  * @param bool $all if show all mentions or only unread ones
  * @param string[]|string $type : the type of the mention can be a string or an array of strings.
- *
- * @return array
- * @package Mentions
- *
  */
 function getUserMentions($start, $limit, $sort, $all = false, $type = '')
 {
-	global $txt;
+	global $user_info, $txt;
 
 	$db = database();
 
-	return $db->fetchQuery('
+	return $db->fetchQueryCallback('
 		SELECT
 			mtn.id_mention, mtn.id_target, mtn.id_member_from, mtn.log_time, mtn.mention_type, mtn.status,
 			m.subject, m.id_topic, m.id_board,
@@ -107,9 +92,9 @@ function getUserMentions($start, $limit, $sort, $all = false, $type = '')
 			AND mtn.mention_type IN ({array_string:current_type})' : '
 			AND mtn.mention_type = {string:current_type}')) . '
 		ORDER BY {raw:sort}
-		LIMIT {int:limit} OFFSET {int:start} ',
+		LIMIT {int:start}, {int:limit}',
 		array(
-			'current_user' => User::$info->id,
+			'current_user' => $user_info['id'],
 			'current_type' => $type,
 			'status' => $all ? array(0, 1) : array(0),
 			'guest_text' => $txt['guest'],
@@ -117,14 +102,173 @@ function getUserMentions($start, $limit, $sort, $all = false, $type = '')
 			'start' => $start,
 			'limit' => $limit,
 			'sort' => $sort,
-		)
-	)->fetch_callback(
-		function ($row) {
+		),
+		function ($row)
+		{
 			$row['avatar'] = determineAvatar($row);
-
 			return $row;
 		}
 	);
+}
+
+/**
+ * Inserts a new mention
+ * Checks if the mention already exists (in any status) to prevent any duplicates
+ *
+ * @package Mentions
+ * @param int $member_from the id of the member mentioning
+ * @param int[] $members_to an array of ids of the members mentioned
+ * @param int $target the id of the target involved in the mention
+ * @param string $type the type of mention
+ * @param string|null $time optional value to set the time of the mention, defaults to now
+ * @param string|null $status optional value to set a status, defaults to 0
+ * @param bool|null $is_accessible optional if the mention is accessible to the user
+ *
+ * @deprecated since 1.1 - Use Mentioning::create() instead
+ */
+function addMentions($member_from, $members_to, $target, $type, $time = null, $status = null, $is_accessible = null)
+{
+	$inserts = array();
+
+	$db = database();
+
+	// $time is not checked because it's useless
+	$existing = $db->fetchQueryCallback('
+		SELECT id_member
+		FROM {db_prefix}log_mentions
+		WHERE id_member IN ({array_int:members_to})
+			AND mention_type = {string:type}
+			AND id_member_from = {int:member_from}
+			AND id_target = {int:target}
+			AND log_time = {int:log_time}',
+		array(
+			'members_to' => $members_to,
+			'type' => $type,
+			'member_from' => $member_from,
+			'target' => $target,
+			'log_time' => $time === null ? time() : $time,
+		),
+		function ($row)
+		{
+			return $row['id_member'];
+		}
+	);
+
+	// If the member has already been mentioned, it's not necessary to do it again
+	foreach ($members_to as $id_member)
+	{
+		if (!in_array($id_member, $existing))
+		{
+			$inserts[] = array(
+				$id_member,
+				$target,
+				$status === null ? 0 : $status,
+				$is_accessible === null ? 1 : $is_accessible,
+				$member_from,
+				$time === null ? time() : $time,
+				$type
+			);
+		}
+	}
+
+	if (empty($inserts))
+		return;
+
+	// Insert the new mentions
+	$db->insert('',
+		'{db_prefix}log_mentions',
+		array(
+			'id_member' => 'int',
+			'id_target' => 'int',
+			'status' => 'int',
+			'is_accessible' => 'int',
+			'id_member_from' => 'int',
+			'log_time' => 'int',
+			'mention_type' => 'string-12',
+		),
+		$inserts,
+		array('id_mention')
+	);
+
+	// Update the member mention count
+	foreach ($inserts as $insert)
+		updateMentionMenuCount($insert[2], $insert[0]);
+}
+
+/**
+ * Softly and gently removes a 'likemsg' mention when the post is unliked
+ *
+ * @package Mentions
+ * @param int $member_from the id of the member mentioning
+ * @param int[] $members_to an array of ids of the members mentioned
+ * @param int $target the id of the message involved in the mention
+ * @param int $newstatus status to change the mention to if found as unread,
+ *             - default is to set it as read (status = 1)
+ * @deprecated since 1.1 use Mentioning::create() instead
+ */
+function rlikeMentions($member_from, $members_to, $target, $newstatus = 1)
+{
+	$db = database();
+
+	// If this like is still unread then we mark it as read and decrease the counter
+	$db->query('', '
+		UPDATE {db_prefix}log_mentions
+		SET status = {int:status}
+		WHERE id_member IN ({array_int:members_to})
+			AND mention_type = {string:type}
+			AND id_member_from = {int:member_from}
+			AND id_target = {int:target}
+			AND status = {int:unread}',
+		array(
+			'members_to' => $members_to,
+			'type' => 'likemsg',
+			'member_from' => $member_from,
+			'target' => $target,
+			'status' => $newstatus,
+			'unread' => 0,
+		)
+	);
+
+	// Update the member mention count
+	foreach ($members_to as $member)
+		updateMentionMenuCount($newstatus, $member);
+}
+
+/**
+ * Changes a specific mention status for a member
+ *
+ * - Can be used to mark as read, new, deleted, etc
+ * - note that delete is a "soft-delete" because otherwise anyway we have to remember
+ * - when a user was already mentioned for a certain message (e.g. in case of editing)
+ *
+ * @package Mentions
+ * @param int $id_mention the mention id in the db
+ * @param int $status status to update, 'new' => 0, 'read' => 1, 'deleted' => 2, 'unapproved' => 3
+ *
+ * @deprecated since 1.1 - Use Mentioning::changestatus() instead
+ */
+function changeMentionStatus($id_mention, $status = 1)
+{
+	global $user_info;
+
+	$db = database();
+
+	$db->query('', '
+		UPDATE {db_prefix}log_mentions
+		SET status = {int:status}
+		WHERE id_mention = {int:id_mention}',
+		array(
+			'id_mention' => $id_mention,
+			'status' => $status,
+		)
+	);
+	$success = $db->affected_rows() != 0;
+
+	// Update the top level mentions count
+	if ($success)
+		updateMentionMenuCount($status, $user_info['id']);
+
+	return $success;
 }
 
 /**
@@ -132,30 +276,27 @@ function getUserMentions($start, $limit, $sort, $all = false, $type = '')
  *
  * Doesn't check permissions, access, anything. It just deletes everything.
  *
- * @param int[] $id_mentions the mention ids
- *
- * @return bool
  * @package Mentions
- *
+ * @param int[] $id_mentions the mention ids
  */
 function removeMentions($id_mentions)
 {
+	global $user_info;
+
 	$db = database();
 
-	$request = $db->query('', '
+	$db->query('', '
 		DELETE FROM {db_prefix}log_mentions
 		WHERE id_mention IN ({array_int:id_mentions})',
 		array(
 			'id_mentions' => $id_mentions,
 		)
 	);
-	$success = $request->affected_rows() !== 0;
+	$success = $db->affected_rows() != 0;
 
 	// Update the top level mentions count
 	if ($success)
-	{
-		updateMentionMenuCount(null, User::$info->id);
-	}
+		updateMentionMenuCount(null, $user_info['id']);
 
 	return $success;
 }
@@ -165,9 +306,9 @@ function removeMentions($id_mentions)
  *
  * - This is used to turn mentions on when a message is approved
  *
+ * @package Mentions
  * @param int[] $msgs array of messages that you want to toggle
  * @param bool $approved direction of the toggle read / unread
- * @package Mentions
  */
 function toggleMentionsApproval($msgs, $approved)
 {
@@ -175,8 +316,7 @@ function toggleMentionsApproval($msgs, $approved)
 
 	$db->query('', '
 		UPDATE {db_prefix}log_mentions
-		SET 
-			status = {int:status}
+		SET status = {int:status}
 		WHERE id_target IN ({array_int:messages})',
 		array(
 			'messages' => $msgs,
@@ -186,16 +326,15 @@ function toggleMentionsApproval($msgs, $approved)
 
 	// Update the mentions menu count for the members that have this message
 	$status = $approved ? 0 : 3;
-	$db->fetchQuery('
-		SELECT 
-			id_member, status
+	$db->fetchQueryCallback('
+		SELECT id_member, status
 		FROM {db_prefix}log_mentions
 		WHERE id_target IN ({array_int:messages})',
 		array(
 			'messages' => $msgs,
-		)
-	)->fetch_callback(
-		function ($row) use ($status) {
+		),
+		function ($row) use ($status)
+		{
 			updateMentionMenuCount($status, $row['id_member']);
 		}
 	);
@@ -207,9 +346,9 @@ function toggleMentionsApproval($msgs, $approved)
  * - if off is restored to visible,
  * - if on is switched to invisible for all the users
  *
+ * @package Mentions
  * @param string $type type of the mention that you want to toggle
  * @param bool $enable if true enables the mentions, otherwise disables them
- * @package Mentions
  */
 function toggleMentionsVisibility($type, $enable)
 {
@@ -245,9 +384,9 @@ function toggleMentionsVisibility($type, $enable)
 /**
  * Toggles a bunch of mentions accessibility on/off
  *
+ * @package Mentions
  * @param int[] $mentions an array of mention id
  * @param bool $access if true make the mentions accessible (if visible and other things), otherwise marks them as inaccessible
- * @package Mentions
  */
 function toggleMentionsAccessibility($mentions, $access)
 {
@@ -268,24 +407,21 @@ function toggleMentionsAccessibility($mentions, $access)
 /**
  * To validate access to read/unread/delete mentions
  *
- * - Called from the validation class via Mentioning.php
+ * - Called from the validation class
  *
- * @param string $field
- * @param array $input
- * @param string|null $validation_parameters
- *
- * @return array|void
  * @package Mentions
- *
+ * @param string $field
+ * @param mixed[] $input
+ * @param string|null $validation_parameters
  */
-function validate_own_mention($field, $input, $validation_parameters = null)
+function validate_ownmention($field, $input, $validation_parameters = null)
 {
-	if (!isset($input[$field]))
-	{
-		return;
-	}
+	global $user_info;
 
-	if (!findMemberMention($input[$field], User::$info->id))
+	if (!isset($input[$field]))
+		return;
+
+	if (!findMemberMention($input[$field], $user_info['id']))
 	{
 		return array(
 			'field' => $field,
@@ -299,18 +435,17 @@ function validate_own_mention($field, $input, $validation_parameters = null)
 /**
  * Provided a mentions id and a member id, checks if the mentions belongs to that user
  *
- * @param int $id_mention the id of an existing mention
- * @param int $id_member id of a member
- * @return bool true if the mention belongs to the member, false otherwise
  * @package Mentions
+ * @param integer $id_mention the id of an existing mention
+ * @param integer $id_member id of a member
+ * @return bool true if the mention belongs to the member, false otherwise
  */
 function findMemberMention($id_mention, $id_member)
 {
 	$db = database();
 
 	$request = $db->query('', '
-		SELECT 
-			id_mention
+		SELECT id_mention
 		FROM {db_prefix}log_mentions
 		WHERE id_mention = {int:id_mention}
 			AND id_member = {int:id_member}
@@ -320,8 +455,8 @@ function findMemberMention($id_mention, $id_member)
 			'id_member' => $id_member,
 		)
 	);
-	$return = $request->num_rows();
-	$request->free_result();
+	$return = $db->num_rows($request);
+	$db->free_result($request);
 
 	return !empty($return);
 }
@@ -329,9 +464,9 @@ function findMemberMention($id_mention, $id_member)
 /**
  * Updates the mention count as a result of an action, read, new, delete, etc
  *
+ * @package Mentions
  * @param int|null $status
  * @param int $member_id
- * @package Mentions
  */
 function updateMentionMenuCount($status, $member_id)
 {
@@ -339,35 +474,28 @@ function updateMentionMenuCount($status, $member_id)
 
 	// If its new add to our menu count
 	if ($status === 0)
-	{
 		updateMemberData($member_id, array('mentions' => '+'));
-	}
 	// Mark as read we decrease the count
 	elseif ($status === 1)
-	{
 		updateMemberData($member_id, array('mentions' => '-'));
-	}
 	// Deleting or un-approving may have been read or not, so a count is required
 	else
-	{
 		countUserMentions(false, '', $member_id);
-	}
 }
 
 /**
  * Retrieves the time the last notification of a certain member was added.
  *
+ * @package Mentions
  * @param int $id_member
  * @return int A timestamp (log_time)
- * @package Mentions
  */
 function getTimeLastMention($id_member)
 {
 	$db = database();
 
 	$request = $db->fetchQuery('
-		SELECT 
-			log_time
+		SELECT log_time
 		FROM {db_prefix}log_mentions
 		WHERE status = {int:status}
 			AND id_member = {int:member}
@@ -378,19 +506,23 @@ function getTimeLastMention($id_member)
 			'member' => $id_member
 		)
 	);
-	list ($log_time) = $request->fetch_row();
-	$request->free_result();
-
-	return empty($log_time) ? 0 : $log_time;
+	if (!empty($request))
+	{
+		return $request[0]['log_time'];
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 /**
  * Counts all the notifications received by a certain member after a certain time.
  *
+ * @package Mentions
  * @param int $id_member
  * @param int $timestamp
  * @return int Number of new mentions
- * @package Mentions
  */
 function getNewMentions($id_member, $timestamp)
 {
@@ -398,9 +530,8 @@ function getNewMentions($id_member, $timestamp)
 
 	if (empty($timestamp))
 	{
-		$result = $db->fetchQuery('
-			SELECT 
-				COUNT(*) AS c
+		list ($result) = $db->fetchQuery('
+			SELECT COUNT(*) AS c
 			FROM {db_prefix}log_mentions
 			WHERE status = {int:status}
 				AND id_member = {int:member}
@@ -410,13 +541,12 @@ function getNewMentions($id_member, $timestamp)
 				'has_access' => 1,
 				'member' => $id_member
 			)
-		)->fetch_assoc();
+		);
 	}
 	else
 	{
-		$result = $db->fetchQuery('
-			SELECT 
-				COUNT(*) AS c
+		list ($result) = $db->fetchQuery('
+			SELECT COUNT(*) AS c
 			FROM {db_prefix}log_mentions
 			WHERE status = {int:status}
 				AND log_time > {int:last_seen}
@@ -428,170 +558,8 @@ function getNewMentions($id_member, $timestamp)
 				'last_seen' => $timestamp,
 				'member' => $id_member
 			)
-		)->fetch_assoc();
+		);
 	}
 
 	return $result['c'];
-}
-
-/**
- * Get the available mention types for a user.
- *
- * @param int|null $user The user ID. If null, User::$info->id will be used.
- * @param string $type The type of mentions.  "user" will return only those that the user has enabled and set
- * as on site notification.
- *
- * By default, will filter out notification types with a method set to none, e.g. the user has disabled that
- * type of mention.  Use type "system" to return everything, or type "user" to return only those
- * that they want on-site notifications.
- *
- * @return array The available mention types.
- */
-function getMentionTypes($user, $type = 'user')
-{
-	require_once(SUBSDIR . '/Notification.subs.php');
-
-	$user = $user ?? User::$info->id;
-
-	$enabled = getEnabledNotifications();
-
-	if ($type !== 'user')
-	{
-		sort($enabled);
-		return $enabled;
-	}
-
-	$userAllEnabled = getUsersNotificationsPreferences($enabled, $user);
-
-	// Drop ones they do not have enabled (primarily used to drop watchedtopic / watched board)
-	foreach ($enabled as $key => $notificationType)
-	{
-		if (!isset($userAllEnabled[$user][$notificationType]))
-		{
-			unset($enabled[$key]);
-		}
-	}
-
-	// Filter the remaining as requested
-	foreach ($userAllEnabled[$user] as $notificationType => $allowedMethods)
-	{
-		if (!in_array('notification', $allowedMethods, true))
-		{
-			$key = array_search($notificationType, $enabled, true);
-			if ($key !== false)
-			{
-				unset($enabled[$key]);
-			}
-		}
-	}
-
-	sort($enabled);
-	return $enabled;
-}
-
-/**
- * Marks a set of notifications as read.
- *
- * Intended to be called when viewing a topic page.
- *
- * @param array $messages
- */
-function markNotificationsRead($messages)
-{
-	// Guests can't mark notifications
-	if (User::$info->is_guest || empty($messages))
-	{
-		return;
-	}
-
-	// These are the types associated with messages (where the id_target is a msg_id)
-	$mentionTypes = ['mentionmem', 'likemsg', 'rlikemsg', 'quotedmem', 'watchedtopic', 'watchedboard'];
-	$messages = is_array($messages) ? $messages : [$messages];
-	$changes = [];
-
-	// Find unread notifications for this group of messages for this member
-	$db = database();
-	$db->fetchQuery('
-		SELECT 
-			id_mention
-		FROM {db_prefix}log_mentions
-		WHERE status = {int:status}
-			AND id_member = {int:member}
-			AND id_target IN ({array_int:targets})
-			AND mention_type IN ({array_string:mention_types})',
-		[
-			'status' => 0,
-			'member' => User::$info->id,
-			'targets' => $messages,
-			'mention_types' => $mentionTypes,
-		]
-	)->fetch_callback(
-	function ($row) use (&$changes) {
-		$changes[] = (int) $row['id_mention'];
-	});
-
-	if (!empty($changes))
-	{
-		changeStatus(array_unique($changes), User::$info->id);
-	}
-}
-
-/**
- * Change the status of mentions
- *
- * Updates the status of mentions in the database. Also updates the mentions count for the member.
- *
- *  - Can be used to mark as read, new, deleted, etc a group of mention id's
- *  - Note that delete is a "soft-delete" because otherwise anyway we have to remember
- *  - When a user was already mentioned for a certain message (e.g. in case of editing)
- *
- * @param int|array $id_mentions The id(s) of the mentions to update
- * @param int $member_id The id of the member
- * @param int $status The new status for the mentions (default: 1)
- * @param bool $update Whether to update the mentions count (default: true)
- *
- * @return bool Returns true if the update was successful, false otherwise
- */
-function changeStatus($id_mentions, $member_id, $status = 1, $update = true)
-{
-	$db = database();
-
-	$id_mentions = is_array($id_mentions) ? $id_mentions : [$id_mentions];
-	$status = $status ?? 1;
-
-	$success = $db->query('', '
-		UPDATE {db_prefix}log_mentions
-		SET status = {int:status}
-		WHERE id_mention IN ({array_int:id_mentions})',
-		[
-			'id_mentions' => $id_mentions,
-			'status' => $status,
-		]
-	)->affected_rows() !== 0;
-
-	// Update the mentions count
-	if ($success && $update)
-	{
-		$number = count($id_mentions);
-		require_once(SUBSDIR . '/Members.subs.php');
-
-		// Increase the count by 1
-		if ($number === 1 && $status === 0)
-		{
-			updateMemberData($member_id, ['mentions' => '+']);
-			return true;
-		}
-
-		// Mark as read we decrease the count by 1
-		if ($number === 1 && $status === 1)
-		{
-			updateMemberData($member_id, ['mentions' => '-']);
-			return true;
-		}
-
-		// A full recount is required
-		countUserMentions(false, '', $member_id);
-	}
-
-	return $success;
 }

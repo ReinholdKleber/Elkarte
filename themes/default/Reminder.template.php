@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -24,11 +25,15 @@ function template_reminder()
 		<div class="login">
 			<h2 class="category_header">', $txt['authentication_reminder'], '</h2>
 			<div class="well">
-				<p class="description">', $txt['password_reminder_desc'], '</p>
-				<div class="form_field">
-					<input type="text" id="user" name="user" size="30" class="input_text" placeholder="', $txt['user_email'], '"/>
-					<label for="user">', $txt['user_email'], '</label>
-				</div>
+				<p class="smalltext centertext">', $txt['password_reminder_desc'], '</p>
+				<dl>
+					<dt>
+						<label for="user">', $txt['user_email'], ':</label>
+					</dt>
+					<dd>
+						<input type="text" id="user" name="user" size="30" class="input_text" />
+					</dd>
+				</dl>
 				<div class="submitbutton">
 					<input type="submit" value="', $txt['reminder_continue'], '" />
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
@@ -102,7 +107,7 @@ function template_set_password()
 						<label for="elk_autov_pwmain">', $txt['choose_pass'], ':</label>
  					</dt>
 					<dd>
-						<input id="elk_autov_pwmain" type="password" name="passwrd1" size="22" class="input_password" autocomplete="new-password" />
+						<input id="elk_autov_pwmain" type="password" name="passwrd1" size="22" class="input_password" />
 						<span id="elk_autov_pwmain_div" class="hide">
 							<i id="elk_autov_pwmain_img" class="icon i-warn" alt="*"></i>
 						</span>
@@ -111,14 +116,13 @@ function template_set_password()
 						<label for="elk_autov_pwverify">', $txt['verify_pass'], ':</label>
 					</dt>
 					<dd>
-						<input id="elk_autov_pwverify" type="password" name="passwrd2"  size="22" class="input_password" autocomplete="new-password" />
+						<input id="elk_autov_pwverify" type="password" name="passwrd2"  size="22" class="input_password" />
 						<span id="elk_autov_pwverify_div" class="hide">
 							<i id="elk_autov_pwverify_img" class="icon i-warn" alt="*"></i>
 						</span>
 					</dd>';
 
 	if (!empty($modSettings['enableOTP']))
-	{
 		echo '
 					<dt>
 						<label for="otp">', $txt['disable_otp'], ':</label>
@@ -126,7 +130,6 @@ function template_set_password()
 					<dd>
 						<input id="otp" type="checkbox"  name="otp" />
 					</dd>';
-	}
 
 	echo '
 				</dl>
@@ -165,37 +168,42 @@ function template_ask()
 		<div class="login">
 			<h2 class="category_header">', $txt['authentication_reminder'], '</h2>
 			<div class="well">
-				<p class="smalltext">', $txt['enter_new_password'], '</p>
+				<p class="smalltext">', $context['account_type'] === 'password' ? $txt['enter_new_password'] : $txt['openid_secret_reminder'], '</p>
 				<dl>
-					<p class="description">
-						<strong>', $txt['secret_question'], ':</strong> ', $context['secret_question'], '
-					</p>
-					<div class="form_field">
-						<input type="text" name="secret_answer" size="22" class="input_text" placeholder="', $txt['secret_answer'], '"/>
-						<label for="secret_answer">', $txt['secret_answer'], '</label>
-					</div>';
+					<dt>
+						<label>', $txt['secret_question'], ':</label>
+					</dt>
+					<dd>', $context['secret_question'], '</dd>
+					<dt>
+						<label for="secret_answer">', $txt['secret_answer'], ':</label>
+					</dt>
+					<dd>
+						<input type="text" name="secret_answer" size="22" class="input_text" />
+					</dd>';
 
 	if ($context['account_type'] === 'password')
-	{
 		echo '
-					<div class="form_field w_icon">
-						<input type="password" name="passwrd1" id="elk_autov_pwmain" size="22" class="input_password" placeholder="', $txt['choose_pass'], '" autocomplete="new-password" />
-						<label for="elk_autov_pwmain">', $txt['choose_pass'], '</label>
+					<dt>
+						<label for="elk_autov_pwmain">', $txt['choose_pass'], ':</label>
+ 					</dt>
+					<dd>
+						<input type="password" name="passwrd1" id="elk_autov_pwmain" size="22" class="input_password" />
 						<span id="elk_autov_pwmain_div" class="hide">
 							<i id="elk_autov_pwmain_img" class="icon i-warn" alt="*"></i>
 						</span>
-					</div>
-					<div class="form_field w_icon">
-						<input type="password" name="passwrd2" id="elk_autov_pwverify" size="22" class="input_password" placeholder="', $txt['verify_pass'], '" autocomplete="new-password" />
-						<label for="elk_autov_pwverify">', $txt['verify_pass'], '</label>
+					</dd>
+					<dt>
+						<label for="elk_autov_pwverify">', $txt['verify_pass'], ':</label>
+					</dt>
+					<dd>
+						<input type="password" name="passwrd2" id="elk_autov_pwverify" size="22" class="input_password" />
 						<span id="elk_autov_pwverify_div" class="hide">
 							<i id="elk_autov_pwverify_img" class="icon i-check" alt="*"></i>
 						</span>
-					</div>';
-	}
+					</dd>';
 
 	echo '
-
+				</dl>
 				<div class="submitbutton">
 					<input type="submit" value="', $txt['save'], '" />
 					<input type="hidden" name="uid" value="', $context['remind_user'], '" />
@@ -207,7 +215,6 @@ function template_ask()
 	</form>';
 
 	if ($context['account_type'] === 'password')
-	{
 		echo '
 <script>
 	var regTextStrings = {
@@ -220,5 +227,4 @@ function template_ask()
 
 	var verificationHandle = new elkRegister("creator", ', empty($modSettings['password_strength']) ? 0 : $modSettings['password_strength'], ', regTextStrings);
 </script>';
-	}
 }

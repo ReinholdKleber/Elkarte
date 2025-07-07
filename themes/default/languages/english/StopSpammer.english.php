@@ -1,0 +1,38 @@
+<?php
+
+// Settings
+$txt['stopspammer_title']               = 'Stop Spammer';
+$txt['stopspammer_enabled']             = 'Enable the Anti Spam Addon';
+$txt['stopspammer_enabled_desc']        = 'Enable a set of Anti Spam Measures on Registration';
+$txt['stopspammer_log_spammer']         = 'Log failed registration attempts in the error log';
+$txt['stopspammer_desc']                = 'This addon adds the Stop Spammer check on registration.';
+$txt['stopspammer_block_register']      = 'Block Registration to the forum if detected as a Spammer';
+$txt['stopspammer_check']               = 'Check if user is a spammer';
+$txt['stopspammer_report']              = 'Report user as a spammer';
+$txt['stopspammer_user_blocked']        = 'Blocked User with IP: %s, Username: %s and Email: %s from Registering';
+$txt['stopspammer_user_awaiting']       = 'User with IP: %s, Username: %s and Email: %s Awaiting Approval';
+$txt['stopspammer_settings']            = 'StopSpammer Settings';
+
+    
+$txt['stopforumspam_enabled']           = 'Enable the Anti Spam Addon';
+$txt['stopforumspam_enabled_desc']      = '<strong>Stop Forum Spam</strong> is a free service that records reports of spam on forums, blogs and wikis to name a few.';
+$txt['stopforumspam_title']             = 'Stop Forum Spam';
+$txt['stopforumspam_settings']          = 'Stop Forum Spam Settings';
+
+$txt['stopforumspam_options']           = 'StopSpammer Options';
+$txt['stopforumspam_ip_check']          = 'Check the IP?';
+$txt['stopforumspam_email_check']       = 'Check the email address?';
+$txt['stopforumspam_username_check']    = 'Check the username?';
+$txt['stopforumspam_threshold']         = 'Threshold level for Spammer Detection';
+$txt['stopforumspam_key']               = '<strong>Stop Forum Spam</strong> API Key';
+
+$txt['spamhaus_options']                = 'Spamhaus Options';
+$txt['spamhaus_enabled']                = 'Enable the <strong>Spamhaus</strong> check';
+$txt['spamhaus_enabled_desc']           = '<strong>Spamhaus</strong> is the world leader in supplying realtime highly accurate threat intelligence to the Internet\'s major networks.';
+
+$txt['projecthoneypot_options']         = 'Project Honey Pot Options';
+$txt['projecthoneypot_enabled']         = 'Enable the <strong>Project Honey Pot</strong> check';
+$txt['projecthoneypot_key']             = '<strong>Project Honey Pot</strong> API Key';
+$txt['projecthoneypot_threshold']       = 'Threshold for detecting if user is a Spammer';
+$txt['projecthoneypot_history']         = 'Threshold for detecting if user is a Spammer based upon history';
+$txt['projecthoneypot_enabled_desc']    = '<strong>Project Honey Pot</strong> A free, distributed, open-source project to help website administrators track, stop, and prosecute spam harvesters stealing email addresses from their sites.';

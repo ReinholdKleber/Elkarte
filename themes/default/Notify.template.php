@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
 
@@ -20,7 +21,7 @@ function template_notification_settings()
 	global $context, $txt, $scripturl;
 
 	echo '
-		<h2 class="category_header hdicon i-envelope">
+		<h2 class="category_header hdicon cat_img_mail">
 			', $txt['notify'], '
 		</h2>
 		<div class="well centertext">
@@ -39,7 +40,7 @@ function template_notify_board()
 	global $context, $txt, $scripturl;
 
 	echo '
-		<h2 class="category_header hdicon i-envelope">
+		<h2 class="category_header hdicon cat_img_mail">
 			', $txt['notify'], '
 		</h2>
 		<div class="well centertext">
@@ -58,7 +59,7 @@ function template_notify_unsubscribe()
 	global $context, $txt;
 
 	echo '
-		<h2 class="category_header hdicon i-envelope">
+		<h2 class="category_header hdicon cat_img_mail">
 			', $txt['unnotify'], '
 		</h2>
 		<div class="well centertext">

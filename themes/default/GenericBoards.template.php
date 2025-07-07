@@ -1,18 +1,17 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
-
-use ElkArte\Helper\Util;
 
 /**
  * Helper function to subdivide the boards in a number of sets with
@@ -21,7 +20,7 @@ use ElkArte\Helper\Util;
  *
  * @param int[] $categories contains the number of boards for each category
  * @param int $total_boards total number of boards present
- * @return int[][]
+ * @return int[]
  */
 function optimizeBoardsSubdivision($categories, $total_boards)
 {
@@ -61,13 +60,9 @@ function optimizeBoardsSubdivision($categories, $total_boards)
 		$diff_alternate = $diff_current - 2 * ($categories[$last_group] + 1);
 
 		if (abs($diff_alternate) < $diff_current)
-		{
 			array_unshift($groups[1], $last_group);
-		}
 		else
-		{
 			$groups[0][] = $last_group;
-		}
 	}
 	// If we have less on the left, let's try picking one from the right
 	elseif ($diff_current < 0)
@@ -77,13 +72,9 @@ function optimizeBoardsSubdivision($categories, $total_boards)
 		$diff_alternate = $diff_current + 2 * ($categories[$first_group] + 1);
 
 		if (abs($diff_alternate) < abs($diff_current))
-		{
 			$groups[0][] = $first_group;
-		}
 		else
-		{
 			array_unshift($groups[1], $first_group);
-		}
 	}
 
 	return $groups;
@@ -109,47 +100,34 @@ function template_list_boards(array $boards, $id)
 	foreach ($boards as $board)
 	{
 		echo '
-				<li class="board_row', (empty($board['children'])) ? '' : ' parent_board', $board['is_redirect'] ? ' board_row_redirect' : '', '" id="board_', $board['id'], '">
-					<div class="board_icon">
+				<li class="board_row', (!empty($board['children'])) ? ' parent_board' : '', $board['is_redirect'] ? ' board_row_redirect' : '', '" id="board_', $board['id'], '">
+					<div class="board_info">
 						<a class="icon_anchor" href="', ($board['is_redirect'] || $context['user']['is_guest'] ? $board['href'] : $scripturl . '?action=unread;board=' . $board['id'] . '.0;children'), '">';
 
 		// If the board or children is new, show an indicator.
 		if ($board['new'] || $board['children_new'])
-		{
 			echo '
-							<s>', $txt['new_posts'], '</s>
-							<span class="', $board['new'] ? 'i-board-new' : 'i-board-sub', '" title="', $txt['new_posts'], '"></span>';
-		}
+							<span class="board_icon ', $board['new'] ? 'i-board-new' : 'i-board-sub', '" title="', $txt['new_posts'], '"></span>';
 
 		// Is it a redirection board?
 		elseif ($board['is_redirect'])
-		{
 			echo '
-							<s>', $txt['redirect_board_to'], '</s>
-							<span class="i-board-redirect" title="', sprintf($txt['redirect_board_to'], Util::htmlspecialchars($board['name'])), '"></span>';
-		}
+							<span class="board_icon i-board-redirect" title="', sprintf($txt['redirect_board_to'], Util::htmlspecialchars($board['name'])), '"></span>';
 
 		// No new posts at all! The agony!!
 		else
-		{
 			echo '
-							<s>', $txt['old_posts'], '</s>
-							<span class="i-board-off" title="', $txt['old_posts'], '"></span>';
-		}
+							<span class="board_icon i-board-off" title="', $txt['old_posts'], '"></span>';
 
 		echo '
 						</a>
-					</div>
-					<div class="board_info">
 						<h3 class="board_name">
 							<a href="', $board['href'], '" id="b', $board['id'], '">', $board['name'], '</a>';
 
 		// Has it outstanding posts for approval? @todo - Might change presentation here.
 		if ($board['can_approve_posts'] && ($board['unapproved_posts'] || $board['unapproved_topics']))
-		{
 			echo '
 							<a href="', $scripturl, '?action=moderate;area=postmod;sa=', ($board['unapproved_topics'] > 0 ? 'topics' : 'posts'), ';brd=', $board['id'], ';', $context['session_var'], '=', $context['session_id'], '" title="', sprintf($txt['unapproved_posts'], $board['unapproved_topics'], $board['unapproved_posts']), '" class="moderation_link"><i class="icon i-alert"></i></a>';
-		}
 
 		echo '
 						</h3>
@@ -157,47 +135,40 @@ function template_list_boards(array $boards, $id)
 
 		// Show the "Moderators: ". Each has name, href, link, and id. (but we're gonna use link_moderators.)
 		if (!empty($board['moderators']))
-		{
 			echo '
 						<p class="moderators">', count($board['moderators']) === 1 ? $txt['moderator'] : $txt['moderators'], ': ', implode(', ', $board['link_moderators']), '</p>';
-		}
-
-		echo '
-					</div>';
-
-		if (!empty($board['last_post']['member']['avatar']['href']))
-		{
-			echo '
-					<div class="board_avatar">
-						<a href="', $board['last_post']['member']['href'], '">
-							<img class="avatar" width="50" height="50" src="', $board['last_post']['member']['avatar']['href'], '" alt="', $board['last_post']['member']['name'], '" loading="lazy" />
-						</a>
-					</div>';
-		}
-		else
-		{
-			echo '
-					<div class="board_avatar">
-						<a href="#"></a>
-					</div>';
-		}
-
-		echo '
-					<div class="board_latest">';
-
-		// Text string with <span class="lastpost_link"> <span class="board_lastposter"> <span class="board_lasttime">
-		if (!empty($board['last_post']['id']))
-		{
-			echo '
-						', $board['last_post']['last_post_message'];
-		}
 
 		// Show some basic information about the number of posts, etc.
 		echo '
 					</div>
-					<div class="board_stats">
+					<div class="board_latest">
+						<aside class="board_stats">
 							', comma_format($board['posts']), ' ', $board['is_redirect'] ? $txt['redirects'] : $txt['posts'], $board['is_redirect'] ? '' : '<br /> ' . comma_format($board['topics']) . ' ' . $txt['board_topics'], '
-					</div>';
+						</aside>';
+
+		// @todo - Last post message still needs some work. Probably split the language string into three chunks.
+		// Example:
+		// <chunk>Re: Nunc aliquam justo e...</chunk>  <chunk>by Whoever</chunk> <chunk>Last post: Today at 08:00:37 am</chunk>
+		// That should still allow sufficient scope for any language, if done sensibly.
+		if (!empty($board['last_post']['id']))
+		{
+			echo '
+						<p class="board_lastpost">';
+
+			if (!empty($board['last_post']['member']['avatar']))
+				echo '
+							<span class="board_avatar"><a href="', $board['last_post']['member']['href'], '"><img class="avatar" src="', $board['last_post']['member']['avatar']['href'], '" alt="" loading="lazy" /></a></span>';
+			else
+				echo '
+							<span class="board_avatar"><a href="#"></a></span>';
+			echo '
+							', $board['last_post']['last_post_message'], '
+						</p>';
+		}
+
+		echo '
+					</div>
+				</li>';
 
 		// Show the "Sub-boards: ". (there's a link_children but we're going to bold the new ones...)
 		if (!empty($board['children']))
@@ -210,27 +181,22 @@ function template_list_boards(array $boards, $id)
 			foreach ($board['children'] as $child)
 			{
 				if (!$child['is_redirect'])
-				{
 					$child['link'] = '<a href="' . $child['href'] . '" ' . ($child['new'] ? 'class="board_new_posts" ' : '') . 'title="' . ($child['new'] ? $txt['new_posts'] : $txt['old_posts']) . ' (' . $txt['board_topics'] . ': ' . comma_format($child['topics']) . ', ' . $txt['posts'] . ': ' . comma_format($child['posts']) . ')">' . $child['name'] . ($child['new'] ? '</a> <a ' . ($child['new'] ? 'class="new_posts" ' : '') . 'href="' . $scripturl . '?action=unread;board=' . $child['id'] . '" title="' . $txt['new_posts'] . ' (' . $txt['board_topics'] . ': ' . comma_format($child['topics']) . ', ' . $txt['posts'] . ': ' . comma_format($child['posts']) . ')"><span class="new_posts">' . $txt['new'] . '</span>' : '') . '</a>';
-				}
 				else
-				{
 					$child['link'] = '<a href="' . $child['href'] . '" title="' . comma_format($child['posts']) . ' ' . $txt['redirects'] . '">' . $child['name'] . '</a>';
-				}
 
 				// Has it posts awaiting approval?
 				if ($child['can_approve_posts'] && ($child['unapproved_posts'] || $child['unapproved_topics']))
-				{
 					$child['link'] .= ' <a href="' . $scripturl . '?action=moderate;area=postmod;sa=' . ($child['unapproved_topics'] > 0 ? 'topics' : 'posts') . ';brd=' . $child['id'] . ';' . $context['session_var'] . '=' . $context['session_id'] . '" title="' . sprintf($txt['unapproved_posts'], $child['unapproved_topics'], $child['unapproved_posts']) . '" class="moderation_link"><i class="icon i-alert"></i></a>';
-				}
 
 				$children[] = $child['link'];
 			}
 
+			// New <li> for sub-boards (if any). Can be styled to look like part of previous <li>.
 			// Use h4 tag here for better a11y. Use <ul> for list of sub-boards.
 			// Having sub-board links in <li>'s will allow "tidy sub-boards" via easy CSS tweaks. ;)
 			echo '
-				<div class="childboard_row" id="board_', $board['id'], '_children">
+				<li class="childboard_row" id="board_', $board['id'], '_children">
 					<ul class="childboards">
 						<li>
 							<h4>', $txt['parent_boards'], ':</h4>
@@ -239,12 +205,11 @@ function template_list_boards(array $boards, $id)
 							', implode('</li><li>', $children), '
 						</li>
 					</ul>
-				</div>';
+				</li>';
 		}
 	}
 
 	echo '
-				</li>
 			</ul>';
 }
 
@@ -261,7 +226,6 @@ function template_pick_boards($form_name, $input_names = 'brd', $select_all = tr
 	global $context, $txt;
 
 	if ($select_all)
-	{
 		echo '
 						<h3 class="secondary_header panel_toggle">
 							<span>
@@ -270,7 +234,6 @@ function template_pick_boards($form_name, $input_names = 'brd', $select_all = tr
 							<a href="#" id="advanced_panel_link">', $txt['choose_board'], '</a>
 						</h3>
 						<div id="advanced_panel_div"', $context['boards_check_all'] ? ' class="hide"' : '', '>';
-	}
 
 	// Make two nice columns of boards, link each category header to toggle select all boards in each
 	$group_cats = optimizeBoardsSubdivision($context['boards_in_category'], $context['num_boards']);
@@ -284,7 +247,7 @@ function template_pick_boards($form_name, $input_names = 'brd', $select_all = tr
 			$category = $context['categories'][$cat_id];
 			echo '
 								<li class="category">
-									<a href="javascript:void(0);" onclick="selectBoards([', implode(', ', $category['child_ids']), "], '", $form_name, "', '", $input_names, '\'); return false;">', $category['name'], '</a>
+									<a href="javascript:void(0);" onclick="selectBoards([', implode(', ', $category['child_ids']), '], \'', $form_name, '\', \'', $input_names, '\'); return false;">', $category['name'], '</a>
 									<ul>';
 
 			foreach ($category['boards'] as $board)
@@ -301,7 +264,6 @@ function template_pick_boards($form_name, $input_names = 'brd', $select_all = tr
 									</ul>
 								</li>';
 		}
-
 		echo '
 							</ul>';
 	}
@@ -321,7 +283,7 @@ function template_pick_boards($form_name, $input_names = 'brd', $select_all = tr
 						</div>';
 
 		// And now all the JS to make this work
-		theme()->addInlineJavascript('
+		addInlineJavascript('
 		// Some javascript for the advanced board select toggling
 		var oAdvancedPanelToggle = new elk_Toggle({
 			bToggleEnabled: true,

@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -38,7 +39,7 @@ function template_view_scheduled_tasks()
 			foreach ($context['scheduled_errors'] as $task => $errors)
 			{
 				echo
-					$txt['scheduled_task_' . $task] ?? $task, '
+				isset($txt['scheduled_task_' . $task]) ? $txt['scheduled_task_' . $task] : $task, '
 				<ul>
 					<li class="listlevel1">', implode('</li><li class="listlevel1">', $errors), '</li>
 				</ul>';
@@ -57,12 +58,12 @@ function template_view_scheduled_tasks()
  */
 function template_edit_scheduled_tasks()
 {
-	global $context, $txt;
+	global $context, $txt, $scripturl;
 
 	// Starts off with general maintenance procedures.
 	echo '
 	<div id="admincenter">
-		<form action="', getUrl('admin', ['action' => 'admin', 'area' => 'scheduledtasks', 'sa' => 'taskedit', 'save', 'tid' => $context['task']['id']]), '" method="post" accept-charset="UTF-8">
+		<form action="', $scripturl, '?action=admin;area=scheduledtasks;sa=taskedit;save;tid=', $context['task']['id'], '" method="post" accept-charset="UTF-8">
 			<h2 class="category_header">', $txt['scheduled_task_edit'], '</h2>
 			<div class="information">
 				<em>', sprintf($txt['scheduled_task_time_offset'], $context['server_time']), ' </em>
@@ -72,9 +73,9 @@ function template_edit_scheduled_tasks()
 					<dt>
 						<label>', $txt['scheduled_tasks_name'], ':</label>
 					</dt>
-					<dd class="well">
+					<dd>
 						', $context['task']['name'], '<br />
-						<p class="smalltext">&#10148;', $context['task']['desc'], '</p>
+						<span class="smalltext">', $context['task']['desc'], '</span>
 					</dd>
 					<dt>
 						<label for="regularity">', $txt['scheduled_task_edit_interval'], ':</label>
@@ -102,7 +103,7 @@ function template_edit_scheduled_tasks()
 						<label for="enabled">', $txt['scheduled_tasks_enabled'], ':</label>
 					</dt>
 					<dd>
-						<input type="checkbox" name="enabled" id="enabled" ', $context['task']['disabled'] ? '' : 'checked="checked"', ' />
+						<input type="checkbox" name="enabled" id="enabled" ', !$context['task']['disabled'] ? 'checked="checked"' : '', ' />
 					</dd>
 				</dl>
 				<div class="submitbutton">

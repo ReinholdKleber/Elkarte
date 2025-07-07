@@ -3,23 +3,24 @@
 /**
  * Functions to support addon settings controller
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
 /**
- * Gets all files in a directory and its children directories
+ * Gets all of the files in a directory and its children directories
  *
+ * @package AddonSettings
  * @param string $dir_path
  * @return array
- * @package AddonSettings
  */
 function get_files_recursive($dir_path)
 {
@@ -28,7 +29,7 @@ function get_files_recursive($dir_path)
 	try
 	{
 		$iterator = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator($dir_path, FilesystemIterator::SKIP_DOTS),
+			new RecursiveDirectoryIterator($dir_path, RecursiveDirectoryIterator::SKIP_DOTS),
 			RecursiveIteratorIterator::SELF_FIRST,
 			RecursiveIteratorIterator::CATCH_GET_CHILD
 		);
@@ -36,9 +37,7 @@ function get_files_recursive($dir_path)
 		foreach ($iterator as $file)
 		{
 			if ($file->isFile())
-			{
 				$files[] = array('dir' => $file->getPath(), 'name' => $file->getFilename());
-			}
 		}
 	}
 	catch (UnexpectedValueException $e)
@@ -57,11 +56,11 @@ function get_files_recursive($dir_path)
  * - Gets all of the hooks in the system and their status
  * - Would be better documented if Ema was not lazy
  *
+ * @package AddonSettings
  * @param int $start The item to start with (for pagination purposes)
- * @param int $items_per_page The number of items to show per page
+ * @param int $items_per_page  The number of items to show per page
  * @param string $sort A string indicating how to sort the results
  * @return array
- * @package AddonSettings
  */
 function list_integration_hooks_data($start, $items_per_page, $sort)
 {
@@ -109,13 +108,9 @@ function list_integration_hooks_data($start, $items_per_page, $sort)
 							$real_path = parse_path(trim($hook_name));
 
 							if ($real_path == $hook_name)
-							{
 								$hook_status[$hook][$hook_name]['exists'] = false;
-							}
 							else
-							{
 								$hook_status[$hook][$hook_name]['exists'] = file_exists(parse_path(ltrim($real_path, '|')));
-							}
 
 							// I need to know if there is at least one function called in this file.
 							$temp_data['include'][basename($function)] = array('hook' => $hook, 'function' => $function);
@@ -174,25 +169,21 @@ function list_integration_hooks_data($start, $items_per_page, $sort)
 			// This is a not an include and the function is included in a certain file (if not it doesn't exists so don't care)
 			if (substr($hook, -8) !== '_include' && isset($hook_status[$hook][$function]['in_file']))
 			{
-				$current_hook = $temp_data['include'][$hook_status[$hook][$function]['in_file']] ?? '';
+				$current_hook = isset($temp_data['include'][$hook_status[$hook][$function]['in_file']]) ? $temp_data['include'][$hook_status[$hook][$function]['in_file']] : '';
 				$enabled = false;
 
 				// Checking all the functions within this particular file
 				// if any of them is enable then the file *must* be included and the integrate_*_include hook cannot be disabled
 				foreach ($temp_data['function'][$hook_status[$hook][$function]['in_file']] as $func)
-				{
 					$enabled = $enabled || strstr($func, ']') !== false;
-				}
 
 				if (!$enabled && !empty($current_hook))
-				{
 					$hook_status[$current_hook['hook']][$current_hook['function']]['enabled'] = true;
-				}
 			}
 		}
 	}
 
-	theme()->addInlineJavascript('
+		addInlineJavascript('
 			var hook_name_header = document.getElementById(\'header_list_integration_hooks_hook_name\');
 			hook_name_header.innerHTML += ' . JavaScriptEscape('
 				<select onchange="window.location = \'' . $scripturl . '?action=admin;area=maintain;sa=hooks\' + (this.value ? \';filter=\' + this.value : \'\');">
@@ -227,7 +218,7 @@ function list_integration_hooks_data($start, $items_per_page, $sort)
 					'function_name' => $function,
 					'real_function' => $exploded[0],
 					'included_file' => isset($exploded[1]) ? parse_path(trim($exploded[1])) : '',
-					'file_name' => ($hook_status[$hook][$function]['in_file'] ?? ''),
+					'file_name' => (isset($hook_status[$hook][$function]['in_file']) ? $hook_status[$hook][$function]['in_file'] : ''),
 					'hook_exists' => $hook_exists,
 					'status' => $hook_exists ? ($enabled ? 'allow' : 'moderate') : 'deny',
 					'img_text' => $txt['hooks_' . ($hook_exists ? ($enabled ? 'active' : 'disabled') : 'missing')],
@@ -250,13 +241,9 @@ function list_integration_hooks_data($start, $items_per_page, $sort)
 	foreach ($temp_data as $data)
 	{
 		if (++$counter < $start)
-		{
 			continue;
-		}
-		elseif ($counter === $start + $items_per_page)
-		{
+		elseif ($counter == $start + $items_per_page)
 			break;
-		}
 
 		$hooks_data[] = $data;
 	}
@@ -272,11 +259,8 @@ function list_integration_hooks_data($start, $items_per_page, $sort)
  * - used by createList() as a callback to determine the number of hooks in
  * use in the system
  *
- * @param bool $filter
- *
- * @return int
  * @package AddonSettings
- *
+ * @param boolean $filter
  */
 function integration_hooks_count($filter = false)
 {
@@ -286,9 +270,7 @@ function integration_hooks_count($filter = false)
 	foreach ($hooks as $hook => $functions)
 	{
 		if (empty($filter) || ($filter == $hook))
-		{
 			$hooks_count += count($functions);
-		}
 	}
 
 	return $hooks_count;
@@ -301,9 +283,9 @@ function integration_hooks_count($filter = false)
  *
  * - used by createList() callbacks
  *
- * @return array
  * @package AddonSettings
  * @staticvar type $integration_hooks
+ * @return array
  */
 function get_integration_hooks()
 {
@@ -316,9 +298,7 @@ function get_integration_hooks()
 		foreach ($modSettings as $key => $value)
 		{
 			if (!empty($value) && substr($key, 0, 10) === 'integrate_')
-			{
 				$integration_hooks[$key] = explode(',', $value);
-			}
 		}
 	}
 

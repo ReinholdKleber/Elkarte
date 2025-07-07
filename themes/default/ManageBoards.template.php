@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.8
  *
  */
 
@@ -25,21 +26,17 @@ function template_manage_boards()
 		<h2 class="category_header">', $txt['boardsEdit'], '</h2>';
 
 	if (!empty($context['move_board']))
-	{
 		echo '
 		<div class="information">
 			<p>', $context['move_title'], ' [<a href="', $scripturl, '?action=admin;area=manageboards">', $txt['mboards_cancel_moving'], '</a>]', '</p>
 		</div>';
-	}
 
 	// No categories so show a label.
 	if (empty($context['categories']))
-	{
 		echo '
 		<div class="content centertext">
 			', $txt['mboards_no_cats'], '
 		</div>';
-	}
 
 	// Loop through every category, listing the boards in each as we go.
 	$sortables = array();
@@ -61,59 +58,44 @@ function template_manage_boards()
 				<ul class="nolist">';
 
 		if (!empty($category['move_link']))
-		{
 			echo '
-					<li>
-						<a href="', $category['move_link']['href'], '" title="', $category['move_link']['label'], '">
-							<i class="icon i-arrow-down"></i>
-						</a>
-					</li>';
-		}
+					<li><a href="', $category['move_link']['href'], '" title="', $category['move_link']['label'], '"><img src="', $settings['images_url'], '/smiley_select_spot.png" alt="', $category['move_link']['label'], '" /></a></li>';
 
 		$first = true;
 		$depth = 0;
 
 		// If there is nothing in a category, add a drop zone
 		if (empty($category['boards']))
-		{
 			echo '
 					<li id="cbp_' . $category['id'] . ',-1,"></li>';
-		}
 
 		// List through every board in the category, printing its name and link to modify the board.
 		foreach ($category['boards'] as $board)
 		{
 			// Going in a level deeper (sub-board)
 			if ($board['child_level'] > $depth)
-			{
 				echo '
 						<ul class="nolist">';
-			}
 			// Backing up a level to a childs parent
 			elseif ($board['child_level'] < $depth)
 			{
 				for ($i = $board['child_level']; $i < $depth; $i++)
-				{
 					echo
 					'
 							</li>
 						</ul>';
-				}
 			}
 			// Base node parent but not the first one
 			elseif ($board['child_level'] == 0 && !$first)
-			{
 				echo '
 					</li>';
-			}
 
 			echo '
 					<li id="cbp_' . $category['id'] . ',' . $board['id'] . '"', (!empty($modSettings['recycle_board']) && !empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] == $board['id'] ? 'class="recycle_board"' : ''), ' style="', $board['move'] ? ';color: red;' : '', '">
-						<span class="floatleft">
-							<a href="', $scripturl, '?board=', $board['id'], '">', $board['name'], '</a>', !empty($modSettings['recycle_board']) && !empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] == $board['id'] ? '&nbsp;<a href="' . $scripturl . '?action=admin;area=manageboards;sa=settings"><i class="icon i-recycle"></i></a></span>' : '</span>', '
-						<span class="floatright">', $context['can_manage_permissions'] ? '<span class="modify_boards"><a class="linkbutton" href="' . $scripturl . '?action=admin;area=permissions;sa=index;pid=' . $board['permission_profile'] . ';' . $context['session_var'] . '=' . $context['session_id'] . '">' . $txt['mboards_permissions'] . '</a></span>' : '', '
-						<span class="modify_boards"><a class="linkbutton" href="', $scripturl, '?action=admin;area=manageboards;move=', $board['id'], '">', $txt['mboards_move'], '</a></span>
-						<span class="modify_boards"><a class="linkbutton" href="', $scripturl, '?action=admin;area=manageboards;sa=board;boardid=', $board['id'], '">', $txt['mboards_modify'], '</a></span></span><br style="clear: right;" />';
+						<span class="floatleft"><a href="', $scripturl, '?board=', $board['id'], '">', $board['name'], '</a>', !empty($modSettings['recycle_board']) && !empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] == $board['id'] ? '&nbsp;<a href="' . $scripturl . '?action=admin;area=manageboards;sa=settings"><img src="' . $settings['images_url'] . '/post/recycled.png" alt="' . $txt['recycle_board'] . '" /></a></span>' : '</span>', '
+						<span class="floatright">', $context['can_manage_permissions'] ? '<span class="modify_boards"><a href="' . $scripturl . '?action=admin;area=permissions;sa=index;pid=' . $board['permission_profile'] . ';' . $context['session_var'] . '=' . $context['session_id'] . '">' . $txt['mboards_permissions'] . '</a></span>' : '', '
+						<span class="modify_boards"><a href="', $scripturl, '?action=admin;area=manageboards;move=', $board['id'], '">', $txt['mboards_move'], '</a></span>
+						<span class="modify_boards"><a href="', $scripturl, '?action=admin;area=manageboards;sa=board;boardid=', $board['id'], '">', $txt['mboards_modify'], '</a></span></span><br style="clear: right;" />';
 
 			if (!empty($board['move_links']))
 			{
@@ -121,12 +103,8 @@ function template_manage_boards()
 					<li style="padding-', $context['right_to_left'] ? 'right' : 'left', ': ', 5 + 30 * $board['move_links'][0]['child_level'], 'px;">';
 
 				foreach ($board['move_links'] as $link)
-				{
 					echo '
-						<a href="', $link['href'], '" class="move_links" title="', $link['label'], '">
-							<i class="icon ', $link['child_level'] > 0 ? 'i-arrow-forward' : 'i-arrow-up', '"></i>
-						</a>';
-				}
+						<a href="', $link['href'], '" class="move_links" title="', $link['label'], '"><img src="', $settings['images_url'], '/board_select_spot', $link['child_level'] > 0 ? '_child' : '', '.png" alt="', $link['label'], '" style="padding: 0px; margin: 0px;" /></a>';
 
 				echo '
 					</li>';
@@ -142,12 +120,10 @@ function template_manage_boards()
 			if ($depth > 0)
 			{
 				for ($i = $depth; $i > 0; $i--)
-				{
 					echo
 					'
 							</li>
 						</ul>';
-				}
 			}
 
 			echo '
@@ -219,10 +195,8 @@ function template_modify_category()
 
 		// Print every existing category into a select box.
 		foreach ($context['category_order'] as $order)
-		{
 			echo '
 							<option', $order['selected'] ? ' selected="selected"' : '', ' value="', $order['id'], '">', $order['name'], '</option>';
-		}
 
 		echo '
 						</select>
@@ -252,32 +226,24 @@ function template_modify_category()
 				<div class="submitbutton">';
 
 	if (isset($context['category']['is_new']))
-	{
 		echo '
 						<input type="submit" name="add" value="', $txt['mboards_add_cat_button'], '" onclick="return !isEmptyText(this.form.cat_name);" tabindex="', $context['tabindex']++, '" />';
-	}
 	else
-	{
 		echo '
 						<input type="submit" name="edit" value="', $txt['modify'], '" onclick="return !isEmptyText(this.form.cat_name);" tabindex="', $context['tabindex']++, '" />
 						<input type="submit" name="delete" value="', $txt['mboards_delete_cat'], '" />';
-	}
 
 	echo '
 						<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />';
 
 	if (!empty($context['token_check']))
-	{
 		echo '
 						<input type="hidden" name="', $context[$context['token_check'] . '_token_var'], '" value="', $context[$context['token_check'] . '_token'], '" />';
-	}
 
 	// If this category is empty we don't bother with the next confirmation screen.
 	if ($context['category']['is_empty'])
-	{
 		echo '
 						<input type="hidden" name="empty" value="1" />';
-	}
 
 	echo '
 					</div>
@@ -304,10 +270,8 @@ function template_confirm_category_delete()
 				<ul>';
 
 	foreach ($context['category']['children'] as $child)
-	{
 		echo '
 					<li>', $child, '</li>';
-	}
 
 	echo '
 					</ul>
@@ -320,13 +284,9 @@ function template_confirm_category_delete()
 					<select name="cat_to" ', count($context['category_order']) == 1 ? 'disabled="disabled"' : '', '>';
 
 	foreach ($context['category_order'] as $cat)
-	{
-		if ($cat['id'] !== 0)
-		{
+		if ($cat['id'] != 0)
 			echo '
 							<option value="', $cat['id'], '">', $cat['true_name'], '</option>';
-		}
-	}
 
 	echo '
 					</select>
@@ -339,10 +299,8 @@ function template_confirm_category_delete()
 				</div>';
 
 	if (!empty($context['token_check']))
-	{
 		echo '
 				<input type="hidden" name="', $context[$context['token_check'] . '_token_var'], '" value="', $context[$context['token_check'] . '_token'], '" />';
-	}
 
 	echo '
 			</div>
@@ -378,10 +336,8 @@ function template_modify_board()
 						<select id="new_cat" name="new_cat" onchange="if (this.form.order) {this.form.order.disabled = this.options[this.selectedIndex].value != 0; this.form.board_order.disabled = this.options[this.selectedIndex].value != 0 || this.form.order.options[this.form.order.selectedIndex].value == \'\';}">';
 
 	foreach ($context['categories'] as $category)
-	{
 		echo '
 							<option', $category['selected'] ? ' selected="selected"' : '', ' value="', $category['id'], '">', $category['name'], '</option>';
-	}
 
 	echo '
 						</select>
@@ -399,7 +355,7 @@ function template_modify_board()
 		// The first select box gives the user the option to position it before, after or as a child of another board.
 		echo '
 						<select id="order" name="placement" onchange="this.form.board_order.disabled = this.options[this.selectedIndex].value == \'\';">
-							', isset($context['board']['is_new']) ? '' : '<option value="">(' . $txt['mboards_unchanged'] . ')</option>', '
+							', !isset($context['board']['is_new']) ? '<option value="">(' . $txt['mboards_unchanged'] . ')</option>' : '', '
 							<option value="after">' . $txt['mboards_order_after'] . '...</option>
 							<option value="child">' . $txt['mboards_order_child_of'] . '...</option>
 							<option value="before">' . $txt['mboards_order_before'] . '...</option>
@@ -408,13 +364,11 @@ function template_modify_board()
 		// The second select box lists all the boards in the category.
 		echo '
 						<select id="board_order" name="board_order" ', isset($context['board']['is_new']) ? '' : 'disabled="disabled"', '>
-							', isset($context['board']['is_new']) ? '' : '<option value="">(' . $txt['mboards_unchanged'] . ')</option>';
+								', !isset($context['board']['is_new']) ? '<option value="">(' . $txt['mboards_unchanged'] . ')</option>' : '';
 
 		foreach ($context['board_order'] as $order)
-		{
 			echo '
 							<option', $order['selected'] ? ' selected="selected"' : '', ' value="', $order['id'], '">', $order['name'], '</option>';
-		}
 
 		echo '
 						</select>
@@ -445,16 +399,12 @@ function template_modify_board()
 						<select id="profile" name="profile">';
 
 	if (isset($context['board']['is_new']))
-	{
 		echo '
 							<option value="-1">[', $txt['permission_profile_inherit'], ']</option>';
-	}
 
 	foreach ($context['profiles'] as $id => $profile)
-	{
 		echo '
 								<option value="', $id, '" ', $id == $context['board']['profile'] ? 'selected="selected"' : '', '>', $profile['name'], '</option>';
-	}
 
 	echo '
 						</select>
@@ -572,7 +522,6 @@ function template_modify_board()
 		});', true);
 
 	if (empty($context['board']['is_recycle']) && empty($context['board']['topics']))
-	{
 		echo '
 				<dl class="settings">
 					<dt>
@@ -583,22 +532,17 @@ function template_modify_board()
 						<input type="checkbox" id="redirect_enable" name="redirect_enable"', $context['board']['redirect'] != '' ? ' checked="checked"' : '', ' onclick="refreshOptions();" />
 					</dd>
 				</dl>';
-	}
 
 	if (!empty($context['board']['is_recycle']))
-	{
 		echo '
 				<div class="infobox">', $txt['mboards_redirect_disabled_recycle'], '<br />', $txt['mboards_recycle_disabled_delete'], '</div>';
-	}
 
 	if (empty($context['board']['is_recycle']) && !empty($context['board']['topics']))
-	{
 		echo '
 				<div class="infobox">
 					<strong>', $txt['mboards_redirect'], '</strong><br />
 					', $txt['mboards_redirect_disabled'], '
 				</div>';
-	}
 
 	if (!$context['board']['topics'] && empty($context['board']['is_recycle']))
 	{
@@ -616,7 +560,6 @@ function template_modify_board()
 				</div>';
 
 		if ($context['board']['redirect'])
-		{
 			echo '
 				<div id="reset_redirect_div">
 					<dl class="settings">
@@ -630,7 +573,6 @@ function template_modify_board()
 						</dd>
 					</dl>
 				</div>';
-		}
 	}
 
 	echo '
@@ -642,17 +584,6 @@ function template_modify_board()
 						</dt>
 						<dd>
 							<input type="checkbox" id="count" name="count" ', $context['board']['count_posts'] ? ' checked="checked"' : '', ' />
-						</dd>
-					</dl>
-				</div>
-				<div id="old_posts_div">
-					<dl class="settings">
-						<dt>
-							<label for="old_post">', $txt['mboards_old_posts'], ':</label><br />
-							<span class="smalltext">', $txt['mboards_old_posts_desc'], '</span><br />
-						</dt>
-						<dd>
-							<input type="checkbox" id="old_post" name="old_post" ', $context['board']['old_posts'] ? ' checked="checked"' : '', ' />
 						</dd>
 					</dl>
 				</div>';
@@ -670,10 +601,8 @@ function template_modify_board()
 								<option value="0"', $context['board']['theme'] == 0 ? ' selected="selected"' : '', '>', $txt['mboards_theme_default'], '</option>';
 
 	foreach ($context['themes'] as $theme)
-	{
 		echo '
 								<option value="', $theme['id'], '"', $context['board']['theme'] == $theme['id'] ? ' selected="selected"' : '', '>', $theme['name'], '</option>';
-	}
 
 	echo '
 							</select>
@@ -700,28 +629,20 @@ function template_modify_board()
 
 	// If this board has no children don't bother with the next confirmation screen.
 	if ($context['board']['no_children'])
-	{
 		echo '
 					<input type="hidden" name="no_children" value="1" />';
-	}
 
 	if (isset($context['board']['is_new']))
-	{
 		echo '
 					<input type="hidden" name="cur_cat" value="', $context['board']['category'], '" />
 					<input type="submit" name="add" value="', $txt['mboards_new_board'], '" onclick="return !isEmptyText(this.form.board_name);" />';
-	}
 	else
-	{
 		echo '
 					<input type="submit" name="edit" value="', $txt['modify'], '" onclick="return !isEmptyText(this.form.board_name);" />';
-	}
 
 	if (!isset($context['board']['is_new']) && empty($context['board']['is_recycle']))
-	{
 		echo '
 					<input type="submit" name="delete" value="', $txt['mboards_delete_board'], '" onclick="return confirm(\'', $txt['boardConfirm'], '\');" />';
-	}
 
 	echo '
 				</div>
@@ -730,37 +651,32 @@ function template_modify_board()
 	</div>';
 
 	$js = '
-		isFunctionLoaded("elk_AutoSuggest").then((available) => { 
-		if (available) {
-			new elk_AutoSuggest({
-				sSessionId: elk_session_id,
-				sSessionVar: elk_session_var,
-				sSuggestId: \'moderators\',
-				sControlId: \'moderators\',
-				sSearchType: \'member\',
-				bItemList: true,
-				sPostName: \'moderator_list\',
-				sURLMask: \'action=profile;u=%item_id%\',
-				sTextDeleteItem: ' . JavaScriptEscape($txt['autosuggest_delete_item']) . ',
-				sItemListContainerId: \'moderator_container\',
-				aListItems: [';
+		var oModeratorSuggest = new smc_AutoSuggest({
+			sSelf: \'oModeratorSuggest\',
+			sSessionId: elk_session_id,
+			sSessionVar: elk_session_var,
+			sSuggestId: \'moderators\',
+			sControlId: \'moderators\',
+			sSearchType: \'member\',
+			bItemList: true,
+			sPostName: \'moderator_list\',
+			sURLMask: \'action=profile;u=%item_id%\',
+			sTextDeleteItem: \'' . $txt['autosuggest_delete_item'] . '\',
+			sItemListContainerId: \'moderator_container\',
+			aListItems: [';
 
 	foreach ($context['board']['moderators'] as $id_member => $member_name)
-	{
 		$js .= '
 					{
 						sItemId: ' . JavaScriptEscape($id_member) . ',
 						sItemName: ' . JavaScriptEscape($member_name) . '
 					}' . ($id_member == $context['board']['last_moderator_id'] ? '' : ',');
-	}
 
 	$js .= '
 			]
-				});
-			}
 		});';
 
-	theme()->addInlineJavascript($js, true);
+	addInlineJavascript($js, true);
 
 	// Javascript for deciding what to show.
 	echo '
@@ -774,8 +690,7 @@ function template_modify_board()
 			// What to show?
 			document.getElementById("override_theme_div").style.display = redirectEnabled || !nonDefaultTheme ? "none" : "";
 			document.getElementById("board_theme_div").style.display = redirectEnabled ? "none" : "";
-			document.getElementById("count_posts_div").style.display = redirectEnabled ? "none" : "";
-			document.getElementById("old_posts_div").style.display = redirectEnabled ? "none" : "";';
+			document.getElementById("count_posts_div").style.display = redirectEnabled ? "none" : "";';
 
 	if (!$context['board']['topics'] && empty($context['board']['is_recycle']))
 	{
@@ -783,10 +698,8 @@ function template_modify_board()
 			document.getElementById("redirect_address_div").style.display = redirectEnabled ? "" : "none";';
 
 		if ($context['board']['redirect'])
-		{
 			echo '
 			document.getElementById("reset_redirect_div").style.display = redirectEnabled ? "" : "none";';
-		}
 	}
 
 	echo '
@@ -814,10 +727,8 @@ function template_confirm_board_delete()
 					<ul>';
 
 	foreach ($context['children'] as $child)
-	{
 		echo '
 						<li>', $child['node']['name'], '</li>';
-	}
 
 	echo '
 					</ul>
@@ -830,20 +741,9 @@ function template_confirm_board_delete()
 					<select name="board_to" ', empty($context['can_move_children']) ? 'disabled="disabled"' : '', '>';
 
 	foreach ($context['board_order'] as $board)
-	{
-		if ($board['id'] == $context['board']['id'])
-		{
-			continue;
-		}
-
-		if (!empty($board['is_child']))
-		{
-			continue;
-		}
-
-		echo '
+		if ($board['id'] != $context['board']['id'] && empty($board['is_child']))
+			echo '
 						<option value="', $board['id'], '">', $board['name'], '</option>';
-	}
 
 	echo '
 					</select>

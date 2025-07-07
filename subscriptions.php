@@ -4,30 +4,25 @@
  * This file is the file which all subscription gateways should call
  * when a payment has been received - it sorts out the user status.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.6
  *
  */
 
-use ElkArte\Helper\Util;
-use ElkArte\Http\Headers;
-use ElkArte\Languages\Txt;
-
 // Start things rolling by getting the forum alive...
-if (!file_exists(__DIR__ . '/bootstrap.php'))
-{
+if (!file_exists(dirname(__FILE__) . '/bootstrap.php'))
 	die('Unable to initialize');
-}
 
 global $ssi_guest_access;
 
-require_once(__DIR__ . '/bootstrap.php');
+require_once(dirname(__FILE__) . '/bootstrap.php');
 $ssi_guest_access = true;
 new Bootstrap(true);
 
@@ -38,33 +33,29 @@ require_once(SUBSDIR . '/PaidSubscriptions.subs.php');
 require_once(SUBSDIR . '/Admin.subs.php');
 require_once(SUBSDIR . '/Members.subs.php');
 
-Txt::load('ManagePaid');
+loadLanguage('ManagePaid');
 
 // If there's literally nothing coming in, let's take flight!
 if (empty($_POST))
 {
-	Headers::instance()->contentType('text/html', 'UTF-8')->sendHeaders();
+	header('Content-Type: text/html; charset=UTF-8');
 	die($txt['paid_no_data']);
 }
 
 // I assume we're even active?
 if (empty($modSettings['paid_enabled']))
-{
 	exit;
-}
 
 // If we have some custom people who find out about problems load them here.
 $notify_users = array();
 if (!empty($modSettings['paid_email_to']))
 {
 	foreach (explode(',', $modSettings['paid_email_to']) as $email)
-	{
 		$notify_users[] = array(
 			'email' => $email,
 			'name' => $txt['who_member'],
 			'id' => 0,
 		);
-	}
 }
 
 $db = database();
@@ -84,12 +75,10 @@ foreach ($gatewayHandles as $gateway)
 }
 
 if (empty($txnType))
-{
-	generateSubscriptionError($txt['paid_unknown_transaction_type'], $notify_users);
-}
+	generateSubscriptionError($txt['paid_unknown_transaction_type']);
 
 // Get the subscription and member ID amongst others...
-@[$subscription_id, $member_id] = $gatewayClass->precheck();
+@list($subscription_id, $member_id) = $gatewayClass->precheck();
 
 // Integer these just in case.
 $subscription_id = (int) $subscription_id;
@@ -97,23 +86,18 @@ $member_id = (int) $member_id;
 
 // This would be bad...
 if (empty($member_id))
-{
-	generateSubscriptionError($txt['paid_empty_member'], $notify_users);
-}
+	generateSubscriptionError($txt['paid_empty_member']);
 
 // Verify the member.
 $member_info = getBasicMemberData($member_id);
 
 // Didn't find them?
 if (empty($member_info))
-{
-	generateSubscriptionError(sprintf($txt['paid_could_not_find_member'], $member_id), $notify_users);
-}
+	generateSubscriptionError(sprintf($txt['paid_could_not_find_member'], $member_id));
 
 // Get the subscription details.
 $request = $db->query('', '
-	SELECT 
-		cost, length, name
+	SELECT cost, length, name
 	FROM {db_prefix}subscriptions
 	WHERE id_subscribe = {int:current_subscription}',
 	array(
@@ -122,18 +106,15 @@ $request = $db->query('', '
 );
 
 // Didn't find it?
-if ($request->num_rows() === 0)
-{
-	generateSubscriptionError(sprintf($txt['paid_count_not_find_subscription'], $member_id, $subscription_id), $notify_users);
-}
+if ($db->num_rows($request) === 0)
+	generateSubscriptionError(sprintf($txt['paid_count_not_find_subscription'], $member_id, $subscription_id));
 
-$subscription_info = $request->fetch_assoc();
-$request->free_result();
+$subscription_info = $db->fetch_assoc($request);
+$db->free_result($request);
 
 // We wish to check the pending payments to make sure we are expecting this.
 $request = $db->query('', '
-	SELECT 
-		id_sublog, id_subscribe, payments_pending, pending_details, end_time
+	SELECT id_sublog, id_subscribe, payments_pending, pending_details, end_time
 	FROM {db_prefix}log_subscribed
 	WHERE id_subscribe = {int:current_subscription}
 		AND id_member = {int:current_member}
@@ -143,13 +124,10 @@ $request = $db->query('', '
 		'current_member' => $member_id,
 	)
 );
-if ($request->num_rows() === 0)
-{
-	generateSubscriptionError(sprintf($txt['paid_count_not_find_subscription_log'], $member_id, $subscription_id), $notify_users);
-}
-
-$subscription_info += $request->fetch_assoc();
-$request->free_result();
+if ($db->num_rows($request) == 0)
+	generateSubscriptionError(sprintf($txt['paid_count_not_find_subscription_log'], $member_id, $subscription_id));
+$subscription_info += $db->fetch_assoc($request);
+$db->free_result($request);
 
 // Is this a refund?
 if ($gatewayClass->isRefund())
@@ -163,7 +141,7 @@ if ($gatewayClass->isRefund())
 			'NAME' => $subscription_info['name'],
 			'REFUNDNAME' => $member_info['member_name'],
 			'REFUNDUSER' => $member_info['real_name'],
-			'PROFILELINK' => getUrl('profile', ['action' => 'profile', 'u' => $member_id, 'name' => $member_info['real_name']]),
+			'PROFILELINK' => $scripturl . '?action=profile;u=' . $member_id,
 			'DATE' => standardTime(time(), false),
 		);
 
@@ -182,9 +160,7 @@ elseif ($gatewayClass->isPayment() || $gatewayClass->isSubscription())
 	{
 		$real_details = Util::unserialize($subscription_info['pending_details']);
 		if (empty($real_details))
-		{
-			generateSubscriptionError(sprintf($txt['paid_count_not_find_outstanding_payment'], $member_id, $subscription_id), $notify_users);
-		}
+			generateSubscriptionError(sprintf($txt['paid_count_not_find_outstanding_payment'], $member_id, $subscription_id));
 
 		// Now we just try to find anything pending.
 		// We don't really care which it is as security happens later.
@@ -192,10 +168,7 @@ elseif ($gatewayClass->isPayment() || $gatewayClass->isSubscription())
 		{
 			unset($real_details[$id]);
 			if ($detail[3] == 'payback' && $subscription_info['payments_pending'])
-			{
 				$subscription_info['payments_pending']--;
-			}
-
 			break;
 		}
 
@@ -213,14 +186,9 @@ elseif ($gatewayClass->isPayment() || $gatewayClass->isSubscription())
 		foreach ($cost as $duration => $value)
 		{
 			if ($duration == 'fixed')
-			{
 				continue;
-			}
-
-			if ((float) $value === (float) $total_cost)
-			{
+			elseif ((float) $value == (float) $total_cost)
 				$found_duration = strtoupper(substr($duration, 0, 1));
-			}
 		}
 
 		// If we have the duration then we're done.
@@ -252,7 +220,7 @@ elseif ($gatewayClass->isPayment() || $gatewayClass->isSubscription())
 			'SUBUSER' => $member_info['real_name'],
 			'SUBEMAIL' => $member_info['email_address'],
 			'PRICE' => sprintf($modSettings['paid_currency_symbol'], $total_cost),
-			'PROFILELINK' => getUrl('profile', ['action' => 'profile', 'u' => $member_id, 'name' => $member_info['real_name']]),
+			'PROFILELINK' => $scripturl . '?action=profile;u=' . $member_id,
 			'DATE' => standardTime(time(), false),
 		);
 
@@ -263,9 +231,7 @@ elseif ($gatewayClass->isPayment() || $gatewayClass->isSubscription())
 elseif ($gatewayClass->isCancellation())
 {
 	if (method_exists($gatewayClass, 'processCancelation'))
-	{
 		$gatewayClass->processCancelation($subscription_id, $member_id, $subscription_info);
-	}
 }
 else
 {
@@ -279,17 +245,17 @@ else
 }
 
 // In case we have anything specific to do.
-$gatewayClass->close($subscription_id);
+$gatewayClass->close();
 
 /**
  * Log an error then exit
  *
  * @param string $text
- * @param array $notify_users
+ * @throws \Elk_Exception
  */
-function generateSubscriptionError($text, $notify_users = [])
+function generateSubscriptionError($text)
 {
-	global $modSettings;
+	global $modSettings, $notify_users;
 
 	// Send an email?
 	if (!empty($modSettings['paid_email']))
@@ -305,13 +271,11 @@ function generateSubscriptionError($text, $notify_users = [])
 	if (!empty($_POST))
 	{
 		foreach ($_POST as $key => $val)
-		{
 			$text .= '<br />' . Util::htmlspecialchars($key) . ': ' . Util::htmlspecialchars($val);
-		}
 	}
 
 	// Then just log and die.
-	\ElkArte\Errors\Errors::instance()->log_error($text);
+	Errors::instance()->log_error($text);
 
 	exit;
 }

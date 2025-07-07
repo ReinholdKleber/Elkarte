@@ -11,23 +11,17 @@
  * For example
  * - Ubuntu and Debian would normally be #!/usr/bin/php -q
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.4
  *
  */
 
-use ElkArte\EventManager;
-use ElkArte\Maillist\MaillistTopic;
-use ElkArte\User;
-
 // Only work for a pipe and direct calling
 if (!defined('STDIN'))
-{
 	return;
-}
 
 // Any output here is not good, it will be bounced as email
 error_reporting(0);
@@ -35,7 +29,7 @@ error_reporting(0);
 global $ssi_guest_access;
 
 // Need to bootstrap the system to do much
-require_once(__DIR__ . '/bootstrap.php');
+require_once(dirname(__FILE__) . '/bootstrap.php');
 $ssi_guest_access = true;
 new Bootstrap(true);
 
@@ -44,8 +38,7 @@ $_SERVER['SERVER_SOFTWARE'] = '';
 $_SERVER['SERVER_NAME'] = '';
 
 // Our mail controller
-$controller = new MaillistTopic(new EventManager());
-$controller->setUser(User::$info);
+$controller = new Emailpost_Controller();
 $controller->action_pbe_topic();
 
 // Always exit as successful

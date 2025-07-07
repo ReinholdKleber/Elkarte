@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE package-info SYSTEM "http://www.simplemachines.org/xml/package-info">
+<package-info xmlns="http://www.simplemachines.org/xml/package">
+  <id>vamapi_embedder</id>
+  <name>V&amp;A Museum API Embedder</name>
+  <type>modification</type>
+  <version>1.0</version>
+
+  <install for="2.0">
+    <hook function="VAMAPI_install" file="sources/VAMAPI.subs.php" />
+    <layer name="VAMAPI" />
+  </install>
+
+  <uninstall for="2.0">
+    <hook function="VAMAPI_uninstall" file="sources/VAMAPI.subs.php" />
+    <layer name="VAMAPI" remove="true" />
+    <delete file="sources/VAMAPI.plugin.php" />
+    <delete file="sources/VAMAPI.subs.php" />
+    <delete file="themes/default/VAMAPI.template.php" />
+    <delete file="themes/default/css/VAMAPI.css" />
+    <delete file="VAMAPI-logo.png" />
+  </uninstall>
+
+  <author>davidbowieforum</author>
+  <website>https://davidbowieforum.de</website>
+  <license>MIT</license>
+</package-info>

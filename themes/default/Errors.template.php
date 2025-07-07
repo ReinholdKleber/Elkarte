@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -43,16 +44,18 @@ function template_error_log()
 	global $context, $settings, $scripturl, $txt;
 
 	echo '
-		<form class="generic_list_wrapper" action="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';start=', $context['start'], $context['has_filter'] ? $context['$page_filter'] : '', '" method="post" accept-charset="UTF-8">
+		<form class="generic_list_wrapper" action="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';start=', $context['start'], $context['has_filter'] ? $context['filter']['href'] : '', '" method="post" accept-charset="UTF-8">
 			<h2 class="category_header">
-				<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=error_log" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['errlog'], '
+				<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=error_log" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['errlog'], '
 			</h2>
-			<div class="flow_flex">';
+			<div class="flow_auto">
+				<div class="floatleft">';
 
 	template_pagesection();
 
 	echo '
-				<div class="flow_flex_right submitbutton">
+				</div>
+				<div class="submitbutton">
 					<input type="submit" name="removeSelection" value="' . $txt['remove_selection'] . '" onclick="return confirm(\'' . $txt['remove_selection_confirm'] . '\');" />
 					<input type="submit" name="delall" value="', $context['has_filter'] ? $txt['remove_filtered_results'] : $txt['remove_all'], '" onclick="return confirm(\'', $context['has_filter'] ? $txt['remove_filtered_results_confirm'] : $txt['sure_about_errorlog_remove'], '\');" />
 				</div>
@@ -65,10 +68,8 @@ function template_error_log()
 						&nbsp;&nbsp;', $txt['apply_filter_of_type'], ':';
 
 	$error_types = array();
-	foreach ($context['error_types'] as $details)
-	{
+	foreach ($context['error_types'] as $type => $details)
 		$error_types[] = ($details['is_selected'] ? '<img src="' . $settings['images_url'] . '/selected.png" alt="" /> ' : '') . '<a href="' . $details['url'] . '" ' . ($details['is_selected'] ? 'class="selected"' : '') . ' title="' . $details['description'] . '">' . $details['label'] . '</a>';
-	}
 
 	echo '
 						', implode('&nbsp;|&nbsp;', $error_types), '
@@ -76,14 +77,12 @@ function template_error_log()
 				</tr>';
 
 	if ($context['has_filter'])
-	{
 		echo '
 				<tr>
 					<td colspan="3">
-						<strong>&nbsp;&nbsp;', $txt['applying_filter'], ':</strong> ', $context['filter']['entity'], ' ', $context['filter']['value']['html'], '&nbsp;&nbsp;[<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', '">', $txt['clear_filter'], '</a>]
+						<strong>&nbsp;&nbsp;', $txt['applying_filter'], ':</strong> ', $context['filter']['entity'], ' ', $context['filter']['value']['html'], '&nbsp;&nbsp;[<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', '">', $txt['clear_filter'], '</a>]
 					</td>
 				</tr>';
-	}
 
 	echo '
 				<tr class="secondary_header">
@@ -95,74 +94,90 @@ function template_error_log()
 
 	// No errors, then show a message
 	if (count($context['errors']) == 0)
-	{
 		echo '
 				<tr>
-					<td class="centertext" colspan="3">', $txt['errlog_no_entries'], '</td>
+					<td class="centertext" colspan="2">', $txt['errlog_no_entries'], '</td>
 				</tr>';
-	}
 
 	// We have some errors, show them...
 	foreach ($context['errors'] as $error)
 	{
 		echo '
 				<tr>
-					<td class="grid60">
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=error_type;value=', $error['error_type']['type'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_type'], '" class="nosel icon i-search"></a>
-							', $txt['error_type'], ': ', $error['error_type']['name'], '
-						</div>
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=message;value=', $error['message']['href'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_message'], '" class="nosel icon i-search"></a>
-						', $error['message']['html'], '
-						</div>
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=url;value=', $error['url']['href'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_url'], '" class="nosel icon i-search"></a>
-							<a href="', $error['url']['html'], '">', $error['url']['html'], '</a>
-						</div>';
+					<td>
+						<ul class="error_who">
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=id_member;value=', $error['member']['id'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_member'], '" class="icon i-search"></a>
+								<span>
+									<strong>', $error['member']['link'], '</strong>
+								</span>
+							</li>
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? '' : ';desc', $context['has_filter'] ? $context['filter']['href'] : '', '" title="', $txt['reverse_direction'], '"><i class="icon icon-small i-sort-numeric-', $context['sort_direction'], '" title="', $txt['reverse_direction'], '"></i></a>
+								<span>
+									', $error['time'], '
+								</span>
+							</li>
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=ip;value=', $error['member']['ip'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_ip'], '" class="icon i-search"></a>
+								<span>
+									<strong><a href="', $scripturl, '?action=trackip;searchip=', $error['member']['ip'], '">', $error['member']['ip'], '</a></strong>
+								</span>
+							</li>
+						</ul>
 
-		if (!empty($error['file']))
-		{
+						<ul class="error_type">';
+
+		if ($error['member']['session'] != '')
 			echo '
-						<div>
-							<a class="scope" href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=file;value=', $error['file']['search'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_file'], '" class="nosel icon i-search"></a>
-							', $txt['file'], ': ', $error['file']['link'], '<br />
-							', $txt['line'], ': ', $error['file']['line'], '
-						</div>';
-		}
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=session;value=', $error['member']['session'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_session'], '" class="icon i-search"></a>
+								<span>
+									', $error['member']['session'], '
+								</span>
+							</li>';
+		echo '
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=error_type;value=', $error['error_type']['type'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_type'], '" class="icon i-search"></a>
+								<span>
+									', $txt['error_type'], ': ', $error['error_type']['name'], '
+								</span>
+							</li>
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=message;value=', $error['message']['href'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_message'], '" class="icon i-search"></a>
+								<span>', $error['message']['html'], '</span>
+							</li>';
 
 		echo '
-					</td>
-					<td>
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=id_member;value=', $error['member']['id'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_member'], '" class="nosel icon i-search"></a>
-							<strong>', $error['member']['link'], '</strong>
-						</div>
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? '' : ';desc', $context['has_filter'] ? $context['$page_filter'] : '', '" title="', $txt['reverse_direction'], '">
-								<i class="nosel icon icon-small i-sort-numeric-', $context['sort_direction'], '" title="', $txt['reverse_direction'], '"></i>
-							</a>
-							', $error['time'], '
-						</div>
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=ip;value=', $error['member']['ip'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_ip'], '" class="nosel icon i-search"></a>
-							<strong><a href="', $scripturl, '?action=trackip;searchip=', $error['member']['ip'], '">', $error['member']['ip'], '</a></strong>
-						</div>';
+						</ul>
 
-		if ($error['member']['session'] !== '')
-		{
+						<ul class="error_where">
+							<li>
+								<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=url;value=', $error['url']['href'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_url'], '" class="icon i-search"></a>
+								<span>
+									<a href="', $error['url']['html'], '">', $error['url']['html'], '</a>
+								</span>
+							</li>
+						</ul>';
+
+		if (!empty($error['file']))
 			echo '
-						<div>
-							<a href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] === 'down' ? ';desc' : '', ';filter=session;value=', $error['member']['session'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_session'], '" class="nosel icon i-search"></a>
-							', $error['member']['session'], '
-						</div>';
-		}
+						<ul class="error_where">
+							<li>
+								<a class="scope" href="', $scripturl, '?action=admin;area=logs;sa=errorlog', $context['sort_direction'] == 'down' ? ';desc' : '', ';filter=file;value=', $error['file']['search'], '" title="', $txt['apply_filter'], ': ', $txt['filter_only_file'], '" class="icon i-search"></a>
+								<span>
+									', $txt['file'], ': ', $error['file']['link'], '<br />
+									', $txt['line'], ': ', $error['file']['line'], '
+								</span>
+							</li>
+						</ul>';
 
 		echo '
 					</td>
 					<td class="checkbox_column">
 						<input type="checkbox" name="delete[]" value="', $error['id'], '" />
 					</td>
+					<td></td>
 				</tr>';
 	}
 
@@ -174,22 +189,23 @@ function template_error_log()
 					</td>
 				</tr>
 			</table>
-			<div class="flow_flex">';
+			<div class="flow_auto">
+				<div class="floatleft">';
 
 	template_pagesection();
 
 	echo '
-				<div class="flow_flex_right submitbutton">
+				</div>
+				<div class="submitbutton">
 					<input type="submit" name="removeSelection" value="' . $txt['remove_selection'] . '" onclick="return confirm(\'' . $txt['remove_selection_confirm'] . '\');" />
 					<input type="submit" name="delall" value="', $context['has_filter'] ? $txt['remove_filtered_results'] : $txt['remove_all'], '" onclick="return confirm(\'', $context['has_filter'] ? $txt['remove_filtered_results_confirm'] : $txt['sure_about_errorlog_remove'], '\');" />';
 
-	if ($context['sort_direction'] === 'down')
-	{
+	if ($context['sort_direction'] == 'down')
 		echo '
 					<input type="hidden" name="desc" value="1" />';
-	}
 
 	echo '
+					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
 					<input type="hidden" name="', $context['admin-el_token_var'], '" value="', $context['admin-el_token'], '" />
 				</div>
@@ -202,40 +218,30 @@ function template_error_log()
  */
 function template_show_file()
 {
-	global $context;
+	global $context, $settings;
 
 	echo '<!DOCTYPE html>
 <html ', $context['right_to_left'] ? 'dir="rtl"' : '', '>
 	<head>
 		<title>', $context['file_data']['file'], '</title>
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-		<style>
-			body {
-				color: #222;
-				background-color: #FAFAFA;
-				font-family: Verdana, arial, helvetica, serif;
-				font-size: small;
-			}
-			a {color: #49643D;}
-			.curline {background: #ffe; display: inline-block; font-weight: bold;}
-			.lineno {color:#222;}
-		</style>
+		<link rel="stylesheet" href="', $settings['theme_url'], '/css/admin.css', CACHE_STALE, '" />
 	</head>
 	<body>
-		<div style="overflow: auto;"><pre style="margin: 0;">';
+		<table id="errorfile_table" class="table_grid">';
 
-	foreach ($context['file_data']['contents'] as $line => $content)
+	foreach ($context['file_data']['contents'] as $index => $line)
 	{
-		printf(
-			'<span class="lineno">%d:</span> ',
-			$line
-		);
-
-		echo $content, "\n";
+		$line_num = $index + $context['file_data']['min'];
+		echo '
+			<tr', $line_num == $context['file_data']['target'] ? ' class="current"' : '', '>
+				<td class="linenumber">', $line_num, ':</td>
+				<td class="linetext">', $line, '</td>
+			</tr>';
 	}
 
 	echo '
-		</pre></div>
+		</table>
 	</body>
 </html>';
 }
@@ -254,9 +260,7 @@ function template_attachment_errors()
 		<div class="content">';
 
 	foreach ($context['attachment_error_keys'] as $key)
-	{
 		template_show_error($key);
-	}
 
 	echo '
 		</div>

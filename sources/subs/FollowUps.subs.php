@@ -4,11 +4,11 @@
  * This file is mainly concerned with tasks relating to follow-ups, such as
  * link messages and topics, delete follow-ups, etc.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -16,18 +16,14 @@
  * Retrieves all the follow-up topic for a certain message
  *
  * @param int[] $messages int array of message ids to work on
- * @param bool $include_approved
- *
- * @return array
+ * @param boolean $include_approved
  */
 function followupTopics($messages, $include_approved = false)
 {
 	$db = database();
 
-	$returns = array();
-	$db->fetchQuery('
-		SELECT 
-			fu.derived_from, fu.follow_up, m.subject
+	$request = $db->query('', '
+		SELECT fu.derived_from, fu.follow_up, m.subject
 		FROM {db_prefix}follow_ups AS fu
 			LEFT JOIN {db_prefix}topics AS t ON (t.id_topic = fu.follow_up)
 			LEFT JOIN {db_prefix}messages AS m ON (t.id_first_msg = m.id_msg)
@@ -38,11 +34,11 @@ function followupTopics($messages, $include_approved = false)
 			'messages' => $messages,
 			'approved' => 1,
 		)
-	)->fetch_callback(
-		function ($row) use (&$returns) {
-			$returns[$row['derived_from']][] = $row;
-		}
 	);
+
+	$returns = array();
+	while ($row = $db->fetch_assoc($request))
+		$returns[$row['derived_from']][] = $row;
 
 	return $returns;
 }
@@ -51,16 +47,13 @@ function followupTopics($messages, $include_approved = false)
  * Retrieves the message from which the topic started
  *
  * @param int $topic id of the original topic the threads were started from
- * @param bool $include_approved
- *
- * @return array
+ * @param boolean $include_approved
  */
 function topicStartedHere($topic, $include_approved = false)
 {
 	$db = database();
 
-	$returns = array();
-	$db->fetchQuery('
+	$request = $db->query('', '
 		SELECT fu.derived_from, m.subject
 		FROM {db_prefix}follow_ups AS fu
 			LEFT JOIN {db_prefix}messages AS m ON (fu.derived_from = m.id_msg)
@@ -72,11 +65,11 @@ function topicStartedHere($topic, $include_approved = false)
 			'original_topic' => $topic,
 			'approved' => 1,
 		)
-	)->fetch_callback(
-		function ($row) use (&$returns) {
-			$returns = $row;
-		}
 	);
+
+	$returns = array();
+	while ($row = $db->fetch_assoc($request))
+		$returns = $row;
 
 	return $returns;
 }
@@ -103,9 +96,9 @@ function linkMessages($msg, $topic)
  * Used to break a "followup" relation between a message and a topic
  * Actually the function is not used at all...
  *
+ * @todo remove?
  * @param int $msg message id
  * @param int $topic topic id
- * @todo remove?
  */
 function unlinkMessages($msg, $topic)
 {

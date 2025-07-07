@@ -4,25 +4,17 @@
  * Provides ways to add information to your website by linking to and capturing output
  * from ElkArte
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:    2011 Simple Machines (http://www.simplemachines.org)
+ * license:        BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
-
-use BBC\ParserWrapper;
-use ElkArte\Cache\Cache;
-use ElkArte\Controller\Poll;
-use ElkArte\EventManager;
-use ElkArte\Helper\Util;
-use ElkArte\MembersList;
-use ElkArte\MessageTopicIcons;
-use ElkArte\User;
 
 /**
  * Set this to one of three values depending on what you want to happen in the case of a fatal error.
@@ -67,7 +59,7 @@ if (!defined('ELKBOOT'))
 {
 	define('ELK', 'SSI');
 
-	require_once(__DIR__ . '/bootstrap.php');
+	require_once(dirname(__FILE__) . '/bootstrap.php');
 	$bootstrap = new Bootstrap(true);
 }
 
@@ -75,7 +67,7 @@ if (!defined('ELKBOOT'))
 global $time_start, $maintenance, $msubject, $mmessage, $mbname, $language;
 global $boardurl, $webmaster_email, $cookiename;
 global $db_type, $db_server, $db_name, $db_user, $db_prefix, $db_persist, $db_error_send;
-global $modSettings, $context, $user_info, $topic, $board, $txt;
+global $modSettings, $context, $sc, $user_info, $topic, $board, $txt;
 global $ssi_db_user, $scripturl, $ssi_db_passwd, $db_passwd;
 global $boarddir, $sourcedir, $db_show_debug, $ssi_error_reporting;
 
@@ -83,7 +75,7 @@ global $boarddir, $sourcedir, $db_show_debug, $ssi_error_reporting;
 call_integration_hook('integrate_SSI');
 
 // Call a function passed by GET.
-if (isset($_GET['ssi_function']) && function_exists('ssi_' . $_GET['ssi_function']) && (!empty($modSettings['allow_guestAccess']) || User::$info->is_guest === false))
+if (isset($_GET['ssi_function']) && function_exists('ssi_' . $_GET['ssi_function']) && (!empty($modSettings['allow_guestAccess']) || !$user_info['is_guest']))
 {
 	call_user_func('ssi_' . $_GET['ssi_function']);
 	exit;
@@ -93,11 +85,10 @@ if (isset($_GET['ssi_function']))
 {
 	exit;
 }
-
 // You shouldn't just access SSI.php directly by URL!!
-if (basename($_SERVER['PHP_SELF']) === 'SSI.php')
+elseif (basename($_SERVER['PHP_SELF']) === 'SSI.php')
 {
-	die(sprintf($txt['ssi_not_direct'], User::$info->is_admin ? "'" . addslashes(__FILE__) . "'" : "'SSI.php'"));
+	die(sprintf($txt['ssi_not_direct'], $user_info['is_admin'] ? '\'' . addslashes(__FILE__) . '\'' : '\'SSI.php\''));
 }
 
 error_reporting($ssi_error_reporting);
@@ -203,14 +194,14 @@ function ssi_logout($redirect_to = '', $output_method = 'echo')
  * Recent post list:
  *  [board] Subject by Poster Date
  *
+ * @todo this may use getLastPosts with some modification
+ *
  * @param int $num_recent How many recent posts to display
  * @param int[]|null $exclude_boards If set, doesn't show posts from the specified boards
  * @param int[]|null $include_boards If set, only includes posts from the specified boards
  * @param string $output_method The output method. If 'echo', displays the posts, otherwise
  * returns an array of information about them.
  * @param bool $limit_body Whether or not to only show the first 384 characters of each post
- * @todo this may use getLastPosts with some modification
- *
  */
 function ssi_recentPosts($num_recent = 8, $exclude_boards = null, $include_boards = null, $output_method = 'echo', $limit_body = true)
 {
@@ -221,17 +212,9 @@ function ssi_recentPosts($num_recent = 8, $exclude_boards = null, $include_board
 	{
 		$exclude_boards = array($modSettings['recycle_board']);
 	}
-	elseif (empty($exclude_boards))
-	{
-		$exclude_boards = array();
-	}
-	elseif (is_array($exclude_boards))
-	{
-		$exclude_boards = $exclude_boards;
-	}
 	else
 	{
-		$exclude_boards = array($exclude_boards);
+		$exclude_boards = empty($exclude_boards) ? array() : (is_array($exclude_boards) ? $exclude_boards : array($exclude_boards));
 	}
 
 	// What about including certain boards - note we do some protection here as pre-2.0 didn't have this parameter.
@@ -256,7 +239,7 @@ function ssi_recentPosts($num_recent = 8, $exclude_boards = null, $include_board
 
 	$query_where_params = array(
 		'is_approved' => 1,
-		'include_boards' => $include_boards ?? '',
+		'include_boards' => $include_boards === null ? '' : $include_boards,
 		'exclude_boards' => empty($exclude_boards) ? '' : $exclude_boards,
 		'min_message_id' => $modSettings['maxMsgID'] - 25 * min($num_recent, 5),
 	);
@@ -271,13 +254,13 @@ function ssi_recentPosts($num_recent = 8, $exclude_boards = null, $include_board
  * - By default will only show if you have permission to the see the board
  * in question - this can be overridden.
  *
+ * @todo this may use getRecentPosts with some modification
+ *
  * @param int[] $post_ids An array containing the IDs of the posts to show
  * @param bool $override_permissions Whether to ignore permissions. If true, will show posts even
  * if the user doesn't have permission to see them.
  * @param string $output_method = 'echo; The output method. If 'echo', displays the posts,
  * otherwise returns an array of info about them
- * @todo this may use getRecentPosts with some modification
- *
  */
 function ssi_fetchPosts($post_ids = array(), $override_permissions = false, $output_method = 'echo')
 {
@@ -311,6 +294,8 @@ function ssi_fetchPosts($post_ids = array(), $override_permissions = false, $out
  * - removes code duplication in other queries
  * - don't call it direct unless you really know what you're up to.
  *
+ * @todo if ssi_recentPosts and ssi_fetchPosts will use Recent.subs.php this can be removed
+ *
  * @param string $query_where The WHERE clause for the query
  * @param mixed[] $query_where_params An array of parameters for the WHERE clause
  * @param int $query_limit The maximum number of rows to return
@@ -321,28 +306,26 @@ function ssi_fetchPosts($post_ids = array(), $override_permissions = false, $out
  * rather than all of it
  * @param bool $override_permissions Whether or not to ignore permissions. If true, will
  * show all posts regardless of whether the user can actually see them
- * @todo if ssi_recentPosts and ssi_fetchPosts will use Recent.subs.php this can be removed
- *
  */
 function ssi_queryPosts($query_where = '', $query_where_params = array(), $query_limit = 10, $query_order = 'm.id_msg DESC', $output_method = 'echo', $limit_body = false, $override_permissions = false)
 {
-	global $scripturl, $txt, $modSettings;
+	global $scripturl, $txt, $user_info, $modSettings;
 
 	$db = database();
 
 	// Find all the posts. Newer ones will have higher IDs.
-	$request = $db->fetchQuery('
+	$request = $db->query('substring', '
 		SELECT
 			m.poster_time, m.subject, m.id_topic, m.id_member, m.id_msg, m.id_board, b.name AS board_name,
-			COALESCE(mem.real_name, m.poster_name) AS poster_name, ' . (User::$info->is_guest ? '1 AS is_read, 0 AS new_from' : '
+			COALESCE(mem.real_name, m.poster_name) AS poster_name, ' . ($user_info['is_guest'] ? '1 AS is_read, 0 AS new_from' : '
 			COALESCE(lt.id_msg, lmr.id_msg, 0) >= m.id_msg_modified AS is_read,
 			COALESCE(lt.id_msg, lmr.id_msg, -1) + 1 AS new_from') . ', ' . ($limit_body ? 'SUBSTRING(m.body, 1, 384) AS body' : 'm.body') . ', m.smileys_enabled
 		FROM {db_prefix}messages AS m
 			JOIN {db_prefix}boards AS b ON (b.id_board = m.id_board)
 			JOIN {db_prefix}topics AS t ON (t.id_topic = m.id_topic)
-			LEFT JOIN {db_prefix}members AS mem ON (mem.id_member = m.id_member)' . (User::$info->is_guest ? '' : '
+			LEFT JOIN {db_prefix}members AS mem ON (mem.id_member = m.id_member)' . (!$user_info['is_guest'] ? '
 			LEFT JOIN {db_prefix}log_topics AS lt ON (lt.id_topic = m.id_topic AND lt.id_member = {int:current_member})
-			LEFT JOIN {db_prefix}log_mark_read AS lmr ON (lmr.id_board = m.id_board AND lmr.id_member = {int:current_member})') . '
+			LEFT JOIN {db_prefix}log_mark_read AS lmr ON (lmr.id_board = m.id_board AND lmr.id_member = {int:current_member})' : '') . '
 		WHERE 1=1 ' . ($override_permissions ? '' : '
 			AND {query_wanna_see_board}') . ($modSettings['postmod_active'] ? '
 			AND m.approved = {int:is_approved}
@@ -351,16 +334,16 @@ function ssi_queryPosts($query_where = '', $query_where_params = array(), $query
 		ORDER BY ' . $query_order . '
 		' . (empty($query_limit) ? '' : 'LIMIT {int:query_limit}'),
 		array_merge($query_where_params, array(
-			'current_member' => User::$info->id,
+			'current_member' => $user_info['id'],
 			'is_approved' => 1,
 			'query_limit' => $query_limit,
 		))
 	);
 
-	$bbc_parser = ParserWrapper::instance();
+	$bbc_parser = \BBC\ParserWrapper::instance();
 
 	$posts = array();
-	while ($row = $request->fetch_assoc())
+	while ($row = $db->fetch_assoc($request))
 	{
 		$row['body'] = $bbc_parser->parseMessage($row['body'], $row['smileys_enabled']);
 
@@ -387,8 +370,8 @@ function ssi_queryPosts($query_where = '', $query_where_params = array(), $query
 				'link' => empty($row['id_member']) ? $row['poster_name'] : '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '">' . $row['poster_name'] . '</a>'
 			),
 			'subject' => $row['subject'],
-			'short_subject' => Util::shorten_text($row['subject'], empty($modSettings['ssi_subject_length']) ? 24 : $modSettings['ssi_subject_length']),
-			'preview' => Util::shorten_text($preview, empty($modSettings['ssi_preview_length']) ? 128 : $modSettings['ssi_preview_length']),
+			'short_subject' => Util::shorten_text($row['subject'], !empty($modSettings['ssi_subject_length']) ? $modSettings['ssi_subject_length'] : 24),
+			'preview' => Util::shorten_text($preview, !empty($modSettings['ssi_preview_length']) ? $modSettings['ssi_preview_length'] : 128),
 			'body' => $row['body'],
 			'time' => standardTime($row['poster_time']),
 			'html_time' => htmlTime($row['poster_time']),
@@ -400,8 +383,7 @@ function ssi_queryPosts($query_where = '', $query_where_params = array(), $query
 			'new_from' => $row['new_from'],
 		);
 	}
-
-	$request->free_result();
+	$db->free_result($request);
 
 	// Just return it.
 	if ($output_method !== 'echo' || empty($posts))
@@ -422,7 +404,7 @@ function ssi_queryPosts($query_where = '', $query_where_params = array(), $query
 				<td class="top">
 					<a href="', $post['href'], '">', $post['subject'], '</a>
 					', $txt['by'], ' ', $post['poster']['link'], '
-					', $post['is_new'] ? '<a href="' . $scripturl . '?topic=' . $post['topic'] . '.msg' . $post['new_from'] . ';topicseen#new" rel="nofollow" class="new_posts">' . $txt['new'] . '</a>' : '', '
+					', $post['is_new'] ? '<a href="' . $scripturl . '?topic=' . $post['topic'] . '.msg' . $post['new_from'] . ';topicseen#new" rel="nofollow"><span class="new_posts">' . $txt['new'] . '</span></a>' : '', '
 				</td>
 				<td class="righttext">
 					', $post['time'], '
@@ -447,7 +429,7 @@ function ssi_queryPosts($query_where = '', $query_where_params = array(), $query
  */
 function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boards = null, $output_method = 'echo')
 {
-	global $settings, $scripturl, $txt, $modSettings;
+	global $settings, $scripturl, $txt, $user_info, $modSettings;
 
 	$db = database();
 
@@ -474,15 +456,14 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 	$icon_sources = new MessageTopicIcons(!empty($modSettings['messageIconChecks_enable']), $settings['theme_dir']);
 
 	// Find all the posts in distinct topics. Newer ones will have higher IDs.
-	$topics = array();
-	$db->fetchQuery('
+	$request = $db->query('', '
 		SELECT
 			t.id_topic, b.id_board, b.name AS board_name
 		FROM {db_prefix}topics AS t
 			INNER JOIN {db_prefix}messages AS ml ON (ml.id_msg = t.id_last_msg)
 			LEFT JOIN {db_prefix}boards AS b ON (b.id_board = t.id_board)
 		WHERE t.id_last_msg >= {int:min_message_id}' . (empty($exclude_boards) ? '' : '
-			AND b.id_board NOT IN ({array_int:exclude_boards})') . (empty($include_boards) ? '' : '
+			AND b.id_board NOT IN ({array_int:exclude_boards})') . '' . (empty($include_boards) ? '' : '
 			AND b.id_board IN ({array_int:include_boards})') . '
 			AND {query_wanna_see_board}' . ($modSettings['postmod_active'] ? '
 			AND t.approved = {int:is_approved}
@@ -496,11 +477,13 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 			'is_approved' => 1,
 			'num_recent' => $num_recent,
 		)
-	)->fetch_callback(
-		static function ($row) use (&$topics) {
-			$topics[$row['id_topic']] = $row;
-		}
 	);
+	$topics = array();
+	while ($row = $db->fetch_assoc($request))
+	{
+		$topics[$row['id_topic']] = $row;
+	}
+	$db->free_result($request);
 
 	// Did we find anything? If not, bail.
 	if (empty($topics))
@@ -511,9 +494,9 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 	$topic_list = array_keys($topics);
 
 	// Count number of new posts per topic.
-	if (User::$info->is_guest === false)
+	if (!$user_info['is_guest'])
 	{
-		$db->fetchQuery('
+		$request = $db->query('', '
 			SELECT
 				m.id_topic, COALESCE(lt.id_msg, lmr.id_msg, -2) + 1 AS new_from
 			FROM {db_prefix}messages AS m
@@ -524,18 +507,19 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 				AND (m.id_msg > COALESCE(lt.id_msg, lmr.id_msg, 0))
 			GROUP BY m.id_topic, lt.id_msg, lmr.id_msg',
 			array(
-				'current_member' => User::$info->id,
+				'current_member' => $user_info['id'],
 				'topic_list' => $topic_list
 			)
-		)->fetch_callback(
-			static function ($row) use (&$topics) {
-				$topics[$row['id_topic']] += $row;
-			}
 		);
+		while ($row = $db->fetch_assoc($request))
+		{
+			$topics[$row['id_topic']] += $row;
+		}
+		$db->free_result($request);
 	}
 
 	// Find all the posts in distinct topics. Newer ones will have higher IDs.
-	$request = $db->fetchQuery('
+	$request = $db->query('substring', '
 		SELECT
 			ml.poster_time, ml.id_member, ml.id_msg, ml.smileys_enabled, ml.icon,
 			mf.subject, mf.id_member AS id_op_member, 
@@ -555,9 +539,9 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 			'topic_list' => $topic_list
 		)
 	);
-	$bbc_parser = ParserWrapper::instance();
+	$bbc_parser = \BBC\ParserWrapper::instance();
 	$posts = array();
-	while (($row = $request->fetch_assoc()))
+	while ($row = $db->fetch_assoc($request))
 	{
 		$row['body'] = strip_tags(strtr($bbc_parser->parseMessage($row['body'], $row['smileys_enabled']), array('<br />' => '&#10;')));
 
@@ -600,11 +584,10 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 			'link' => '<a href="' . $scripturl . '?topic=' . $row['id_topic'] . '.msg' . $row['id_msg'] . '#new" rel="nofollow">' . $row['subject'] . '</a>',
 			'is_new' => !empty($topics[$row['id_topic']]['new_from']),
 			'new_from' => empty($topics[$row['id_topic']]['new_from']) ? 0 : $topics[$row['id_topic']]['new_from'],
-			'icon' => '<img src="' . $icon_sources->getIconURL($row['icon']) . '" class="icon-middle" alt="' . $row['icon'] . '" />',
+			'icon' => '<img src="' . $icon_sources->getIconURL($row['icon']) . '" class="centericon" alt="' . $row['icon'] . '" />',
 		);
 	}
-
-	$request->free_result();
+	$db->free_result($request);
 	krsort($posts);
 
 	// Just return it.
@@ -626,7 +609,7 @@ function ssi_recentTopics($num_recent = 8, $exclude_boards = null, $include_boar
 				<td class="top">
 					<a href="', $post['href'], '">', $post['subject'], '</a>
 					', $txt['by'], ' ', $post['poster']['link'], '
-					', $post['is_new'] ? '<a href="' . $scripturl . '?topic=' . $post['topic'] . '.msg' . $post['new_from'] . ';topicseen#new" rel="nofollow" class="new_posts">' . $txt['new'] . '</a>' : '', '
+					', !$post['is_new'] ? '' : '<a href="' . $scripturl . '?topic=' . $post['topic'] . '.msg' . $post['new_from'] . ';topicseen#new" rel="nofollow"><span class="new_posts">' . $txt['new'] . '</span></a>', '
 				</td>
 				<td class="righttext">
 					', $post['time'], '
@@ -705,7 +688,7 @@ function ssi_topBoards($num_top = 10, $output_method = 'echo')
 	{
 		echo '
 			<tr>
-				<td>', $board['new'] ? ' <a href="' . $board['href'] . '" class="new_posts">' . $txt['new'] . '</a> ' : '', $board['link'], '</td>
+				<td>', $board['new'] ? ' <a href="' . $board['href'] . '"><span class="new_posts">' . $txt['new'] . '</span></a> ' : '', $board['link'], '</td>
 				<td class="centertext">', $board['num_topics'], '</td>
 				<td class="centertext">', $board['num_posts'], '</td>
 			</tr>';
@@ -729,7 +712,14 @@ function ssi_topTopics($type = 'replies', $num_topics = 10, $output_method = 'ec
 
 	require_once(SUBSDIR . '/Stats.subs.php');
 
-	$function = function_exists('topTopic' . ucfirst($type)) ? 'topTopic' . ucfirst($type) : 'topTopicReplies';
+	if (function_exists('topTopic' . ucfirst($type)))
+	{
+		$function = 'topTopic' . ucfirst($type);
+	}
+	else
+	{
+		$function = 'topTopicReplies';
+	}
 
 	$topics = $function($num_topics);
 
@@ -807,10 +797,8 @@ function ssi_latestMember($output_method = 'echo')
 	global $txt, $context;
 
 	if ($output_method === 'echo')
-	{
 		echo '
 		', sprintf($txt['welcome_newest_member'], $context['common_stats']['latest_member']['link']), '<br />';
-	}
 	else
 	{
 		return $context['common_stats']['latest_member'];
@@ -908,6 +896,8 @@ function ssi_fetchGroupMembers($group_id = null, $output_method = 'echo')
  */
 function ssi_queryMembers($query_where = null, $query_where_params = array(), $query_limit = '', $query_order = 'id_member DESC', $output_method = 'echo')
 {
+	global $memberContext;
+
 	if ($query_where === null)
 	{
 		return false;
@@ -916,7 +906,7 @@ function ssi_queryMembers($query_where = null, $query_where_params = array(), $q
 	require_once(SUBSDIR . '/Members.subs.php');
 	$members_data = retrieveMemberData(array(
 		$query_where => $query_where_params,
-		'limit' => empty($query_limit) ? 10 : (int) $query_limit,
+		'limit' => !empty($query_limit) ? (int) $query_limit : 10,
 		'order_by' => $query_order,
 		'activated_status' => 1,
 	));
@@ -933,7 +923,7 @@ function ssi_queryMembers($query_where = null, $query_where_params = array(), $q
 	}
 
 	// Load the members.
-	MembersList::load($members);
+	loadMemberData($members);
 
 	// Draw the table!
 	if ($output_method === 'echo')
@@ -943,19 +933,16 @@ function ssi_queryMembers($query_where = null, $query_where_params = array(), $q
 	}
 
 	$query_members = array();
-	foreach ($members as $id)
+	foreach ($members as $member)
 	{
-		$member = MembersList::get($id);
 		// Load their context data.
-		if ($member->isEmpty())
+		if (!loadMemberContext($member))
 		{
 			continue;
 		}
 
-		$member->loadContext();
-
 		// Store this member's information.
-		$query_members[$id] = $member;
+		$query_members[$member] = $memberContext[$member];
 
 		// Only do something if we're echo'ing.
 		if ($output_method === 'echo')
@@ -963,8 +950,8 @@ function ssi_queryMembers($query_where = null, $query_where_params = array(), $q
 			echo '
 			<tr>
 				<td class="centertext">
-					', $query_members[$id]['link'], '
-					<br />', $query_members[$id]['avatar']['image'], '
+					', $query_members[$member]['link'], '
+					<br />', $query_members[$member]['avatar']['image'], '
 				</td>
 			</tr>';
 		}
@@ -1032,7 +1019,7 @@ function ssi_boardStats($output_method = 'echo')
  */
 function ssi_whosOnline($output_method = 'echo')
 {
-	global $txt, $settings;
+	global $user_info, $txt, $settings;
 
 	require_once(SUBSDIR . '/MembersOnline.subs.php');
 	$membersOnlineOptions = array(
@@ -1057,7 +1044,7 @@ function ssi_whosOnline($output_method = 'echo')
 		', comma_format($return['num_guests']), ' ', $return['num_guests'] == 1 ? $txt['guest'] : $txt['guests'], ', ', comma_format($return['num_users_online']), ' ', $return['num_users_online'] == 1 ? $txt['user'] : $txt['users'];
 
 	$bracketList = array();
-	if (!empty(User::$info->buddies))
+	if (!empty($user_info['buddies']))
 	{
 		$bracketList[] = comma_format($return['num_buddies']) . ' ' . ($return['num_buddies'] == 1 ? $txt['buddy'] : $txt['buddies']);
 	}
@@ -1081,18 +1068,11 @@ function ssi_whosOnline($output_method = 'echo')
 			', implode(', ', $return['list_users_online']);
 
 	// Showing membergroups?
-	if (empty($settings['show_group_key']))
+	if (!empty($settings['show_group_key']) && !empty($return['membergroups']))
 	{
-		return;
-	}
-
-	if (empty($return['membergroups']))
-	{
-		return;
-	}
-
-	echo '<br />
+		echo '<br />
 			[' . implode(']&nbsp;&nbsp;[', $return['membergroups']) . ']';
+	}
 }
 
 /**
@@ -1109,8 +1089,10 @@ function ssi_logOnline($output_method = 'echo')
 	{
 		return ssi_whosOnline($output_method);
 	}
-
-	ssi_whosOnline($output_method);
+	else
+	{
+		ssi_whosOnline($output_method);
+	}
 }
 
 /**
@@ -1122,22 +1104,25 @@ function ssi_logOnline($output_method = 'echo')
  */
 function ssi_login($redirect_to = '', $output_method = 'echo')
 {
-	global $scripturl, $txt, $modSettings, $context, $settings;
+	global $scripturl, $txt, $user_info, $modSettings, $context, $settings;
 
 	if ($redirect_to !== '')
 	{
 		$_SESSION['login_url'] = $redirect_to;
 	}
 
-	if ($output_method !== 'echo' || User::$info->is_guest === false)
+	if ($output_method !== 'echo' || !$user_info['is_guest'])
 	{
-		return User::$info->is_guest;
+		return $user_info['is_guest'];
 	}
 
 	$context['default_username'] = isset($_POST['user']) ? preg_replace('~&amp;#(\\d{1,7}|x[0-9a-fA-F]{1,6});~', '&#\\1;', htmlspecialchars($_POST['user'], ENT_COMPAT, 'UTF-8')) : '';
 
 	echo '
-		<form action="', $scripturl, '?action=login2" name="frmLogin" id="frmLogin" method="post" accept-charset="UTF-8">
+		<script src="', $settings['default_theme_url'], '/scripts/sha256.js"></script>';
+
+	echo '
+		<form action="', $scripturl, '?action=login2" name="frmLogin" id="frmLogin" method="post" accept-charset="UTF-8" ', empty($context['disable_login_hashing']) ? ' onsubmit="hashLoginPassword(this, \'' . $context['session_id'] . '\');"' : '', '>
 		<div class="login centertext">
 			<div class="well">';
 
@@ -1160,17 +1145,32 @@ function ssi_login($redirect_to = '', $output_method = 'echo')
 				<dl>
 					<dt>', $txt['username'], ':</dt>
 					<dd>
-						<input type="text" name="user" size="20" value="', $context['default_username'], '" class="input_text" autofocus="autofocus" autocomplete="username" placeholder="', $txt['username'], '" />
+						<input type="text" name="user" size="20" value="', $context['default_username'], '" class="input_text" autofocus="autofocus" placeholder="', $txt['username'], '" />
 					</dd>
 					<dt>', $txt['password'], ':</dt>
 					<dd>
-						<input type="password" name="passwrd" value="" size="20" class="input_password" autocomplete="current-password" placeholder="', $txt['password'], '" />
+						<input type="password" name="passwrd" value="" size="20" class="input_password" placeholder="', $txt['password'], '" />
 					</dd>
-				</dl>
+				</dl>';
+
+	if (!empty($modSettings['enableOpenID']))
+	{
+		echo '<p><strong>&mdash;', $txt['or'], '&mdash;</strong></p>
+				<dl>
+					<dt>', $txt['openid'], ':</dt>
+					<dd>
+						<input type="text" name="openid_identifier" class="input_text openid_login" size="17" />
+						&nbsp;<a href="', $scripturl, '?action=quickhelp;help=register_openid" onclick="return reqOverlayDiv(this.href);" class="helpicon i-help"><s>', $txt['help'], '</s></a>
+					</dd>
+				</dl>';
+	}
+
+	echo '
 				<input type="submit" value="', $txt['login'], '" />
 				<p class="smalltext">
 					<a href="', $scripturl, '?action=reminder">', $txt['forgot_your_password'], '</a>
 				</p>
+				<input type="hidden" name="hash_passwrd" value="" />
 				<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
 				<input type="hidden" name="', $context['login_token_var'], '" value="', $context['login_token'], '" />
 			</div>
@@ -1205,7 +1205,7 @@ function ssi_topPoll($output_method = 'echo')
  */
 function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 {
-	global $txt, $boardurl, $context, $modSettings;
+	global $txt, $boardurl, $user_info, $context, $modSettings;
 
 	$boardsAllowed = array_intersect(boardsAllowedTo('poll_view'), boardsAllowedTo('poll_vote'));
 
@@ -1216,9 +1216,8 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 
 	$db = database();
 
-	$row = $db->fetchQuery('
-		SELECT 
-			p.id_poll, p.question, t.id_topic, p.max_votes, p.guest_vote, p.hide_results, p.expire_time
+	$request = $db->query('', '
+		SELECT p.id_poll, p.question, t.id_topic, p.max_votes, p.guest_vote, p.hide_results, p.expire_time
 		FROM {db_prefix}polls AS p
 			INNER JOIN {db_prefix}topics AS t ON (t.id_poll = p.id_poll' . ($modSettings['postmod_active'] ? ' AND t.approved = {int:is_approved}' : '') . ')
 			INNER JOIN {db_prefix}boards AS b ON (b.id_board = t.id_board)' . ($topPollInstead ? '
@@ -1228,14 +1227,14 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 				AND lp.id_member = {int:current_member})
 		WHERE p.voting_locked = {int:voting_opened}
 			AND (p.expire_time = {int:no_expiration} OR {int:current_time} < p.expire_time)
-			AND ' . (User::$info->is_guest ? 'p.guest_vote = {int:guest_vote_allowed}' : 'lp.id_choice IS NULL') . '
-			AND {query_wanna_see_board}' . (in_array(0, $boardsAllowed) ? '' : '
-			AND b.id_board IN ({array_int:boards_allowed_list})') . (!empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] > 0 ? '
+			AND ' . ($user_info['is_guest'] ? 'p.guest_vote = {int:guest_vote_allowed}' : 'lp.id_choice IS NULL') . '
+			AND {query_wanna_see_board}' . (!in_array(0, $boardsAllowed) ? '
+			AND b.id_board IN ({array_int:boards_allowed_list})' : '') . (!empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] > 0 ? '
 			AND b.id_board != {int:recycle_enable}' : '') . '
 		ORDER BY ' . ($topPollInstead ? 'pc.votes' : 'p.id_poll') . ' DESC
 		LIMIT 1',
 		array(
-			'current_member' => User::$info->id,
+			'current_member' => $user_info['id'],
 			'boards_allowed_list' => $boardsAllowed,
 			'is_approved' => 1,
 			'guest_vote_allowed' => 1,
@@ -1245,7 +1244,9 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 			'current_time' => time(),
 			'recycle_enable' => $modSettings['recycle_board'],
 		)
-	)->fetch_assoc();
+	);
+	$row = $db->fetch_assoc($request);
+	$db->free_result($request);
 
 	// This user has voted on all the polls.
 	if (empty($row))
@@ -1254,38 +1255,38 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 	}
 
 	// If this is a guest who's voted we'll through ourselves to show poll to show the results.
-	if (User::$info->is_guest && (!$row['guest_vote'] || (isset($_COOKIE['guest_poll_vote']) && in_array($row['id_poll'], explode(',', $_COOKIE['guest_poll_vote'])))))
+	if ($user_info['is_guest'] && (!$row['guest_vote'] || (isset($_COOKIE['guest_poll_vote']) && in_array($row['id_poll'], explode(',', $_COOKIE['guest_poll_vote'])))))
 	{
 		return ssi_showPoll($row['id_topic'], $output_method);
 	}
 
-	$request = $db->fetchQuery('
-		SELECT 
-			COUNT(DISTINCT id_member)
+	$request = $db->query('', '
+		SELECT COUNT(DISTINCT id_member)
 		FROM {db_prefix}log_polls
 		WHERE id_poll = {int:current_poll}',
 		array(
 			'current_poll' => $row['id_poll'],
 		)
 	);
-	[$total] = $request->fetch_row();
-	$request->free_result();
+	list ($total) = $db->fetch_row($request);
+	$db->free_result($request);
 
-	$options = array();
-	$db->fetchQuery('
-		SELECT 
-			id_choice, label, votes
+	$request = $db->query('', '
+		SELECT id_choice, label, votes
 		FROM {db_prefix}poll_choices
 		WHERE id_poll = {int:current_poll}',
 		array(
 			'current_poll' => $row['id_poll'],
 		)
-	)->fetch_callback(
-		static function ($rowChoice) use (&$options) {
-			$rowChoice['label'] = censor($rowChoice['label']);
-			$options[$rowChoice['id_choice']] = array($rowChoice['label'], $rowChoice['votes']);
-		}
 	);
+	$options = array();
+	while ($rowChoice = $db->fetch_assoc($request))
+	{
+		$rowChoice['label'] = censor($rowChoice['label']);
+
+		$options[$rowChoice['id_choice']] = array($rowChoice['label'], $rowChoice['votes']);
+	}
+	$db->free_result($request);
 
 	// Can they view it?
 	$is_expired = !empty($row['expire_time']) && $row['expire_time'] < time();
@@ -1302,7 +1303,7 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 		'options' => array()
 	);
 
-	$bbc_parser = ParserWrapper::instance();
+	$bbc_parser = \BBC\ParserWrapper::instance();
 
 	// Calculate the percentages and bar lengths...
 	$divisor = $return['total_votes'] == 0 ? 1 : $return['total_votes'];
@@ -1332,7 +1333,7 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
 		echo '
 		<form class="ssi_poll" action="', $boardurl, '/SSI.php?ssi_function=pollVote" method="post" accept-charset="UTF-8">
 			<strong>', $return['question'], '</strong><br />
-			', empty($return['allowed_warning']) ? '' : $return['allowed_warning'] . '<br />';
+			', !empty($return['allowed_warning']) ? $return['allowed_warning'] . '<br />' : '';
 
 		foreach ($return['options'] as $option)
 		{
@@ -1367,13 +1368,20 @@ function ssi_recentPoll($topPollInstead = false, $output_method = 'echo')
  */
 function ssi_showPoll($topicID = null, $output_method = 'echo')
 {
-	global $txt, $context, $scripturl;
+	global $txt, $user_info, $context, $scripturl;
 	static $last_board = null;
 
 	require_once(SUBSDIR . '/Poll.subs.php');
 	require_once(SUBSDIR . '/Topic.subs.php');
 
-	$topicID = $topicID === null && isset($_REQUEST['ssi_topic']) ? (int) $_REQUEST['ssi_topic'] : (int) $topicID;
+	if ($topicID === null && isset($_REQUEST['ssi_topic']))
+	{
+		$topicID = (int) $_REQUEST['ssi_topic'];
+	}
+	else
+	{
+		$topicID = (int) $topicID;
+	}
 
 	if (empty($topicID))
 	{
@@ -1396,7 +1404,7 @@ function ssi_showPoll($topicID = null, $output_method = 'echo')
 		return array();
 	}
 
-	$context['user']['started'] = User::$info->id == $topicinfo['id_member'] && User::$info->is_guest === false;
+	$context['user']['started'] = $user_info['id'] == $topicinfo['id_member'] && !$user_info['is_guest'];
 
 	$poll_id = associatedPoll($topicID);
 	loadPollContext($poll_id);
@@ -1405,6 +1413,12 @@ function ssi_showPoll($topicID = null, $output_method = 'echo')
 	{
 		return array();
 	}
+
+	// For "compatibility" sake
+	// @deprecated since 1.0
+	$context['poll']['allow_vote'] = $context['allow_vote'];
+	$context['poll']['allow_view_results'] = $context['allow_poll_view'];
+	$context['poll']['topic'] = $topicID;
 
 	if ($output_method !== 'echo')
 	{
@@ -1532,11 +1546,10 @@ function ssi_pollVote()
 	require_once(SUBSDIR . '/Poll.subs.php');
 
 	// We have to fake we are in a topic so that we can use the proper controller
-	[$topic, $board] = topicFromPoll($pollID);
+	list ($topic, $board) = topicFromPoll($pollID);
 	loadBoard();
 
-	$poll_action = new Poll(new EventManager());
-	$poll_action->setUser(User::$info);
+	$poll_action = new Poll_Controller(new Event_manager());
 	$poll_action->pre_dispatch();
 
 	// The controller takes already care of redirecting properly or fail
@@ -1596,7 +1609,7 @@ function ssi_news($output_method = 'echo')
  */
 function ssi_todaysBirthdays($output_method = 'echo')
 {
-	global $scripturl, $modSettings;
+	global $scripturl, $modSettings, $user_info;
 
 	if (empty($modSettings['cal_enabled']) || !allowedTo('calendar_view') || !allowedTo('profile_view_any'))
 	{
@@ -1607,7 +1620,7 @@ function ssi_todaysBirthdays($output_method = 'echo')
 		'include_birthdays' => true,
 		'num_days_shown' => empty($modSettings['cal_days_for_index']) || $modSettings['cal_days_for_index'] < 1 ? 1 : $modSettings['cal_days_for_index'],
 	);
-	$return = Cache::instance()->quick_get('calendar_index_offset_' . (User::$info->time_offset + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
+	$return = cache_quick_get('calendar_index_offset_' . ($user_info['time_offset'] + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
 
 	if ($output_method !== 'echo')
 	{
@@ -1617,7 +1630,7 @@ function ssi_todaysBirthdays($output_method = 'echo')
 	foreach ($return['calendar_birthdays'] as $member)
 	{
 		echo '
-			<a href="', $scripturl, '?action=profile;u=', $member['id'], '">' . $member['name'] . (isset($member['age']) ? ' (' . $member['age'] . ')' : '') . '</a>' . ($member['is_last'] ? '' : ', ');
+			<a href="', $scripturl, '?action=profile;u=', $member['id'], '">' . $member['name'] . (isset($member['age']) ? ' (' . $member['age'] . ')' : '') . '</a>' . (!$member['is_last'] ? ', ' : '');
 	}
 }
 
@@ -1629,7 +1642,7 @@ function ssi_todaysBirthdays($output_method = 'echo')
  */
 function ssi_todaysHolidays($output_method = 'echo')
 {
-	global $modSettings;
+	global $modSettings, $user_info;
 
 	if (empty($modSettings['cal_enabled']) || !allowedTo('calendar_view'))
 	{
@@ -1640,7 +1653,7 @@ function ssi_todaysHolidays($output_method = 'echo')
 		'include_holidays' => true,
 		'num_days_shown' => empty($modSettings['cal_days_for_index']) || $modSettings['cal_days_for_index'] < 1 ? 1 : $modSettings['cal_days_for_index'],
 	);
-	$return = Cache::instance()->quick_get('calendar_index_offset_' . (User::$info->time_offset + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
+	$return = cache_quick_get('calendar_index_offset_' . ($user_info['time_offset'] + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
 
 	if ($output_method !== 'echo')
 	{
@@ -1659,7 +1672,7 @@ function ssi_todaysHolidays($output_method = 'echo')
  */
 function ssi_todaysEvents($output_method = 'echo')
 {
-	global $modSettings;
+	global $modSettings, $user_info;
 
 	if (empty($modSettings['cal_enabled']) || !allowedTo('calendar_view'))
 	{
@@ -1670,7 +1683,7 @@ function ssi_todaysEvents($output_method = 'echo')
 		'include_events' => true,
 		'num_days_shown' => empty($modSettings['cal_days_for_index']) || $modSettings['cal_days_for_index'] < 1 ? 1 : $modSettings['cal_days_for_index'],
 	);
-	$return = Cache::instance()->quick_get('calendar_index_offset_' . (User::$info->time_offset + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
+	$return = cache_quick_get('calendar_index_offset_' . ($user_info['time_offset'] + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
 
 	if ($output_method !== 'echo')
 	{
@@ -1686,7 +1699,7 @@ function ssi_todaysEvents($output_method = 'echo')
 		}
 
 		echo '
-	' . $event['link'] . ($event['is_last'] ? '' : ', ');
+	' . $event['link'] . (!$event['is_last'] ? ', ' : '');
 	}
 }
 
@@ -1698,7 +1711,7 @@ function ssi_todaysEvents($output_method = 'echo')
  */
 function ssi_todaysCalendar($output_method = 'echo')
 {
-	global $modSettings, $txt, $scripturl;
+	global $modSettings, $txt, $scripturl, $user_info;
 
 	if (empty($modSettings['cal_enabled']) || !allowedTo('calendar_view'))
 	{
@@ -1712,7 +1725,7 @@ function ssi_todaysCalendar($output_method = 'echo')
 		'num_days_shown' => empty($modSettings['cal_days_for_index']) || $modSettings['cal_days_for_index'] < 1 ? 1 : $modSettings['cal_days_for_index'],
 	);
 
-	$return = Cache::instance()->quick_get('calendar_index_offset_' . (User::$info->time_offset + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
+	$return = cache_quick_get('calendar_index_offset_' . ($user_info['time_offset'] + $modSettings['time_offset']), 'subs/Calendar.subs.php', 'cache_getRecentEvents', array($eventOptions));
 
 	if ($output_method !== 'echo')
 	{
@@ -1733,7 +1746,7 @@ function ssi_todaysCalendar($output_method = 'echo')
 		foreach ($return['calendar_birthdays'] as $member)
 		{
 			echo '
-			<a href="', $scripturl, '?action=profile;u=', $member['id'], '">', $member['name'], isset($member['age']) ? ' (' . $member['age'] . ')' : '', '</a>', $member['is_last'] ? '' : ', ';
+			<a href="', $scripturl, '?action=profile;u=', $member['id'], '">', $member['name'], isset($member['age']) ? ' (' . $member['age'] . ')' : '', '</a>', !$member['is_last'] ? ', ' : '';
 		}
 
 		echo '
@@ -1754,7 +1767,7 @@ function ssi_todaysCalendar($output_method = 'echo')
 			}
 
 			echo '
-			' . $event['link'] . ($event['is_last'] ? '' : ', ');
+			' . $event['link'] . (!$event['is_last'] ? ', ' : '');
 		}
 	}
 }
@@ -1776,7 +1789,7 @@ function ssi_boardNews($board = null, $limit = null, $start = null, $length = nu
 {
 	global $scripturl, $txt, $settings, $modSettings;
 
-	\ElkArte\Languages\Txt::load('Stats');
+	loadLanguage('Stats');
 
 	$db = database();
 
@@ -1822,8 +1835,7 @@ function ssi_boardNews($board = null, $limit = null, $start = null, $length = nu
 
 	// Make sure guests can see this board.
 	$request = $db->query('', '
-		SELECT 
-			id_board
+		SELECT id_board
 		FROM {db_prefix}boards
 		WHERE ' . ($board === null ? '' : 'id_board = {int:current_board}
 			AND ') . 'FIND_IN_SET(-1, member_groups) != 0
@@ -1834,18 +1846,19 @@ function ssi_boardNews($board = null, $limit = null, $start = null, $length = nu
 			'blank_redirect' => '',
 		)
 	);
-	if ($request->num_rows() === 0)
+	if ($db->num_rows($request) == 0)
 	{
 		if ($output_method === 'echo')
 		{
 			die($txt['ssi_no_guests']);
 		}
-
-		return array();
+		else
+		{
+			return array();
+		}
 	}
-
-	[$board] = $request->fetch_row();
-	$request->free_result();
+	list ($board) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	// Load the message icons - the usual suspects.
 	$icon_sources = new MessageTopicIcons(!empty($modSettings['messageIconChecks_enable']), $settings['theme_dir']);
@@ -1860,17 +1873,17 @@ function ssi_boardNews($board = null, $limit = null, $start = null, $length = nu
 	);
 
 	require_once(SUBSDIR . '/MessageIndex.subs.php');
-	$topics_info = messageIndexTopics($board, 0, $start, $limit, 'first_post', 't.id_topic', $indexOptions);
+	$request = messageIndexTopics($board, 0, $start, $limit, 'first_post', 't.id_topic', $indexOptions);
 
-	if (empty($topics_info))
+	if (empty($request))
 	{
 		return false;
 	}
 
-	$bbc_parser = ParserWrapper::instance();
+	$bbc_parser = \BBC\ParserWrapper::instance();
 
 	$return = array();
-	foreach ($topics_info as $row)
+	foreach ($request as $row)
 	{
 		if (!isset($row[$preview . '_body']))
 		{
@@ -1901,15 +1914,15 @@ function ssi_boardNews($board = null, $limit = null, $start = null, $length = nu
 			'body' => $row['body'],
 			'href' => $scripturl . '?topic=' . $row['id_topic'] . '.0',
 			'link' => '<a href="' . $scripturl . '?topic=' . $row['id_topic'] . '.0">' . $row['num_replies'] . ' ' . ($row['num_replies'] == 1 ? $txt['ssi_comment'] : $txt['ssi_comments']) . '</a>',
-			'replies' => comma_format($row['num_replies']),
-			'comment_href' => empty($row['locked']) ? $scripturl . '?action=post;topic=' . $row['id_topic'] . '.' . $row['num_replies'] . ';last_msg=' . $row['id_last_msg'] : '',
-			'comment_link' => empty($row['locked']) ? '<a href="' . $scripturl . '?action=post;topic=' . $row['id_topic'] . '.' . $row['num_replies'] . ';last_msg=' . $row['id_last_msg'] . '">' . $txt['ssi_write_comment'] . '</a>' : '',
-			'new_comment' => empty($row['locked']) ? '<a href="' . $scripturl . '?action=post;topic=' . $row['id_topic'] . '.' . $row['num_replies'] . '">' . $txt['ssi_write_comment'] . '</a>' : '',
+			'replies' => $row['num_replies'],
+			'comment_href' => !empty($row['locked']) ? '' : $scripturl . '?action=post;topic=' . $row['id_topic'] . '.' . $row['num_replies'] . ';last_msg=' . $row['id_last_msg'],
+			'comment_link' => !empty($row['locked']) ? '' : '<a href="' . $scripturl . '?action=post;topic=' . $row['id_topic'] . '.' . $row['num_replies'] . ';last_msg=' . $row['id_last_msg'] . '">' . $txt['ssi_write_comment'] . '</a>',
+			'new_comment' => !empty($row['locked']) ? '' : '<a href="' . $scripturl . '?action=post;topic=' . $row['id_topic'] . '.' . $row['num_replies'] . '">' . $txt['ssi_write_comment'] . '</a>',
 			'poster' => array(
 				'id' => $row['id_member'],
 				'name' => $row['poster_name'],
-				'href' => empty($row['id_member']) ? '' : $scripturl . '?action=profile;u=' . $row['id_member'],
-				'link' => empty($row['id_member']) ? $row['poster_name'] : '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '">' . $row['poster_name'] . '</a>'
+				'href' => !empty($row['id_member']) ? $scripturl . '?action=profile;u=' . $row['id_member'] : '',
+				'link' => !empty($row['id_member']) ? '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '">' . $row['poster_name'] . '</a>' : $row['poster_name']
 			),
 			'locked' => !empty($row['locked']),
 			'is_last' => false
@@ -1999,7 +2012,7 @@ function ssi_recentEvents($max_events = 7, $output_method = 'echo')
 	echo '
 			<span class="event">' . $txt['events'] . '</span> ';
 
-	foreach ($return as $array)
+	foreach ($return as $mday => $array)
 	{
 		foreach ($array as $event)
 		{
@@ -2010,7 +2023,7 @@ function ssi_recentEvents($max_events = 7, $output_method = 'echo')
 			}
 
 			echo '
-				' . $event['link'] . ($event['is_last'] ? '' : ', ');
+				' . $event['link'] . (!$event['is_last'] ? ', ' : '');
 		}
 	}
 }
@@ -2069,8 +2082,7 @@ function ssi_recentAttachments($num_attachments = 10, $attachment_ext = array(),
 	}
 
 	// Lets build the query.
-	$attachments = array();
-	$db->fetchQuery('
+	$request = $db->query('', '
 		SELECT
 			att.id_attach, att.id_msg, att.filename, COALESCE(att.size, 0) AS filesize, att.downloads, mem.id_member,
 			COALESCE(mem.real_name, m.poster_name) AS poster_name, m.id_topic, m.subject, t.id_board, m.poster_time,
@@ -2081,8 +2093,8 @@ function ssi_recentAttachments($num_attachments = 10, $attachment_ext = array(),
 			LEFT JOIN {db_prefix}members AS mem ON (mem.id_member = m.id_member)' . (empty($modSettings['attachmentShowImages']) || empty($modSettings['attachmentThumbnails']) ? '' : '
 			LEFT JOIN {db_prefix}attachments AS thumb ON (thumb.id_attach = att.id_thumb)') . '
 		WHERE att.attachment_type = 0' . ($attachments_boards === array(0) ? '' : '
-			AND m.id_board IN ({array_int:boards_can_see})') . (empty($attachment_ext) ? '' : '
-			AND att.fileext IN ({array_string:attachment_ext})') .
+			AND m.id_board IN ({array_int:boards_can_see})') . (!empty($attachment_ext) ? '
+			AND att.fileext IN ({array_string:attachment_ext})' : '') .
 			(!$modSettings['postmod_active'] || allowedTo('approve_posts') ? '' : '
 			AND t.approved = {int:is_approved}
 			AND m.approved = {int:is_approved}
@@ -2095,53 +2107,56 @@ function ssi_recentAttachments($num_attachments = 10, $attachment_ext = array(),
 			'num_attachments' => $num_attachments,
 			'is_approved' => 1,
 		)
-	)->fetch_callback(
-		static function ($row) use (&$attachments, $scripturl, $modSettings) {
-			// We have something.
-			$filename = preg_replace('~&amp;#(\\d{1,7}|x[0-9a-fA-F]{1,6});~', '&#\\1;', htmlspecialchars($row['filename'], ENT_COMPAT, 'UTF-8'));
-
-			// Is it an image?
-			$attachments[$row['id_attach']] = array(
-				'member' => array(
-					'id' => $row['id_member'],
-					'name' => $row['poster_name'],
-					'link' => empty($row['id_member']) ? $row['poster_name'] : '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '">' . $row['poster_name'] . '</a>',
-				),
-				'file' => array(
-					'filename' => $filename,
-					'filesize' => byte_format($row['filesize']),
-					'downloads' => $row['downloads'],
-					'href' => $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'],
-					'link' => '<a href="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'] . '"><i class="icon i-paperclip"><s>Attachement:</s></i> ' . $filename . '</a>',
-					'is_image' => !empty($row['width']) && !empty($row['height']) && !empty($modSettings['attachmentShowImages']),
-				),
-				'topic' => array(
-					'id' => $row['id_topic'],
-					'subject' => $row['subject'],
-					'href' => $scripturl . '?topic=' . $row['id_topic'] . '.msg' . $row['id_msg'] . '#msg' . $row['id_msg'],
-					'link' => '<a href="' . $scripturl . '?topic=' . $row['id_topic'] . '.msg' . $row['id_msg'] . '#msg' . $row['id_msg'] . '">' . $row['subject'] . '</a>',
-					'time' => standardTime($row['poster_time']),
-					'html_time' => htmlTime($row['poster_time']),
-					'timestamp' => forum_time(true, $row['poster_time']),
-				),
-			);
-
-			// Images.
-			if ($attachments[$row['id_attach']]['file']['is_image'])
-			{
-				$id_thumb = empty($row['id_thumb']) ? $row['id_attach'] : $row['id_thumb'];
-				$attachments[$row['id_attach']]['file']['image'] = array(
-					'id' => $id_thumb,
-					'width' => $row['width'],
-					'height' => $row['height'],
-					'img' => '<img src="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'] . ';image" alt="' . $filename . '" />',
-					'thumb' => '<img src="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $id_thumb . ';image" alt="' . $filename . '" />',
-					'href' => $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $id_thumb . ';image',
-					'link' => '<a href="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'] . ';image"><img src="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $id_thumb . ';image" alt="' . $filename . '" /></a>',
-				);
-			}
-		}
 	);
+
+	// We have something.
+	$attachments = array();
+	while ($row = $db->fetch_assoc($request))
+	{
+		$filename = preg_replace('~&amp;#(\\d{1,7}|x[0-9a-fA-F]{1,6});~', '&#\\1;', htmlspecialchars($row['filename'], ENT_COMPAT, 'UTF-8'));
+
+		// Is it an image?
+		$attachments[$row['id_attach']] = array(
+			'member' => array(
+				'id' => $row['id_member'],
+				'name' => $row['poster_name'],
+				'link' => empty($row['id_member']) ? $row['poster_name'] : '<a href="' . $scripturl . '?action=profile;u=' . $row['id_member'] . '">' . $row['poster_name'] . '</a>',
+			),
+			'file' => array(
+				'filename' => $filename,
+				'filesize' => byte_format($row['filesize']),
+				'downloads' => $row['downloads'],
+				'href' => $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'],
+				'link' => '<a href="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'] . '"><i class="icon i-paperclip"><s>Attachement:</s></i> ' . $filename . '</a>',
+				'is_image' => !empty($row['width']) && !empty($row['height']) && !empty($modSettings['attachmentShowImages']),
+			),
+			'topic' => array(
+				'id' => $row['id_topic'],
+				'subject' => $row['subject'],
+				'href' => $scripturl . '?topic=' . $row['id_topic'] . '.msg' . $row['id_msg'] . '#msg' . $row['id_msg'],
+				'link' => '<a href="' . $scripturl . '?topic=' . $row['id_topic'] . '.msg' . $row['id_msg'] . '#msg' . $row['id_msg'] . '">' . $row['subject'] . '</a>',
+				'time' => standardTime($row['poster_time']),
+				'html_time' => htmlTime($row['poster_time']),
+				'timestamp' => forum_time(true, $row['poster_time']),
+			),
+		);
+
+		// Images.
+		if ($attachments[$row['id_attach']]['file']['is_image'])
+		{
+			$id_thumb = empty($row['id_thumb']) ? $row['id_attach'] : $row['id_thumb'];
+			$attachments[$row['id_attach']]['file']['image'] = array(
+				'id' => $id_thumb,
+				'width' => $row['width'],
+				'height' => $row['height'],
+				'img' => '<img src="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'] . ';image" alt="' . $filename . '" />',
+				'thumb' => '<img src="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $id_thumb . ';image" alt="' . $filename . '" />',
+				'href' => $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $id_thumb . ';image',
+				'link' => '<a href="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $row['id_attach'] . ';image"><img src="' . $scripturl . '?action=dlattach;topic=' . $row['id_topic'] . '.0;attach=' . $id_thumb . ';image" alt="' . $filename . '" /></a>',
+			);
+		}
+	}
+	$db->free_result($request);
 
 	// So you just want an array?  Here you can have it.
 	if ($output_method === 'array' || empty($attachments))

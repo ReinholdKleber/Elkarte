@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.6
  *
  */
 
@@ -24,18 +25,16 @@ function template_modify_weights()
 	<div id="admincenter">
 		<form id="admin_form_wrapper" action="', $scripturl, '?action=admin;area=managesearch;sa=weights" method="post" accept-charset="UTF-8">
 			<h2 class="category_header">
-				<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=search_weight_commonheader" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['search_weights'], '
+				<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=search_weight_commonheader" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['search_weights'], '
 			</h2>';
 
 	if (!empty($modSettings['search_index']) && (stripos($modSettings['search_index'], 'sphinx') === 0))
-	{
 		echo '
 			<div class="content">
 				<div class="infobox">',
 					$txt['search_weights_sphinx'], '
 				</div>
 			</div>';
-	}
 
 	echo '
 			<div class="content">
@@ -135,7 +134,6 @@ function template_select_search_method()
 
 			';
 	if (!empty($context['table_info']))
-	{
 		echo '
 					<dt>
 						<label>', $txt['search_method_messages_table_space'], ':</label>
@@ -149,7 +147,6 @@ function template_select_search_method()
 					<dd>
 						', $context['table_info']['index_length'], '
 					</dd>';
-	}
 
 	echo '
 				</dl>
@@ -174,21 +171,15 @@ function template_select_search_method()
 							<p>';
 
 		if (empty($context['fulltext_index']) && empty($context['cannot_create_fulltext']))
-		{
 			echo '
 								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_no_index_exists'], ' <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=createfulltext;', $context['session_var'], '=', $context['session_id'], ';', $context['admin-msm_token_var'], '=', $context['admin-msm_token'], '">', $txt['search_method_fulltext_create'], '</a>';
-		}
 		elseif (empty($context['fulltext_index']) && !empty($context['cannot_create_fulltext']))
-		{
 			echo '
 								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_fulltext_cannot_create'];
-		}
 		else
-		{
 			echo '
 								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_index_already_exists'], ' <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=removefulltext;', $context['session_var'], '=', $context['session_id'], ';', $context['admin-msm_token_var'], '=', $context['admin-msm_token'], '">', $txt['search_method_fulltext_remove'], '</a><br />
 								<strong>', $txt['search_index_size'], ':</strong> ', $context['table_info']['fulltext_length'];
-		}
 
 		echo '
 							</p>
@@ -204,22 +195,16 @@ function template_select_search_method()
 							<p>';
 
 	if ($context['custom_index'])
-	{
 		echo '
 								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_index_already_exists'], ' <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=removecustom;', $context['session_var'], '=', $context['session_id'], ';', $context['admin-msm_token_var'], '=', $context['admin-msm_token'], '">', $txt['search_index_custom_remove'], '</a><br />
 								<strong>', $txt['search_index_size'], ':</strong> ', $context['table_info']['custom_index_length'];
-	}
 	elseif ($context['partial_custom_index'])
-	{
 		echo '
 								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_index_partial'], ' <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=removecustom;', $context['session_var'], '=', $context['session_id'], ';', $context['admin-msm_token_var'], '=', $context['admin-msm_token'], '">', $txt['search_index_custom_remove'], '</a> <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=createmsgindex;resume;', $context['session_var'], '=', $context['session_id'], ';', $context['admin-msm_token_var'], '=', $context['admin-msm_token'], '">', $txt['search_index_custom_resume'], '</a><br />
 								<strong>', $txt['search_index_size'], ':</strong> ', $context['table_info']['custom_index_length'];
-	}
 	else
-	{
 		echo '
-								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_no_index_exists'], ' <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=createmsgindex;', $context['session_var'], '=', $context['session_id'], '">', $txt['search_index_create_custom'], '</a>';
-	}
+								<strong>', $txt['search_index_label'], ':</strong> ', $txt['search_method_no_index_exists'], ' <a class="linkbutton" href="', $scripturl, '?action=admin;area=managesearch;sa=createmsgindex">', $txt['search_index_create_custom'], '</a>';
 
 	echo '
 							</p>
@@ -229,9 +214,7 @@ function template_select_search_method()
 	foreach ($context['search_apis'] as $api)
 	{
 		if (empty($api['label']) || $api['has_template'])
-		{
 			continue;
-		}
 
 		echo '
 						<dt>
@@ -240,12 +223,10 @@ function template_select_search_method()
 						</dt>';
 
 		if ($api['desc'])
-		{
 			echo '
 						<dd>
 							<p>', $api['desc'], '</p>
 						</dd>';
-		}
 	}
 
 	echo '
@@ -267,10 +248,44 @@ function template_select_search_method()
 	<script>
 		showhideSearchMethod();
 
-		$("#search_index").find("input").on("change", function() {
+		$("#search_index").find("input").change(function() {
 			showhideSearchMethod();
 		});
    </script>';
+}
+
+/**
+ * Template to create a search index.
+ */
+function template_create_index()
+{
+	global $context, $scripturl, $txt;
+
+	echo '
+	<div id="admincenter">
+		<form action="', $scripturl, '?action=admin;area=managesearch;sa=createmsgindex" method="post" accept-charset="UTF-8" name="create_index">
+			<h2 class="category_header">', $txt['search_create_index'], '</h2>
+			<div class="content">
+				<dl class="settings">
+					<dt>
+						<label for="predefine_select">', $txt['search_predefined'], ':</label>
+					</dt>
+					<dd>
+						<select name="bytes_per_word" id="predefine_select">
+							<option value="2">', $txt['search_predefined_small'], '</option>
+							<option value="4" selected="selected">', $txt['search_predefined_moderate'], '</option>
+							<option value="5">', $txt['search_predefined_large'], '</option>
+						</select>
+					</dd>
+				</dl>
+				<div class="submitbutton">
+					<input type="submit" name="save" value="', $txt['search_create_index_start'], '" />
+					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
+					<input type="hidden" name="step" value="1" />
+				</div>
+			</div>
+		</form>
+	</div>';
 }
 
 /**
@@ -288,20 +303,22 @@ function template_create_index_progress()
 				<div>
 					<p>', $txt['search_create_index_not_ready'], '</p>
 					<div class="progress_bar">
-						<div class="green_percent" style="width: ', $context['percentage'], '%;">', $context['percentage'], '%</div>
+						<div class="full_bar">', $context['percentage'], '%</div>
+						<div class="green_percent" style="width: ', $context['percentage'], '%;">&nbsp;</div>
 					</div>
 				</div>
 				<div class="submitbutton">
 					<input type="submit" name="cont" value="', $txt['search_create_index_continue'], '" />
 					<input type="hidden" name="step" value="', $context['step'], '" />
 					<input type="hidden" name="start" value="', $context['start'], '" />
+					<input type="hidden" name="bytes_per_word" value="', $context['index_settings']['bytes_per_word'], '" />
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
 				</div>
 			</div>
 		</form>
 	</div>
 	<script>
-		doAutoSubmit(5, ', JavaScriptEscape($txt['search_create_index_continue']), ');
+		doAutoSubmit(10, ', JavaScriptEscape($txt['search_create_index_continue']), ');
 	</script>';
 }
 
@@ -457,7 +474,7 @@ function template_manage_sphinx()
 
 	echo '
 			<div class="information">
-				', $txt['sphinx_description'], '
+				', $context['page_description'], '
 			</div>
 			<div class="content">
 				<dl class="settings">
@@ -466,63 +483,63 @@ function template_manage_sphinx()
 						<span class="smalltext">', $txt['sphinx_index_prefix_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_index_prefix" id="sphinx_index_prefix_input" value="', $modSettings['sphinx_index_prefix'] ?? 'elkarte', '" size="65" />
+						<input type="text" name="sphinx_index_prefix" id="sphinx_index_prefix_input" value="', isset($modSettings['sphinx_index_prefix']) ? $modSettings['sphinx_index_prefix'] : 'elkarte', '" size="65" />
 					</dd>
 					<dt>
 						<label for="sphinx_data_path_input">', $txt['sphinx_index_data_path'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_index_data_path_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_data_path" id="sphinx_data_path_input" value="', $modSettings['sphinx_data_path'] ?? '/var/sphinx/data', '" size="65" />
+						<input type="text" name="sphinx_data_path" id="sphinx_data_path_input" value="', isset($modSettings['sphinx_data_path']) ? $modSettings['sphinx_data_path'] : '/var/sphinx/data', '" size="65" />
 					</dd>
 					<dt>
 						<label for="sphinx_log_path_input">', $txt['sphinx_log_file_path'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_log_file_path_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_log_path" id="sphinx_log_path_input" value="', $modSettings['sphinx_log_path'] ?? '/var/sphinx/log', '" size="65" />
+						<input type="text" name="sphinx_log_path" id="sphinx_log_path_input" value="', isset($modSettings['sphinx_log_path']) ? $modSettings['sphinx_log_path'] : '/var/sphinx/log', '" size="65" />
 					</dd>
 					<dt>
 						<label for="sphinx_stopword_path_input">', $txt['sphinx_stop_word_path'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_stop_word_path_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_stopword_path" id="sphinx_stopword_path_input" value="', $modSettings['sphinx_stopword_path'] ?? '', '" size="65" />
+						<input type="text" name="sphinx_stopword_path" id="sphinx_stopword_path_input" value="', isset($modSettings['sphinx_stopword_path']) ? $modSettings['sphinx_stopword_path'] : '', '" size="65" />
 					</dd>
 					<dt>
 						<label for="sphinx_indexer_mem_input">', $txt['sphinx_memory_limit'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_memory_limit_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_indexer_mem" id="sphinx_indexer_mem_input" value="', $modSettings['sphinx_indexer_mem'] ?? '128', '" size="4" /> MB
+						<input type="text" name="sphinx_indexer_mem" id="sphinx_indexer_mem_input" value="', isset($modSettings['sphinx_indexer_mem']) ? $modSettings['sphinx_indexer_mem'] : '128', '" size="4" /> MB
 					</dd>
 					<dt>
 						<label for="sphinx_searchd_server_input">', $txt['sphinx_searchd_server'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_searchd_server_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_searchd_server" id="sphinx_searchd_server_input" value="', $modSettings['sphinx_searchd_server'] ?? 'localhost', '" size="65" />
-					</dd>
-					<dt>
-						<label for="sphinxql_searchd_port_input">', $txt['sphinx_searchd_qlport'], '</label><br />
-						<span class="smalltext">', $txt['sphinx_searchd_qlport_desc'], '</span>
-					</dt>
-					<dd>
-						<input type="text" name="sphinxql_searchd_port" id="sphinxql_searchd_port_input" value="', $modSettings['sphinxql_searchd_port'] ?? '9306', '" size="4" />
+						<input type="text" name="sphinx_searchd_server" id="sphinx_searchd_server_input" value="', isset($modSettings['sphinx_searchd_server']) ? $modSettings['sphinx_searchd_server'] : 'localhost', '" size="65" />
 					</dd>
 					<dt>
 						<label for="sphinx_searchd_port_input">', $txt['sphinx_searchd_port'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_searchd_port_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_searchd_port" id="sphinx_searchd_port_input" value="', $modSettings['sphinx_searchd_port'] ?? '9312', '" size="4" />
+						<input type="text" name="sphinx_searchd_port" id="sphinx_searchd_port_input" value="', isset($modSettings['sphinx_searchd_port']) ? $modSettings['sphinx_searchd_port'] : '9312', '" size="4" />
+					</dd>
+					<dt>
+						<label for="sphinxql_searchd_port_input">', $txt['sphinx_searchd_qlport'], '</label><br />
+						<span class="smalltext">', $txt['sphinx_searchd_qlport_desc'], '</span>
+					</dt>
+					<dd>
+						<input type="text" name="sphinxql_searchd_port" id="sphinxql_searchd_port_input" value="', isset($modSettings['sphinxql_searchd_port']) ? $modSettings['sphinxql_searchd_port'] : '9306', '" size="4" />
 					</dd>
 					<dt>
 						<label for="sphinx_max_results_input">', $txt['sphinx_max_matches'], '</label><br />
 						<span class="smalltext">', $txt['sphinx_max_matches_desc'], '</span>
 					</dt>
 					<dd>
-						<input type="text" name="sphinx_max_results" id="sphinx_max_results_input" value="', $modSettings['sphinx_max_results'] ?? '2000', '" size="4" />
+						<input type="text" name="sphinx_max_results" id="sphinx_max_results_input" value="', isset($modSettings['sphinx_max_results']) ? $modSettings['sphinx_max_results'] : '2000', '" size="4" />
 					</dd>
 				</dl>
 				<div class="submitbutton">

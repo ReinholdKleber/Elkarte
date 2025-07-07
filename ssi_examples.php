@@ -1,17 +1,16 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
  * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.7
  */
-
-use ElkArte\User;
 
 // Special thanks to Spaceman-Spiff for his contributions to this page.
 
@@ -25,7 +24,7 @@ $ssi_guest_access = false;
 global $settings, $user_info, $context, $modsettings;
 
 // Include the SSI file.
-require(__DIR__ . '/SSI.php');
+require(dirname(__FILE__) . '/SSI.php');
 
 // Viewing the homepage sample?
 if (isset($_GET['view']) && $_GET['view'] === 'home1')
@@ -39,7 +38,7 @@ template_ssi_above();
 ?>
 
 	<h2>SSI.php Functions</h2>
-	<p><strong>Current Version:</strong> 2.0 dev</p>
+	<p><strong>Current Version:</strong> 1.1</p>
 	<p>This file is used to demonstrate the capabilities of SSI.php using PHP include functions. The examples show the include tag, then the results of it.</p>
 
 	<h2>Include Code</h2>
@@ -47,7 +46,7 @@ template_ssi_above();
 	<div class="codeheader">
 		<a href="javascript:void(0);" onclick="return elkSelectText(this);" class="codeoperation">[Select]</a>
 	</div>
-	<pre class="bbc_code">&lt;?php require(&quot;<?php echo addslashes(User::$info->is_admin ? realpath(BOARDDIR . '/SSI.php') : 'SSI.php'); ?>&quot;);</pre>
+	<pre class="bbc_code">&lt;?php require(&quot;<?php echo addslashes($user_info['is_admin'] ? realpath(BOARDDIR . '/SSI.php') : 'SSI.php'); ?>&quot;);</pre>
 
 	<h2>Some notes on usage</h2>
 	<p>All the functions have an output method parameter.  This can either be &quot;echo&quot; (the default) or &quot;array&quot;</p>
@@ -134,7 +133,7 @@ template_ssi_above();
 				<a href="#" onclick="showSSIBlock('ssi_recentAttachments');return false;">Recent Attachments</a>
 			</li>
 		</ul>
-		<?php if (User::$info->is_admin)
+		<?php if ($user_info['is_admin'])
 		{
 			?>
 			<h3>Advanced Functions <i class="helpicon i-help" title="Functions that require additional tweaking, not just copy and paste."></i></h3>
@@ -640,7 +639,7 @@ template_ssi_above();
 				<a href="javascript:void(0);" onclick="return elkSelectText(this);" class="codeoperation">[Select]</a>
 			</div>
 			<pre class="bbc_code"><?php
-				echo \ElkArte\Helper\Util::htmlspecialchars(template_homepage_sample1('source'), ENT_COMPAT, 'UTF-8'); ?>
+				echo Util::htmlspecialchars(template_homepage_sample1('source'), ENT_COMPAT, 'UTF-8'); ?>
 			</pre>
 			<h3>Result</h3>
 			<iframe src="?view=home1" style="width: 100%; height: 450px;"></iframe>
@@ -761,6 +760,7 @@ function template_ssi_above()
 		</style>
 		<script>
 			var elk_scripturl = "', $scripturl, '",
+				elk_iso_case_folding = ', $context['server']['iso_case_folding'] ? 'true' : 'false', ',
 				elk_charset = "UTF-8",
 				elk_theme_url = "', $settings['theme_url'], '",
 				elk_default_theme_url = "', $settings['default_theme_url'], '",
@@ -836,6 +836,8 @@ function template_ssi_below()
 
 function template_homepage_sample1($method = 'source')
 {
+	global $user_info;
+
 	$header = '<!DOCTYPE html>
 <html>
 <head>
@@ -930,12 +932,15 @@ function template_homepage_sample1($method = 'source')
 
 	if ($method === 'source')
 	{
-		$header = '<?php require("' . (User::$info->is_admin ? addslashes(realpath(BOARDDIR . '/SSI.php')) : 'SSI.php') . '"); ?>' . "\n" . $header;
+		$header = '<?php require("' . ($user_info['is_admin'] ? addslashes(realpath(BOARDDIR . '/SSI.php')) : 'SSI.php') . '"); ?>' . "\n" . $header;
 		return $header . template_homepage_sample1_html() . $footer;
 	}
- echo $header;
- template_homepage_sample1_php();
- echo $footer;
+	else
+	{
+		echo $header;
+		template_homepage_sample1_php();
+		echo $footer;
+	}
 }
 
 function template_homepage_sample1_php()

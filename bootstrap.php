@@ -3,74 +3,61 @@
 /**
  * Initialize the ElkArte environment.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:		BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
+ *
  */
-
-use BBC\ParserWrapper;
-use ElkArte\Cache\Cache;
-use ElkArte\Controller\Auth;
-use ElkArte\Debug;
-use ElkArte\Errors\Errors;
-use ElkArte\EventManager;
-use ElkArte\ext\Composer\Autoload\ClassLoader;
-use ElkArte\Helper\TokenHash;
-use ElkArte\Hooks;
-use ElkArte\MembersList;
-use ElkArte\Request;
-use ElkArte\Server;
-use ElkArte\Themes\ThemeLoader;
-use ElkArte\User;
 
 /**
  * Class Bootstrap
  *
- * Takes care of the initial loading and feeding of Elkarte from
+ * This takes care of the initial loading and feeding of Elkarte from
  * either SSI or Index
  */
 class Bootstrap
 {
-	/** @var array What is returned by the function getrusage. */
-	protected $rusage_start = [];
-
 	/**
 	 * Bootstrap constructor.
 	 *
 	 * @param bool $standalone
-	 *  - true to boot outside elkarte
+	 *  - true to boot outside of elkarte
 	 *  - false to bootstrap the main elkarte site.
+	 * @throws \Elk_Exception
 	 */
 	public function __construct($standalone = true)
 	{
 		// Bootstrap only once.
-		if (!defined('ELKBOOT'))
+		if (defined('ELKBOOT'))
 		{
-			// We're going to set a few globals
-			global $time_start, $ssi_error_reporting, $db_show_debug;
+			return true;
+		}
 
-			// Your on the clock
-			$time_start = microtime(true);
+		// We're going to set a few globals
+		global $time_start, $ssi_error_reporting, $db_show_debug;
 
-			// Unless settings.php tells us otherwise
-			$db_show_debug = false;
+		// Your on the clock
+		$time_start = microtime(true);
 
-			// Report errors but not depreciated ones
-			$ssi_error_reporting = error_reporting(E_ALL & ~E_DEPRECATED);
+		// Unless settings.php tells us otherwise
+		$db_show_debug = false;
 
-			// Get the things needed for ALL modes
-			$this->bringUpBasics();
+		// Report errors but not depreciated ones
+		$ssi_error_reporting = error_reporting(E_ALL & ~E_DEPRECATED);
 
-			// Going to run from the side entrance and not directly from inside elkarte
-			if ($standalone)
-			{
-				$this->ssi_main();
-			}
+		// Get the things needed for ALL modes
+		$this->bringUpBasics();
+
+		// Going to run from the side entrance and not directly from inside elkarte
+		if ($standalone)
+		{
+			$this->ssi_main();
 		}
 	}
 
@@ -81,7 +68,7 @@ class Bootstrap
 	{
 		$this->setConstants();
 		$this->setRusage();
-		$this->clearGlobals();
+		$this->clearGloballs();
 		$this->loadSettingsFile();
 		$this->validatePaths();
 		$this->loadDependants();
@@ -102,14 +89,13 @@ class Bootstrap
 		{
 			define('ELK', '1');
 		}
-
 		define('ELKBOOT', '1');
 
 		// The software version
-		define('FORUM_VERSION', 'ElkArte 2.0 dev');
+		define('FORUM_VERSION', 'ElkArte 1.1.9');
 
 		// Shortcut for the browser cache stale
-		define('CACHE_STALE', '?20dev');
+		define('CACHE_STALE', '?R119');
 	}
 
 	/**
@@ -117,16 +103,27 @@ class Bootstrap
 	 */
 	private function setRusage()
 	{
-		$this->rusage_start = getrusage();
+		global $rusage_start;
+
+		// Directional only script time usage for display
+		// getrusage is missing in php < 7 on Windows
+		if (function_exists('getrusage'))
+		{
+			$rusage_start = getrusage();
+		}
+		else
+		{
+			$rusage_start = array();
+		}
 	}
 
 	/**
 	 * If they glo, they need to be cleaned.
 	 */
-	private function clearGlobals()
+	private function clearGloballs()
 	{
 		// We don't need no globals. (a bug in "old" versions of PHP)
-		foreach (['db_character_set', 'cachedir'] as $variable)
+		foreach (array('db_character_set', 'cachedir') as $variable)
 		{
 			if (isset($GLOBALS[$variable]))
 			{
@@ -143,15 +140,15 @@ class Bootstrap
 		// All those wonderful things found in settings
 		global $maintenance, $mtitle, $msubject, $mmessage, $mbname, $language, $boardurl, $webmaster_email;
 		global $cookiename, $db_type, $db_server, $db_port, $db_name, $db_user, $db_passwd;
-		global $ssi_db_user, $ssi_db_passwd, $db_prefix, $db_persist, $db_error_send;
-		global $cache_uid, $cache_password, $cache_enable, $cache_servers, $cache_accelerator;
-		global $db_show_debug, $url_format, $cachedir, $boarddir, $sourcedir, $extdir, $languagedir;
+		global $ssi_db_user, $ssi_db_passwd, $db_prefix, $db_persist, $db_error_send, $cache_accelerator;
+		global $cache_uid, $cache_password, $cache_enable, $cache_memcached, $db_show_debug;
+		global $cachedir, $boarddir, $sourcedir, $extdir, $languagedir, $ignore_install_dir;
 
 		// Where the Settings.php file is located
 		$settings_loc = __DIR__ . '/Settings.php';
 
-		// First thing: if the installation dir exists, just send anybody there
-		// The IGNORE_INSTALL_DIR constant is for developers only. Do not add it on production sites
+		// First thing: if the install dir exists, just send anybody there
+		// The ignore_install_dir var is for developers only. Do not add it on production sites
 		if (file_exists('install') && (file_exists('install/install.php') || file_exists('install/upgrade.php')))
 		{
 			if (file_exists($settings_loc))
@@ -159,22 +156,24 @@ class Bootstrap
 				require_once($settings_loc);
 			}
 
-			if (!defined('IGNORE_INSTALL_DIR'))
+			if (empty($ignore_install_dir))
 			{
-				$redirec_file = file_exists($settings_loc) && empty($_SESSION['installing']) ? 'upgrade.php' : 'install.php';
-
-				// To early for constants or autoloader
-				require_once($boarddir . '/sources/ElkArte/Server.php');
-				$server = new Server($_SERVER);
+				if (file_exists($settings_loc) && empty($_SESSION['installing']))
+				{
+					$redirec_file = 'upgrade.php';
+				}
+				else
+				{
+					$redirec_file = 'install.php';
+				}
 
 				$version_running = str_replace('ElkArte ', '', FORUM_VERSION);
-				$location = $server->supportsSSL() ? 'https://' : 'http://';
-				$location .= $server->getHost();
-				$temp = preg_replace('~/' . preg_quote(basename($boardurl . '/index.php'), '~') . '(/.+)?$~', '', str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])));
-				$location .= ($temp !== '/') ? $temp : '';
+				$proto = 'http' . (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) === 'on' ? 's' : '');
+				$port = empty($_SERVER['SERVER_PORT']) || $_SERVER['SERVER_PORT'] === '80' ? '' : ':' . $_SERVER['SERVER_PORT'];
+				$host = empty($_SERVER['HTTP_HOST']) ? $_SERVER['SERVER_NAME'] . $port : $_SERVER['HTTP_HOST'];
+				$path = strtr(dirname($_SERVER['PHP_SELF']), '\\', '/') == '/' ? '' : strtr(dirname($_SERVER['PHP_SELF']), '\\', '/');
 
-				// Too early to use Headers class etc.
-				header('Location:' . $location . '/install/' . $redirec_file . '?v=' . $version_running);
+				header('Location:' . $proto . '://' . $host . $path . '/install/' . $redirec_file . '?v=' . $version_running);
 				die();
 			}
 		}
@@ -185,14 +184,15 @@ class Bootstrap
 	}
 
 	/**
-	 * Validate the paths set in Settings.php, correct as needed and move them to constants.
+	 * Validate the paths set in Settings.php, correct as needed and move
+	 * them to constants.
 	 */
 	private function validatePaths()
 	{
 		global $boarddir, $sourcedir, $cachedir, $extdir, $languagedir;
 
 		// Make sure the paths are correct... at least try to fix them.
-		if (!file_exists($boarddir) && file_exists(__DIR__ . '/bootstrap.php'))
+		if (!file_exists($boarddir) && file_exists(__DIR__ . '/agreement.txt'))
 		{
 			$boarddir = __DIR__;
 		}
@@ -213,9 +213,9 @@ class Bootstrap
 			$extdir = $sourcedir . '/ext';
 		}
 
-		if ((empty($languagedir) || !file_exists($languagedir)) && file_exists($sourcedir . '/Languages/Index'))
+		if ((empty($languagedir) || !file_exists($languagedir)) && file_exists($boarddir . '/themes/default/languages'))
 		{
-			$languagedir = $sourcedir . '/ElkArte/Languages';
+			$languagedir = $boarddir . '/themes/default/languages';
 		}
 
 		// Time to forget about variables and go with constants!
@@ -224,8 +224,8 @@ class Bootstrap
 		define('EXTDIR', $extdir);
 		define('LANGUAGEDIR', $languagedir);
 		define('SOURCEDIR', $sourcedir);
-		define('ADMINDIR', $sourcedir . '/ElkArte/AdminController');
-		define('CONTROLLERDIR', $sourcedir . '/ElkArte/Controller');
+		define('ADMINDIR', $sourcedir . '/admin');
+		define('CONTROLLERDIR', $sourcedir . '/controllers');
 		define('SUBSDIR', $sourcedir . '/subs');
 		define('ADDONSDIR', $boarddir . '/addons');
 		unset($boarddir, $cachedir, $sourcedir, $languagedir, $extdir);
@@ -251,38 +251,26 @@ class Bootstrap
 	 */
 	private function loadAutoloader()
 	{
-		require_once(EXTDIR . '/ClassLoader.php');
-
-		$loader = new ClassLoader();
-		$loader->setPsr4('ElkArte\\', SOURCEDIR . '/ElkArte');
-		$loader->setPsr4('BBC\\', SOURCEDIR . '/ElkArte/BBC');
-		$loader->register();
+		// Initialize the class Autoloader
+		require_once(SOURCEDIR . '/Autoloader.class.php');
+		$autoloader = Elk_Autoloader::instance();
+		$autoloader->setupAutoloader(array(SOURCEDIR, SUBSDIR, CONTROLLERDIR, ADMINDIR, ADDONSDIR));
+		$autoloader->register(SOURCEDIR, '\\ElkArte');
+		$autoloader->register(SOURCEDIR . '/subs/BBC', '\\BBC');
 	}
 
 	/**
-	 * Check if we are in maintenance mode, if so end here.
+	 * Check if we are in maintance mode, if so end here.
 	 */
 	private function checkMaintance()
 	{
 		global $maintenance, $ssi_maintenance_off;
 
 		// Don't do john didley if the forum's been shut down completely.
-		if (empty($maintenance))
+		if (!empty($maintenance) && $maintenance == 2 && (!isset($ssi_maintenance_off) || $ssi_maintenance_off !== true))
 		{
-			return;
+			Errors::instance()->display_maintenance_message();
 		}
-
-		if ((int) $maintenance !== 2)
-		{
-			return;
-		}
-
-		if (isset($ssi_maintenance_off) && $ssi_maintenance_off === true)
-		{
-			return;
-		}
-
-		Errors::instance()->display_maintenance_message();
 	}
 
 	/**
@@ -291,12 +279,12 @@ class Bootstrap
 	 */
 	private function setDebug()
 	{
-		global $db_show_debug, $ssi_error_reporting;
+		global $db_show_debug, $rusage_start, $ssi_error_reporting;
 
 		// Show lots of debug information below the page, not for production sites
 		if ($db_show_debug === true)
 		{
-			Debug::instance()->rusage('start', $this->rusage_start);
+			Debug::instance()->rusage('start', $rusage_start);
 			$ssi_error_reporting = error_reporting(E_ALL | E_STRICT & ~8192);
 		}
 	}
@@ -320,24 +308,26 @@ class Bootstrap
 		// Clean the request.
 		cleanRequest();
 
-		// Make sure we have the list of members for populating it
-		MembersList::init(database(), Cache::instance(), ParserWrapper::instance());
-
 		// Our good ole' contextual array, which will hold everything
 		if (empty($context))
 		{
-			$context = [];
+			$context = array();
 		}
+
+		// Seed the random generator.
+		elk_seed_generator();
 	}
 
 	/**
 	 * If you are running SSI standalone, you need to call this function after bootstrap is
 	 * initialized.
+	 *
+	 * @throws \Elk_Exception
 	 */
 	public function ssi_main()
 	{
 		global $ssi_layers, $ssi_theme, $ssi_gzip, $ssi_ban, $ssi_guest_access;
-		global $modSettings, $context, $board, $topic, $txt;
+		global $modSettings, $context, $sc, $board, $topic, $user_info, $txt;
 
 		// Check on any hacking attempts.
 		$this->_validRequestCheck();
@@ -372,11 +362,12 @@ class Bootstrap
 
 			if (!isset($_SESSION['session_value']))
 			{
-				$tokenizer = new TokenHash();
+				$tokenizer = new Token_Hash();
 				$_SESSION['session_value'] = $tokenizer->generate_hash(32, session_id());
 				$_SESSION['session_var'] = substr(preg_replace('~^\d+~', '', $tokenizer->generate_hash(16, session_id())), 0, rand(7, 12));
 			}
 
+			$sc = $_SESSION['session_value'];
 			// This is here only to avoid session errors in PHP7
 			// microtime effectively forces the replacing of the session in the db each
 			// time the page is loaded
@@ -385,23 +376,29 @@ class Bootstrap
 
 		// Get rid of $board and $topic... do stuff loadBoard would do.
 		unset($board, $topic);
-		$context['breadcrumbs'] = [];
+		$user_info['is_mod'] = false;
+		$context['user']['is_mod'] = &$user_info['is_mod'];
+		$context['linktree'] = array();
 
 		// Load the user and their cookie, as well as their settings.
-		User::load(true);
-		$context['user']['is_mod'] = User::$info->is_mod ?? false;
+		loadUserSettings();
 
 		// Load the current user's permissions....
 		loadPermissions();
 
 		// Load the current or SSI theme. (just use $ssi_theme = id_theme;)
-		new ThemeLoader(isset($ssi_theme) ? (int) $ssi_theme : 0);
+		loadTheme(isset($ssi_theme) ? (int) $ssi_theme : 0);
 
 		// Load BadBehavior functions, but not when running from CLI
-		if (!defined('STDIN') && runBadBehavior())
+		if (!defined('STDIN'))
 		{
-			// 403 and gone
-			Errors::instance()->display_403_error(true);
+			loadBadBehavior();
+		}
+
+		// @todo: probably not the best place, but somewhere it should be set...
+		if (!headers_sent())
+		{
+			header('Content-Type: text/html; charset=UTF-8');
 		}
 
 		// Take care of any banning that needs to be done.
@@ -411,10 +408,9 @@ class Bootstrap
 		}
 
 		// Do we allow guests in here?
-		if (empty($ssi_guest_access) && empty($modSettings['allow_guestAccess']) && User::$info->is_guest && basename($_SERVER['PHP_SELF']) !== 'SSI.php')
+		if (empty($ssi_guest_access) && empty($modSettings['allow_guestAccess']) && $user_info['is_guest'] && basename($_SERVER['PHP_SELF']) !== 'SSI.php')
 		{
-			$controller = new Auth(new EventManager());
-			$controller->setUser(User::$info);
+			$controller = new Auth_Controller();
 			$controller->action_kickguest();
 			obExit(null, true);
 		}
@@ -422,23 +418,22 @@ class Bootstrap
 		if (!empty($modSettings['front_page']) && class_exists($modSettings['front_page'])
 			&& in_array('frontPageHook', get_class_methods($modSettings['front_page'])))
 		{
-			$modSettings['default_forum_action'] = ['action' => 'forum'];
+			$modSettings['default_forum_action'] = '?action=forum;';
 		}
 		else
 		{
-			$modSettings['default_forum_action'] = [];
+			$modSettings['default_forum_action'] = '';
 		}
 
 		// Load the stuff like the menu bar, etc.
 		if (isset($ssi_layers))
 		{
-			$template_layers = theme()->getLayers();
+			$template_layers = Template_Layers::instance();
 			$template_layers->removeAll();
 			foreach ($ssi_layers as $layer)
 			{
 				$template_layers->addBegin($layer);
 			}
-
 			template_header();
 		}
 		else
@@ -447,26 +442,19 @@ class Bootstrap
 		}
 
 		// We need to set up user agent, and make more checks on the request
-		$req = Request::instance();
+		$req = request();
 
 		// Make sure they didn't muss around with the settings... but only if it's not cli.
 		if (isset($_SERVER['REMOTE_ADDR']) && session_id() === '')
 		{
-			trigger_error($txt['ssi_session_broken']);
+			trigger_error($txt['ssi_session_broken'], E_USER_NOTICE);
 		}
 
 		// Without visiting the forum this session variable might not be set on submit.
-		if (isset($_SESSION['USER_AGENT']))
+		if (!isset($_SESSION['USER_AGENT']) && (!isset($_GET['ssi_function']) || $_GET['ssi_function'] !== 'pollVote'))
 		{
-			return;
+			$_SESSION['USER_AGENT'] = $req->user_agent();
 		}
-
-		if (isset($_GET['ssi_function']) && $_GET['ssi_function'] === 'pollVote')
-		{
-			return;
-		}
-
-		$_SESSION['USER_AGENT'] = $req->user_agent();
 	}
 
 	/**
@@ -476,13 +464,21 @@ class Bootstrap
 	{
 		global $ssi_theme, $ssi_layers;
 
-		// Check on any hacking attempts.
-		if (
-			isset($_REQUEST['GLOBALS']) || isset($_COOKIE['GLOBALS'])
-			|| isset($_REQUEST['ssi_theme']) && (int) $_REQUEST['ssi_theme'] === (int) $ssi_theme
-			|| isset($_COOKIE['ssi_theme']) && (int) $_COOKIE['ssi_theme'] === (int) $ssi_theme
-			|| isset($_REQUEST['ssi_layers'], $ssi_layers) && $_REQUEST['ssi_layers'] == $ssi_layers
-			|| isset($_REQUEST['context']))
+		if (isset($_REQUEST['ssi_theme']) && (int) $_REQUEST['ssi_theme'] === (int) $ssi_theme)
+		{
+			die('No access...');
+		}
+		elseif (isset($_COOKIE['ssi_theme']) && (int) $_COOKIE['ssi_theme'] === (int) $ssi_theme)
+		{
+			die('No access...');
+		}
+		elseif (isset($_REQUEST['ssi_layers'], $ssi_layers) && $_REQUEST['ssi_layers'] == $ssi_layers)
+		{
+			die('No access...');
+		}
+
+		// Yeah right
+		if (isset($_REQUEST['context']))
 		{
 			die('No access...');
 		}

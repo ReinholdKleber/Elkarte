@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.6
  *
  */
 
@@ -28,17 +29,13 @@ function template_verification_controls($verify_id, $before = '', $after = '')
 	$i = 0;
 
 	if ($verify_context['render'])
-	{
 		echo $before;
-	}
 
 	// Loop through each item to show them.
-	foreach ($verify_context['test'] as $verification)
+	foreach ($verify_context['test'] as $key => $verification)
 	{
 		if (empty($verification['values']) || empty($verification['template']))
-		{
 			continue;
-		}
 
 		echo '
 			<div id="verification_control_', $i, '" class="verification_control">';
@@ -52,9 +49,7 @@ function template_verification_controls($verify_id, $before = '', $after = '')
 	}
 
 	if ($verify_context['render'])
-	{
 		echo $after;
-	}
 }
 
 /**
@@ -68,13 +63,40 @@ function template_verification_control_questions($verify_id, $verify_context)
 	global $context;
 
 	foreach ($verify_context as $question)
-	{
 		echo '
-				<div class="verification_question">
+				<div class="verificationquestion">
 					<label for="', $verify_id, '_vv[q][', $question['id'], ']">', $question['q'], ':</label>
 					<input type="text" id="', $verify_id, '_vv[q][', $question['id'], ']" name="', $verify_id, '_vv[q][', $question['id'], ']" size="30" value="', $question['a'], '" ', $question['is_error'] ? ' class="border_error"' : '', ' tabindex="', $context['tabindex']++, '" class="input_text" />
 				</div>';
-	}
+}
+
+/**
+ * Used to show one of those easy for robot, hard for human captcha's
+ *
+ * @param int $verify_id
+ * @param mixed[] $verify_context
+ */
+function template_verification_control_captcha($verify_id, $verify_context)
+{
+	global $context, $txt;
+
+	echo '
+				<img src="', $verify_context['image_href'], '" alt="', $txt['visual_verification_description'], '" id="verification_image_', $verify_id, '" />';
+
+	echo '
+				<div class="smalltext">
+					<a href="', $verify_context['image_href'], ';sound" id="visual_verification_', $verify_id, '_sound" data-type="sound" class="playsound" rel="nofollow" onclick="document.getElementById(\'', $verify_id, '_vv[code]\').focus()">', $txt['visual_verification_sound'], '</a> / <a href="#visual_verification_', $verify_id, '_refresh" id="visual_verification_', $verify_id, '_refresh" class="refreshimage">', $txt['visual_verification_request_new'], '</a><br /><br />
+					<label for="', $verify_id, '_vv[code]">', $txt['visual_verification_description'], '</label>:
+					<input type="text" id="', $verify_id, '_vv[code]" name="', $verify_id, '_vv[code]" value="', !empty($verify_context['text_value']) ? $verify_context['text_value'] : '', '" size="30" tabindex="', $context['tabindex']++, '" class="', $verify_context['is_error'] ? 'border_error ' : '', 'input_text" />
+				</div>';
+
+	addInlineJavascript('
+		$(\'.playsound, .refreshimage\').Elk_Captcha({
+			\'uniqueID\': ' . JavaScriptEscape($verify_id) . ',
+			\'imageURL\': ' . JavaScriptEscape($verify_context['image_href']) . ',
+			\'useLibrary\': \'true\',
+			\'letterCount\': ' . $verify_context['chars_number'] . '
+		});', true);
 }
 
 /**
@@ -91,46 +113,6 @@ function template_verification_control_emptyfield($verify_id, $verify_context)
 	echo '
 			<div class="verification_control_valid">
 				<label for="', $verify_context['field_name'], '">', $txt['visual_verification_hidden'], '</label>:
-				<input type="text" id="', $verify_context['field_name'], '" name="', $verify_context['field_name'], '" autocomplete="off" size="30" value="', (empty($verify_context['user_value']) ? '' : $verify_context['user_value']), '" tabindex="', $context['tabindex']++, '" class="', $verify_context['is_error'] ? 'border_error ' : '', 'input_text" />
+				<input type="text" id="', $verify_context['field_name'], '" name="', $verify_context['field_name'], '" autocomplete="off" size="30" value="', (!empty($verify_context['user_value']) ? $verify_context['user_value'] : ''), '" tabindex="', $context['tabindex']++, '" class="', $verify_context['is_error'] ? 'border_error ' : '', 'input_text" />
 			</div>';
-}
-
-/**
- * Google reCaptcha, Empty div to be populated by the JS
- */
-function template_verification_control_recaptcha($id, $values)
-{
-	echo '
-	<div id="g-recaptcha" data-sitekey="' . $values['site_key'] . '" style="display: flex; justify-content: center;"></div>';
-}
-
-/**
- * hCaptcha, Empty div to be populated by the JS
- */
-function template_verification_control_hcaptcha($id, $values)
-{
-	echo '
-	<div id="h-captcha" data-sitekey="' . $values['site_key'] . '" style="display: flex; justify-content: center;"></div>';
-}
-
-/**
- * keyCaptcha, Empty div to be populated by the JS
- */
-function template_verification_control_keycaptcha($id, $values)
-{
-	echo '
-	<div style="display: flex; justify-content: center;">
-		<div id="div_for_keycaptcha">
-			<input name="key-capcode" id="key-capcode" type="hidden" value="">
-		</div>
-	</div>';
-}
-
-/**
- * Turnstile, Empty div to be populated by the JS
- */
-function template_verification_control_turnstile()
-{
-	echo '
-	<div id="TurnstileControl" style="display: flex; justify-content: center;"></div>';
 }

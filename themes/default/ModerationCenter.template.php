@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -17,7 +18,7 @@
  */
 function template_ModerationCenter_init()
 {
-	theme()->getTemplates()->load('GenericMessages');
+	loadTemplate('GenericMessages');
 }
 
 /**
@@ -60,7 +61,7 @@ function template_latest_news()
 
 	echo '
 								<h2 class="category_header">
-									<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=live_news" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['mc_latest_news'], '
+									<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=live_news" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['mc_latest_news'], '
 								</h2>
 								<div class="content">
 									<div id="ourAnnouncements" class="smalltext">', $txt['mc_cannot_connect_sm'], '</div>
@@ -71,7 +72,7 @@ function template_latest_news()
 								<span class="hide" id="installedVersion">??</span>
 								<span class="hide" id="latestVersion">??</span>
 								<script>
-						var oAdminCenter = new Elk_AdminIndex({
+						var oAdminCenter = new elk_AdminIndex({
 							bLoadAnnouncements: true,
 							sAnnouncementTemplate: ', JavaScriptEscape('
 								<dl>
@@ -104,28 +105,24 @@ function template_group_requests_block()
 	global $context, $txt, $scripturl;
 
 	echo '
-								<h2 class="category_header hdicon i-user-plus">
+								<h2 class="category_header hdicon cat_img_plus">
 									<a href="', $scripturl, '?action=groups;sa=requests">', $txt['mc_group_requests'], '</a>
 								</h2>
 								<div class="content modbox">
 									<ul>';
 
 	foreach ($context['group_requests'] as $request)
-	{
 		echo '
 										<li class="smalltext">
 											<a href="', $request['request_href'], '">', $request['group']['name'], '</a> ', $txt['mc_groupr_by'], ' ', $request['member']['link'], '
 										</li>';
-	}
 
 	// Don't have any watched users right now?
 	if (empty($context['group_requests']))
-	{
 		echo '
 										<li>
 											<strong class="smalltext">', $txt['mc_group_requests_none'], '</strong>
 										</li>';
-	}
 
 	echo '
 									</ul>
@@ -140,28 +137,24 @@ function template_reported_posts_block()
 	global $context, $txt, $scripturl;
 
 	echo '
-								<h2 class="category_header hdicon i-comments">
+								<h2 class="category_header hdicon cat_img_talk">
 									<a href="', $scripturl, '?action=moderate;area=', $context['admin_area'], '">', $txt['mc_recent_reports'], '</a>
 								</h2>
 								<div class="content modbox">
 									<ul>';
 
 	foreach ($context['reported_posts'] as $report)
-	{
 		echo '
 										<li class="smalltext">
 											<a href="', $report['report_href'], '">', $report['subject'], '</a> ', $txt['mc_reportedp_by'], ' ', $report['author']['link'], '
 										</li>';
-	}
 
 	// Don't have any watched users right now?
 	if (empty($context['reported_posts']))
-	{
 		echo '
 										<li>
 											<strong class="smalltext">', $txt['mc_recent_reports_none'], '</strong>
 										</li>';
-	}
 
 	echo '
 									</ul>
@@ -176,28 +169,24 @@ function template_watched_users()
 	global $context, $txt, $scripturl;
 
 	echo '
-						<h2 class="category_header hdicon i-view">
+						<h2 class="category_header hdicon cat_img_eye">
 							<a href="', $scripturl, '?action=moderate;area=userwatch">', $txt['mc_watched_users'], '</a>
 						</h2>
 						<div class="content modbox">
 							<ul>';
 
 	foreach ($context['watched_users'] as $user)
-	{
 		echo '
 								<li>
-									<span class="smalltext">', sprintf(empty($user['last_login']) ? $txt['mc_seen_never'] : $txt['mc_seen'], $user['link'], $user['last_login']), '</span>
+									<span class="smalltext">', sprintf(!empty($user['last_login']) ? $txt['mc_seen'] : $txt['mc_seen_never'], $user['link'], $user['last_login']), '</span>
 								</li>';
-	}
 
 	// Don't have any watched users right now?
 	if (empty($context['watched_users']))
-	{
 		echo '
 								<li>
 									<strong class="smalltext">', $txt['mc_watched_users_none'], '</strong>
 								</li>';
-	}
 
 	echo '
 							</ul>
@@ -209,11 +198,11 @@ function template_watched_users()
  */
 function template_notes()
 {
-	global $context, $txt, $scripturl;
+	global $settings, $context, $txt, $scripturl;
 
 	echo '
 						<form action="', $scripturl, '?action=moderate;area=index" method="post">
-							<h2 class="category_header hdicon i-pencil">', $txt['mc_notes'], '</h2>
+							<h2 class="category_header hdicon cat_img_write">', $txt['mc_notes'], '</h2>
 							<div class="content modbox">
 								<div class="submitbutton">
 									<input type="text" name="new_note" placeholder="', $txt['mc_click_add_note'], '" style="width: 89%" class="floatleft input_text" />
@@ -227,15 +216,8 @@ function template_notes()
 
 		// Cycle through the notes.
 		foreach ($context['notes'] as $note)
-		{
 			echo '
-									<li class="smalltext">
-										<a href="', $note['delete_href'], '">
-											<i class="icon i-delete"></i>
-										</a> 
-										<strong>', $note['author']['link'], ':</strong> ', $note['text'], '
-									</li>';
-		}
+									<li class="smalltext"><a href="', $note['delete_href'], '"><img src="', $settings['images_url'], '/pm_recipient_delete.png" alt="" /></a> <strong>', $note['author']['link'], ':</strong> ', $note['text'], '</li>';
 
 		echo '
 								</ul>
@@ -258,7 +240,7 @@ function template_action_required()
 	global $context, $txt, $scripturl;
 
 	echo '
-						<h2 class="category_header hdicon i-warning">', $txt['mc_required'], ' : ', $context['mc_required'], '</h2>
+						<h2 class="category_header hdicon cat_img_moderation">', $txt['mc_required'], ' : ', $context['mc_required'], '</h2>
 						<div class="content modbox">
 							<ul>';
 
@@ -266,7 +248,7 @@ function template_action_required()
 	{
 		echo '
 								<li>
-									<i class="icon ', ($total == 0) ? 'i-check' : 'i-warning ', '"></i>
+									<i class="icon ', ($total == 0) ? 'i-check' : 'i-warning', '"></i>
 									<a href="', $scripturl, $context['links'][$area], '">
 										<span class="smalltext">', $txt['mc_' . $area], ' : ', $total, '</span>
 									</a>
@@ -292,22 +274,17 @@ function template_reported_posts()
 						</h2>';
 
 	if (!empty($context['reports']))
-	{
 		template_pagesection();
-	}
 
 	foreach ($context['reports'] as $report)
 	{
 		$report['class'] = 'content';
-		$report['title'] = '<strong>' . (empty($report['board_name']) ? '' : '<a href="' . $scripturl . '?board=' . $report['board'] . '.0">' . $report['board_name'] . '</a> / ') . '<a href="' . $report['topic_href'] . '">' . $report['subject'] . '</a></strong> ' . $txt['mc_reportedp_by'] . ' <strong>' . $report['author']['link'] . '</strong>';
+		$report['title'] = '<strong>' . (!empty($report['board_name']) ? '<a href="' . $scripturl . '?board=' . $report['board'] . '.0">' . $report['board_name'] . '</a> / ' : '') . '<a href="' . $report['topic_href'] . '">' . $report['subject'] . '</a></strong> ' . $txt['mc_reportedp_by'] . ' <strong>' . $report['author']['link'] . '</strong>';
 
 		// Prepare the comments...
 		$comments = array();
 		foreach ($report['comments'] as $comment)
-		{
 			$comments[$comment['member']['id']] = $comment['member']['link'];
-		}
-
 		$report['date'] = $txt['mc_reportedp_last_reported'] . ': ' . $report['last_updated'] . '&nbsp;-&nbsp;' . '
 										' . $txt['mc_reportedp_reported_by'] . ': ' . implode(', ', $comments);
 
@@ -316,14 +293,10 @@ function template_reported_posts()
 
 	// Were none found?
 	if (empty($context['reports']))
-	{
 		echo '
 						<p class="infobox">', $txt['mc_reportedp_none_found'], '</p>';
-	}
 	else
-	{
-		template_pagesection(false, '', array('extra' => !$context['view_closed'] && !empty($options['display_quick_mod']) ? '<input type="submit" name="close_selected" value="' . $txt['mc_reportedp_close_selected'] . '" class="right_submit" />' : ''));
-	}
+		template_pagesection(false, '', array('extra' => !$context['view_closed'] && !empty($options['display_quick_mod']) && $options['display_quick_mod'] == 1 ? '<input type="submit" name="close_selected" value="' . $txt['mc_reportedp_close_selected'] . '" class="right_submit" />' : ''));
 
 	echo '
 						<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
@@ -341,22 +314,18 @@ function template_unapproved_posts()
 	// Just a big div of it all really...
 	echo '
 				<form action="', $scripturl, '?action=moderate;area=postmod;start=', $context['start'], ';sa=', $context['current_view'], '" method="post" accept-charset="UTF-8">
-					<h2 class="category_header hdicon i-post-text">
-						', $context['header_title'], '
-					</h2>';
+						<h2 class="category_header hdicon cat_img_posts">
+							', $context['header_title'], '
+						</h2>';
 
 	// No posts?
 	if (empty($context['unapproved_items']))
-	{
 		echo '
-					<div class="content">
-						<p class="centertext">', $txt['mc_unapproved_' . $context['current_view'] . '_none_found'], '</p>
-					</div>';
-	}
+						<div class="content">
+							<p class="centertext">', $txt['mc_unapproved_' . $context['current_view'] . '_none_found'], '</p>
+						</div>';
 	else
-	{
 		template_pagesection();
-	}
 
 	// Loop through and show each unapproved post
 	foreach ($context['unapproved_items'] as $item)
@@ -370,8 +339,7 @@ function template_unapproved_posts()
 
 	// Quick moderation checkbox action selection
 	$quick_mod = '';
-	if (!empty($options['display_quick_mod']) && !empty($context['unapproved_items']))
-	{
+	if (!empty($options['display_quick_mod']) && $options['display_quick_mod'] == 1 && !empty($context['unapproved_items']))
 		$quick_mod = '
 					<div class="floatright">
 						<select name="do" onchange="if (this.value != 0 &amp;&amp; confirm(\'' . $txt['mc_unapproved_sure'] . '\')) submit();">
@@ -384,12 +352,9 @@ function template_unapproved_posts()
 							<input type="submit" name="mc_go" value="' . $txt['go'] . '" />
 						</noscript>
 					</div>';
-	}
 
 	if (!empty($context['unapproved_items']))
-	{
 		template_pagesection(false, '', array('extra' => $quick_mod));
-	}
 
 	echo '
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
@@ -413,38 +378,36 @@ function template_viewmodreport()
 								<p class="warningbox">', $context['section_descripion'], '</p>
 								<div class="content">
 									', $context['report']['body'], '
-								</div>';
-
-	template_button_strip($context['mod_buttons'], 'quickbuttons no_js', ['no-class' => true]);
-
-	echo '
+								</div>
+								<ul class="quickbuttons">
+									<li class="listlevel1">
+										<a class="linklevel1 close_button" href="', $scripturl, '?action=moderate;area=', $context['admin_area'], ';close=', (int) !$context['report']['closed'], ';rid=', $context['report']['id'], ';', $context['session_var'], '=', $context['session_id'], '">', $context['report']['closed'] ? $txt['mc_reportedp_open'] : $txt['mc_reportedp_close'], '</a>
+									</li>
+									<li class="listlevel1">
+										<a class="linklevel1 ignore_button" href="', $scripturl, '?action=moderate;area=', $context['admin_area'], ';ignore=', (int) !$context['report']['ignore'], ';rid=', $context['report']['id'], ';', $context['session_var'], '=', $context['session_id'], '" ', !$context['report']['ignore'] ? 'onclick="return confirm(' . JavaScriptEscape($txt['mc_reportedp_ignore_confirm']) . ');"' : '', '>', $context['report']['ignore'] ? $txt['mc_reportedp_unignore'] : $txt['mc_reportedp_ignore'], '</a>
+									</li>
+								</ul>
 							</div>
 							<h2 class="category_header">', $txt['mc_modreport_whoreported_title'], '</h2>';
 
 	foreach ($context['report']['comments'] as $comment)
-	{
 		echo '
 							<div class="content">
 								<p class="smalltext">', sprintf($txt['mc_modreport_whoreported_data'], $comment['member']['link'] . (empty($comment['member']['id']) && !empty($comment['member']['ip']) ? ' (' . $comment['member']['ip'] . ')' : ''), $comment['time']), '</p>
 								<p>', $comment['message'], '</p>
 							</div>';
-	}
 
 	echo '
 							<h2 class="category_header">', $txt['mc_modreport_mod_comments'], '</h2>
 							<div class="content">';
 
 	if (empty($context['report']['mod_comments']))
-	{
 		echo '
 								<p class="successbox">', $txt['mc_modreport_no_mod_comment'], '</p>';
-	}
 
 	foreach ($context['report']['mod_comments'] as $comment)
-	{
 		echo
 		'<p>', $comment['member']['link'], ': ', $comment['message'], ' <em class="smalltext">(', $comment['time'], ')</em></p>';
-	}
 
 	echo '
 								<textarea rows="2" cols="60" style="width: 100%;" name="mod_comment"></textarea>
@@ -474,31 +437,26 @@ function template_user_watch_post_callback($post)
 					<div class="content">
 						<div class="counter">' . $post['counter'] . '</div>
 						<div class="topic_details">
-							<h5>
-								<a href="' . $scripturl . '?topic=' . $post['id_topic'] . '.' . $post['id'] . '#msg' . $post['id'] . '">' .
-									$post['subject'] . '
-								</a> ' .
-								$txt['mc_reportedp_by'] . ' <strong>' . $post['author_link'] . '</strong>
-							</h5>
+							<h5><a href="' . $scripturl . '?topic=' . $post['id_topic'] . '.' . $post['id'] . '#msg' . $post['id'] . '">' . $post['subject'] . '</a> ' . $txt['mc_reportedp_by'] . ' <strong>' . $post['author_link'] . '</strong></h5>
 							<span class="smalltext">' . '&#171; ' . $txt['mc_watched_users_posted'] . ': ' . $post['poster_time'] . ' &#187;</span>
 						</div>
-						<div class="messageContent">' . $post['body'] . '</div>';
+						<div class="inner">' . $post['body'] . '</div>';
 
 	if ($post['can_delete'])
-	{
 		$output_html .= '
 						<ul class="quickbuttons">
 							<li class="listlevel1">
-								<a class="linklevel1 remove_button" href="' . $scripturl . '?action=moderate;area=userwatch;sa=post;delete=' . $post['id'] . ';start=' . $context['start'] . ';' . $context['session_var'] . '=' . $context['session_id'] . '" onclick="return confirm(\'' . $txt['mc_watched_users_delete_post'] . '\');">' . $txt['remove'] . '</a>
-							</li>
-							<li class="listlevel1 inline_mod_check">
 								<input type="checkbox" name="delete[]" value="' . $post['id'] . '" />
 							</li>
+							<li class="listlevel1">
+								<a class="linklevel1 remove_button" href="' . $scripturl . '?action=moderate;area=userwatch;sa=post;delete=' . $post['id'] . ';start=' . $context['start'] . ';' . $context['session_var'] . '=' . $context['session_id'] . '" onclick="return confirm(\'' . $txt['mc_watched_users_delete_post'] . '\');">' . $txt['remove'] . '</a>
+							</li>
 						</ul>';
-	}
 
-	return $output_html . '
+	$output_html .= '
 					</div>';
+
+	return $output_html;
 }
 
 /**
@@ -519,10 +477,8 @@ function template_moderation_settings()
 					<dd>';
 
 	foreach ($context['homepage_blocks'] as $k => $v)
-	{
 		echo '
 						<label for="mod_homepage_', $k, '"><input type="checkbox" id="mod_homepage_', $k, '" name="mod_homepage[', $k, ']"', in_array($k, $context['mod_settings']['user_blocks']) ? ' checked="checked"' : '', ' /> ', $v, '</label><br />';
-	}
 
 	echo '
 					</dd>';
@@ -632,13 +588,13 @@ function template_warn_template()
 						</dd>
 					</dl>
 				</div>
-				<div id="box_preview"', empty($context['template_preview']) ? ' class="hide"' : '', '>
+				<div id="box_preview"', !empty($context['template_preview']) ? '' : ' class="hide"', '>
 					<dl class="settings">
 						<dt>
 							<strong>', $txt['preview'], '</strong>
 						</dt>
 						<dd id="template_preview">
-							', empty($context['template_preview']) ? '' : $context['template_preview'], '
+							', !empty($context['template_preview']) ? $context['template_preview'] : '', '
 						</dd>
 					</dl>
 				</div>
@@ -659,7 +615,6 @@ function template_warn_template()
 				</dl>';
 
 	if ($context['template_data']['can_edit_personal'])
-	{
 		echo '
 				<input type="checkbox" name="make_personal" id="make_personal" ', $context['template_data']['personal'] ? 'checked="checked"' : '', ' />
 				<label for="make_personal">
@@ -668,7 +623,6 @@ function template_warn_template()
 				<br />
 				<span class="smalltext">', $txt['mc_warning_template_personal_desc'], '</span>
 				<br />';
-	}
 
 	echo '
 				<hr />
@@ -683,14 +637,10 @@ function template_warn_template()
 	</form>
 
 	<script>
-		document.addEventListener("DOMContentLoaded", function () {
-		    let button = document.getElementById("preview_button");
-		    if (button) 
-			{
-		        button.addEventListener("click", function() {
-		            return ajax_getTemplatePreview();
-		        });
-		    }
+		$(function() {
+			$("#preview_button").click(function() {
+				return ajax_getTemplatePreview();
+			});
 		});
 	</script>';
 }

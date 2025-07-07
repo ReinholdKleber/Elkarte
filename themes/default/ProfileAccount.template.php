@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -34,9 +35,7 @@ function template_issueWarning()
 	var colors = {';
 
 	foreach ($context['colors'] as $limit => $color)
-	{
 		echo $limit, ' : "', $color, '", ';
-	}
 
 	echo '};
 
@@ -44,9 +43,7 @@ function template_issueWarning()
 	var effectTexts = {';
 
 	foreach ($context['level_effects'] as $limit => $text)
-	{
 		echo $limit, ' : "', $text, '", ';
-	}
 
 	echo '}
 
@@ -54,31 +51,26 @@ function template_issueWarning()
 	var templates = {';
 
 	foreach ($context['notification_templates'] as $limit => $type)
-	{
 		echo $limit, ' :"', strtr($type['body'], array('"' => "'", "\n" => '\\n', "\r" => '')), '", ';
-	}
 
 	echo '};
 	</script>';
 
 	echo '
-	<form action="', getUrl('profile', ['action' => 'profile', 'area' => 'issuewarning', 'u' => $context['id_member'], 'name' => $context['member']['name']]), '" method="post" class="flow_hidden" accept-charset="UTF-8">
-		<h2 class="category_header hdicon i-user">
+	<form action="', $scripturl, '?action=profile;u=', $context['id_member'], ';area=issuewarning" method="post" class="flow_hidden" accept-charset="UTF-8">
+		<h2 class="category_header hdicon cat_img_profile">
 			', $context['user']['is_owner'] ? $txt['profile_warning_level'] : $txt['profile_issue_warning'], '
 		</h2>';
 
 	if (!$context['user']['is_owner'])
-	{
 		echo '
 		<p class="description">', $txt['profile_warning_desc'], '</p>';
-	}
 
 	echo '
 		<div class="content">
 			<dl class="settings">';
 
 	if (!$context['user']['is_owner'])
-	{
 		echo '
 				<dt>
 					<strong>', $txt['profile_warning_name'], ':</strong>
@@ -86,7 +78,6 @@ function template_issueWarning()
 				<dd>
 					<strong>', $context['member']['name'], '</strong>
 				</dd>';
-	}
 
 	echo '
 				<dt>
@@ -95,21 +86,17 @@ function template_issueWarning()
 
 	// For non-javascript give a better list.
 	foreach ($context['level_effects'] as $limit => $effect)
-	{
 		echo '
 						', sprintf($txt['profile_warning_effect_text'], $limit, $effect), '<br />';
-	}
 
 	echo '
 					</div>';
 
 	// Is there only so much they can apply?
 	if ($context['warning_limit'])
-	{
 		echo '
 					<br />
 					<span class="smalltext">', sprintf($txt['profile_warning_limit_attribute'], $context['warning_limit']), '</span>';
-	}
 
 	echo '
 				</dt>
@@ -120,9 +107,7 @@ function template_issueWarning()
 
 						<script>
 							initWarnSlider("slider-range-min", "warning_level", [', implode(',', array_keys($context['level_effects'])), ']);
-						</script>';
-
-	echo '
+						</script>
 					</div>
 				</dd>';
 
@@ -138,13 +123,13 @@ function template_issueWarning()
 				</dd>
 			</dl>
 			<hr />
-			<div id="box_preview"', empty($context['warning_data']['body_preview']) ? ' class="hide"' : '', '>
+			<div id="box_preview"', !empty($context['warning_data']['body_preview']) ? '' : ' class="hide"', '>
 				<dl class="settings">
 					<dt>
 						<strong>', $txt['preview'], '</strong>
 					</dt>
 					<dd id="body_preview">
-						', empty($context['warning_data']['body_preview']) ? '' : $context['warning_data']['body_preview'], '
+						', !empty($context['warning_data']['body_preview']) ? $context['warning_data']['body_preview'] : '', '
 					</dd>
 				</dl>
 			<hr />
@@ -171,10 +156,8 @@ function template_issueWarning()
 						<option value="-1" disabled="disabled">', str_repeat('&#8212;', strlen($txt['profile_warning_notify_template'])), '</option>';
 
 		foreach ($context['notification_templates'] as $id_template => $template)
-		{
 			echo '
 						<option value="', $id_template, '">&#10148;&nbsp;', $template['title'], '</option>';
-		}
 
 		echo '
 					</select>
@@ -190,10 +173,8 @@ function template_issueWarning()
 			<div class="submitbutton">';
 
 	if (!empty($context['token_check']))
-	{
 		echo '
 				<input type="hidden" name="', $context[$context['token_check'] . '_token_var'], '" value="', $context[$context['token_check'] . '_token'], '" />';
-	}
 
 	echo '
 				<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
@@ -213,10 +194,8 @@ function template_issueWarning()
 		document.getElementById(\'preview_button\').style.display = "none";';
 
 	if (!$context['user']['is_owner'])
-	{
 		echo '
 		modifyWarnNotify();';
-	}
 
 	echo '
 	</script>';
@@ -232,26 +211,22 @@ function template_deleteAccount()
 	// The main containing header.
 	echo '
 		<form id="creator" action="', $scripturl, '?action=profile;area=deleteaccount;u=', $context['id_member'], '" method="post" accept-charset="UTF-8" name="creator">
-			<h2 class="category_header hdicon i-user">
+			<h2 class="category_header hdicon cat_img_profile">
 				', $txt['deleteAccount'], '
 			</h2>';
 
 	// If deleting another account give them a lovely info box.
 	if (!$context['user']['is_owner'])
-	{
 		echo '
 			<p class="description">', $txt['deleteAccount_desc'], '</p>';
-	}
 
 	echo '
 			<div class="content">';
 
 	// If they are deleting their account AND the admin needs to approve it - give them another piece of info ;)
 	if ($context['needs_approval'])
-	{
 		echo '
 				<div class="warningbox">', $txt['deleteAccount_approval'], '</div>';
-	}
 
 	// If the user is deleting their own account warn them first - and require a password!
 	if ($context['user']['is_owner'])
@@ -260,14 +235,12 @@ function template_deleteAccount()
 				<div class="errorbox">', $txt['own_profile_confirm'], '</div>
 				<div class="submitbutton">
 					<span', (isset($context['modify_error']['bad_password']) || isset($context['modify_error']['no_password']) ? ' class="error"' : ''), '><label for="oldpasswrd">', $txt['current_password'], '</label>: </span>
-					<input type="password" id="oldpasswrd" name="oldpasswrd" size="20" autocomplete="current-password" class="input_password" />&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="password" id="oldpasswrd" name="oldpasswrd" size="20" class="input_password" />&nbsp;&nbsp;&nbsp;&nbsp;
 					<input type="submit" name="save" value="', $txt['delete'], '" />';
 
 		if (!empty($context['token_check']))
-		{
 			echo '
 					<input type="hidden" name="', $context[$context['token_check'] . '_token_var'], '" value="', $context[$context['token_check'] . '_token'], '" />';
-		}
 
 		echo '
 					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />
@@ -284,7 +257,6 @@ function template_deleteAccount()
 
 		// Only actually give these options if they are kind of important.
 		if ($context['can_delete_posts'])
-		{
 			echo '
 					<dt>
 						<a href="', $scripturl, '?action=quickhelp;help=deleteAccount_posts" onclick="return reqOverlayDiv(this.href);" class="helpicon i-help"><s>', $txt['help'], '</s></a>
@@ -297,7 +269,6 @@ function template_deleteAccount()
 							<option value="topics">', $txt['deleteAccount_topics'], '</option>
 						</select>
 					</dd>';
-		}
 
 		echo '
 					<dt>
@@ -310,10 +281,8 @@ function template_deleteAccount()
 				<input type="submit" name="save" value="', $txt['delete'], '" class="right_submit" />';
 
 		if (!empty($context['token_check']))
-		{
 			echo '
 				<input type="hidden" name="', $context[$context['token_check'] . '_token_var'], '" value="', $context[$context['token_check'] . '_token'], '" />';
-		}
 
 		echo '
 				<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />

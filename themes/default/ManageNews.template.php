@@ -1,16 +1,25 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
+
+/**
+ * Start of the template, just calls in the helpers
+ */
+function template_ManageNews_init()
+{
+	loadTemplate('GenericHelpers');
+}
 
 /**
  * Template for the email to members page in admin panel.
@@ -110,7 +119,7 @@ function template_email_members()
 	</div>';
 
 	// This is some javascript for the simple/advanced toggling and member suggest
-	theme()->addInlineJavascript('
+	addInlineJavascript('
 		var oAdvancedPanelToggle = new elk_Toggle({
 			bToggleEnabled: true,
 			bCurrentlyCollapsed: ' . (empty($context['admin_preferences']['apn']) ? 'false' : 'true') . ',
@@ -143,36 +152,34 @@ function template_email_members()
 			}
 		});
 
-		isFunctionLoaded("elk_AutoSuggest").then((available) => { 
-			if (available) {
-				new elk_AutoSuggest({
-					sSessionId: elk_session_id,
-					sSessionVar: elk_session_var,
-					sSuggestId: \'members\',
-					sControlId: \'members\',
-					sSearchType: \'member\',
-					bItemList: true,
-					sPostName: \'member_list\',
-					sURLMask: \'action=profile;u=%item_id%\',
-					sTextDeleteItem: ' . JavaScriptEscape($txt['autosuggest_delete_item']) . ',
-					sItemListContainerId: \'members_container\',
-					aListItems: []
-				});
+		var oMemberSuggest = new smc_AutoSuggest({
+			sSelf: \'oMemberSuggest\',
+			sSessionId: elk_session_id,
+			sSessionVar: elk_session_var,
+			sSuggestId: \'members\',
+			sControlId: \'members\',
+			sSearchType: \'member\',
+			bItemList: true,
+			sPostName: \'member_list\',
+			sURLMask: \'action=profile;u=%item_id%\',
+			sTextDeleteItem: \'' . $txt['autosuggest_delete_item'] . '\',
+			sItemListContainerId: \'members_container\',
+			aListItems: []
+		});
 
-				new elk_AutoSuggest({
-					sSessionId: elk_session_id,
-					sSessionVar: elk_session_var,
-					sSuggestId: \'exclude_members\',
-					sControlId: \'exclude_members\',
-					sSearchType: \'member\',
-					bItemList: true,
-					sPostName: \'exclude_member_list\',
-					sURLMask: \'action=profile;u=%item_id%\',
-					sTextDeleteItem: ' . JavaScriptEscape($txt['autosuggest_delete_item']) . ',
-					sItemListContainerId: \'exclude_members_container\',
-					aListItems: []
-				});
-			}
+		var oExcludeMemberSuggest = new smc_AutoSuggest({
+			sSelf: \'oExcludeMemberSuggest\',
+			sSessionId: elk_session_id,
+			sSessionVar: elk_session_var,
+			sSuggestId: \'exclude_members\',
+			sControlId: \'exclude_members\',
+			sSearchType: \'member\',
+			bItemList: true,
+			sPostName: \'exclude_member_list\',
+			sURLMask: \'action=profile;u=%item_id%\',
+			sTextDeleteItem: \'' . $txt['autosuggest_delete_item'] . '\',
+			sItemListContainerId: \'exclude_members_container\',
+			aListItems: []
 		});', true);
 }
 
@@ -207,7 +214,7 @@ function template_email_members_compose()
 	// Any errors to speak of?
 	echo '
 			<div class="content">
-				<div id="post_error" class="', (empty($context['error_type']) || $context['error_type'] !== 'serious' ? 'warningbox' : 'errorbox'), empty($context['post_error']['messages']) ? ' hide"' : '"', '>
+				<div id="post_error" class="', (empty($context['error_type']) || $context['error_type'] != 'serious' ? 'warningbox' : 'errorbox'), empty($context['post_error']['messages']) ? ' hide"' : '"', '>
 					<dl>
 						<dt>
 							<strong id="error_serious">', $txt['error_while_submitting'], '</strong>
@@ -235,18 +242,18 @@ function template_email_members_compose()
 
 	// Show BBC buttons, smileys and textbox.
 	echo '
-					', template_control_richedit($context['post_box_name']);
+					', template_control_richedit($context['post_box_name'], 'smileyBox_message', 'bbcBox_message');
 
 	echo '
 					<ul>
 						<li>
 							<label for="send_pm">
-								<input type="checkbox" name="send_pm" id="send_pm" ', empty($context['send_pm']) ? '' : 'checked="checked"', 'onclick="checkboxes_status(this);" /> ', $txt['email_as_pms'], '
+								<input type="checkbox" name="send_pm" id="send_pm" ', !empty($context['send_pm']) ? 'checked="checked"' : '', 'onclick="checkboxes_status(this);" /> ', $txt['email_as_pms'], '
 							</label>
 						</li>
 						<li>
 							<label for="send_html">
-								<input type="checkbox" name="send_html" id="send_html" ', empty($context['send_html']) ? '' : 'checked="checked"', 'onclick="checkboxes_status(this);" /> ', $txt['email_as_html'], '
+								<input type="checkbox" name="send_html" id="send_html" ', !empty($context['send_html']) ? 'checked="checked"' : '', 'onclick="checkboxes_status(this);" /> ', $txt['email_as_html'], '
 							</label>
 						</li>
 						<li>
@@ -266,13 +273,11 @@ function template_email_members_compose()
 			</div>';
 
 	foreach ($context['recipients'] as $key => $values)
-	{
 		echo '
-			<input type="hidden" name="', $key, '" value="', implode(($key === 'emails' ? ';' : ','), $values), '" />';
-	}
+			<input type="hidden" name="', $key, '" value="', implode(($key == 'emails' ? ';' : ','), $values), '" />';
 
 	// The vars used to preview a newsletter without loading a new page, used by post.js previewControl()
-	theme()->addInlineJavascript('
+	addInlineJavascript('
 		var form_name = "newsmodify",
 			preview_area = "news",
 			txt_preview_title = "' . $txt['preview_title'] . '",
@@ -280,10 +285,10 @@ function template_email_members_compose()
 
 		function checkboxes_status (item)
 		{
-			if (item.id === \'send_html\')
+			if (item.id == \'send_html\')
 				document.getElementById(\'parse_html\').disabled = !document.getElementById(\'parse_html\').disabled;
 
-			if (item.id === \'send_pm\')
+			if (item.id == \'send_pm\')
 			{
 				if (!document.getElementById(\'send_html\').checked)
 					document.getElementById(\'parse_html\').disabled = true;
@@ -310,11 +315,12 @@ function template_email_members_send()
 	<div id="admincenter">
 		<form action="', $scripturl, '?action=admin;area=news;sa=mailingsend" method="post" accept-charset="UTF-8" name="autoSubmit" id="autoSubmit">
 			<h2 class="category_header">
-				<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=email_members" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['admin_newsletters'], '
+				<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=email_members" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['admin_newsletters'], '
 			</h2>
 			<div class="content">
 				<div class="progress_bar">
-					<div class="green_percent" style="width: ', $context['percentage_done'], '%;">', $context['percentage_done'], '%</div>
+					<div class="full_bar">', $context['percentage_done'], '% ', $txt['email_done'], '</div>
+					<div class="green_percent" style="width: ', $context['percentage_done'], '%;">&nbsp;</div>
 				</div>
 				<div class="submitbutton">
 					<input type="submit" name="cont" value="', $txt['email_continue'], '" />
@@ -330,10 +336,8 @@ function template_email_members_send()
 
 	// All the things we must remember!
 	foreach ($context['recipients'] as $key => $values)
-	{
 		echo '
 					<input type="hidden" name="', $key, '" value="', implode(($key == 'emails' ? ';' : ','), $values), '" />';
-	}
 
 	echo '
 				</div>
@@ -356,7 +360,7 @@ function template_email_members_succeeded()
 	echo '
 	<div id="admincenter">
 		<h2 class="category_header">
-			<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=email_members" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['admin_newsletters'], '
+			<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=email_members" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['admin_newsletters'], '
 		</h2>
 		<div class="content">
 			<div class="successbox">

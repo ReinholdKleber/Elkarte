@@ -3,32 +3,73 @@
 /**
  * This file has all the main functions in it that relate to, well, everything.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:		BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
 
-use ElkArte\Cache\Cache;
-use ElkArte\Debug;
-use ElkArte\Helper\Censor;
-use ElkArte\Helper\ConstructPageIndex;
-use ElkArte\Helper\GenericList;
-use ElkArte\Helper\TokenHash;
-use ElkArte\Helper\Util;
-use ElkArte\Hooks;
-use ElkArte\Http\Headers;
-use ElkArte\Languages\Loader;
-use ElkArte\Notifications\Notifications;
-use ElkArte\Request;
-use ElkArte\Search\Search;
-use ElkArte\UrlGenerator\UrlGenerator;
-use ElkArte\User;
+/**
+ * Update some basic statistics.
+ *
+ * @deprecated since 1.1 - use directly the update{Statistic}Stats functions instead
+ *
+ * 'member' statistic updates the latest member, the total member
+ *  count, and the number of unapproved members.
+ * 'member' also only counts approved members when approval is on, but
+ *  is much more efficient with it off.
+ *
+ * 'message' changes the total number of messages, and the
+ *  highest message id by id_msg - which can be parameters 1 and 2,
+ *  respectively.
+ *
+ * 'topic' updates the total number of topics, or if parameter1 is true
+ *  simply increments them.
+ *
+ * 'subject' updates the log_search_subjects in the event of a topic being
+ *  moved, removed or split.  parameter1 is the topicid, parameter2 is the new subject
+ *
+ * 'postgroups' case updates those members who match condition's
+ *  post-based membergroups in the database (restricted by parameter1).
+ *
+ * @param string $type Stat type - can be 'member', 'message', 'topic', 'subject' or 'postgroups'
+ * @param int|string|boolean|mixed[]|null $parameter1 pass through value
+ * @param int|string|boolean|mixed[]|null $parameter2 pass through value
+ */
+function updateStats($type, $parameter1 = null, $parameter2 = null)
+{
+	switch ($type)
+	{
+		case 'member':
+			require_once(SUBSDIR . '/Members.subs.php');
+			updateMemberStats($parameter1, $parameter2);
+			break;
+		case 'message':
+			require_once(SUBSDIR . '/Messages.subs.php');
+			updateMessageStats($parameter1, $parameter2);
+			break;
+		case 'subject':
+			require_once(SUBSDIR . '/Messages.subs.php');
+			updateSubjectStats($parameter1, $parameter2);
+			break;
+		case 'topic':
+			require_once(SUBSDIR . '/Topic.subs.php');
+			updateTopicStats($parameter1);
+			break;
+		case 'postgroups':
+			require_once(SUBSDIR . '/Membergroups.subs.php');
+			updatePostGroupStats($parameter1, $parameter2);
+			break;
+		default:
+			trigger_error('updateStats(): Invalid statistic type \'' . $type . '\'', E_USER_NOTICE);
+	}
+}
 
 /**
  * Updates the settings table as well as $modSettings... only does one at a time if $update is true.
@@ -43,10 +84,12 @@ use ElkArte\User;
  * - When update is true, the value can be true or false to increment
  *  or decrement it, respectively.
  *
- * @param array $changeArray An associative array of what we're changing in 'setting' => 'value' format
+ * @param mixed[] $changeArray An associative array of what we're changing in 'setting' => 'value' format
  * @param bool $update Use an UPDATE query instead of a REPLACE query
+ * @param bool $debug = false Not used at this time, see todo
+ * @todo: add debugging features, $debug isn't used
  */
-function updateSettings($changeArray, $update = false)
+function updateSettings($changeArray, $update = false, $debug = false)
 {
 	global $modSettings;
 
@@ -54,9 +97,7 @@ function updateSettings($changeArray, $update = false)
 	$cache = Cache::instance();
 
 	if (empty($changeArray) || !is_array($changeArray))
-	{
 		return;
-	}
 
 	// In some cases, this may be better and faster, but for large sets we don't want so many UPDATEs.
 	if ($update)
@@ -86,16 +127,11 @@ function updateSettings($changeArray, $update = false)
 	foreach ($changeArray as $variable => $value)
 	{
 		// Don't bother if it's already like that ;).
-		if (isset($modSettings[$variable]) && $modSettings[$variable] === $value)
-		{
+		if (isset($modSettings[$variable]) && $modSettings[$variable] == $value)
 			continue;
-		}
-
 		// If the variable isn't set, but would only be set to nothing'ness, then don't bother setting it.
-		if (!isset($modSettings[$variable]) && empty($value))
-		{
+		elseif (!isset($modSettings[$variable]) && empty($value))
 			continue;
-		}
 
 		$replaceArray[] = array($variable, $value);
 
@@ -103,11 +139,9 @@ function updateSettings($changeArray, $update = false)
 	}
 
 	if (empty($replaceArray))
-	{
 		return;
-	}
 
-	$db->replace(
+	$db->insert('replace',
 		'{db_prefix}settings',
 		array('variable' => 'string-255', 'value' => 'string-65534'),
 		$replaceArray,
@@ -130,14 +164,10 @@ function removeSettings($toRemove)
 	$db = database();
 
 	if (empty($toRemove))
-	{
 		return;
-	}
 
 	if (!is_array($toRemove))
-	{
 		$toRemove = array($toRemove);
-	}
 
 	// Remove the setting from the db
 	$db->query('', '
@@ -150,12 +180,8 @@ function removeSettings($toRemove)
 
 	// Remove it from $modSettings now so it does not persist
 	foreach ($toRemove as $setting)
-	{
 		if (isset($modSettings[$setting]))
-		{
 			unset($modSettings[$setting]);
-		}
-	}
 
 	// Kill the cache - it needs redoing now, but we won't bother ourselves with that here.
 	Cache::instance()->remove('modSettings');
@@ -164,13 +190,137 @@ function removeSettings($toRemove)
 /**
  * Constructs a page list.
  *
- * @depreciated since 2.0
+ * What it does:
  *
+ * - Builds the page list, e.g. 1 ... 6 7 [8] 9 10 ... 15.
+ * - Flexible_start causes it to use "url.page" instead of "url;start=page".
+ * - Very importantly, cleans up the start value passed, and forces it to
+ *   be a multiple of num_per_page.
+ * - Checks that start is not more than max_value.
+ * - Base_url should be the URL without any start parameter on it.
+ * - Uses the compactTopicPagesEnable and compactTopicPagesContiguous
+ *   settings to decide how to display the menu.
+ *
+ * @example is available near the function definition.
+ * @example $pageindex = constructPageIndex($scripturl . '?board=' . $board, $_REQUEST['start'], $num_messages, $maxindex, true);
+ *
+ * @param string $base_url The base URL to be used for each link.
+ * @param int &$start The start position, by reference. If this is not a multiple
+ * of the number of items per page, it is sanitized to be so and the value will persist upon the function's return.
+ * @param int $max_value The total number of items you are paginating for.
+ * @param int $num_per_page The number of items to be displayed on a given page.
+ * @param bool $flexible_start = false Use "url.page" instead of "url;start=page"
+ * @param mixed[] $show associative array of option => boolean paris
  */
-function constructPageIndex($base_url, &$start, $max_value, $num_per_page, $flexible_start = false, $show = [])
+function constructPageIndex($base_url, &$start, $max_value, $num_per_page, $flexible_start = false, $show = array())
 {
-	$pageindex = new ConstructPageIndex($base_url, $start, $max_value, $num_per_page, $flexible_start, $show);
-	return $pageindex->getPageIndex();
+	global $modSettings, $context, $txt, $settings;
+
+	// Save whether $start was less than 0 or not.
+	$start = (int) $start;
+	$start_invalid = $start < 0;
+	$show_defaults = array(
+		'prev_next' => true,
+		'all' => false,
+	);
+
+	$show = array_merge($show_defaults, $show);
+
+	// Make sure $start is a proper variable - not less than 0.
+	if ($start_invalid)
+		$start = 0;
+	// Not greater than the upper bound.
+	elseif ($start >= $max_value)
+		$start = max(0, (int) $max_value - (((int) $max_value % (int) $num_per_page) == 0 ? $num_per_page : ((int) $max_value % (int) $num_per_page)));
+	// And it has to be a multiple of $num_per_page!
+	else
+		$start = max(0, (int) $start - ((int) $start % (int) $num_per_page));
+
+	$context['current_page'] = $start / $num_per_page;
+
+	$base_link = str_replace('{base_link}', ($flexible_start ? $base_url : strtr($base_url, array('%' => '%%')) . ';start=%1$d'), $settings['page_index_template']['base_link']);
+
+	// Compact pages is off or on?
+	if (empty($modSettings['compactTopicPagesEnable']))
+	{
+		// Show the left arrow.
+		$pageindex = $start == 0 || !$show['prev_next'] ? ' ' : sprintf($base_link, $start - $num_per_page, str_replace('{prev_txt}', $txt['prev'], $settings['page_index_template']['previous_page']));
+
+		// Show all the pages.
+		$display_page = 1;
+		for ($counter = 0; $counter < $max_value; $counter += $num_per_page)
+			$pageindex .= $start == $counter && !$start_invalid && empty($show['all_selected']) ? sprintf($settings['page_index_template']['current_page'], $display_page++) : sprintf($base_link, $counter, $display_page++);
+
+		// Show the right arrow.
+		$display_page = ($start + $num_per_page) > $max_value ? $max_value : ($start + $num_per_page);
+		if ($start != $counter - $max_value && !$start_invalid && $show['prev_next'] && empty($show['all_selected']))
+			$pageindex .= $display_page > $counter - $num_per_page ? ' ' : sprintf($base_link, $display_page, str_replace('{next_txt}', $txt['next'], $settings['page_index_template']['next_page']));
+	}
+	else
+	{
+		// If they didn't enter an odd value, pretend they did.
+		$PageContiguous = (int) ($modSettings['compactTopicPagesContiguous'] - ($modSettings['compactTopicPagesContiguous'] % 2)) / 2;
+
+		// Show the "prev page" link. (>prev page< 1 ... 6 7 [8] 9 10 ... 15 next page)
+		if (!empty($start) && $show['prev_next'])
+			$pageindex = sprintf($base_link, $start - $num_per_page, str_replace('{prev_txt}', $txt['prev'], $settings['page_index_template']['previous_page']));
+		else
+			$pageindex = '';
+
+		// Show the first page. (prev page >1< ... 6 7 [8] 9 10 ... 15)
+		if ($start > $num_per_page * $PageContiguous)
+			$pageindex .= sprintf($base_link, 0, '1');
+
+		// Show the ... after the first page.  (prev page 1 >...< 6 7 [8] 9 10 ... 15 next page)
+		if ($start > $num_per_page * ($PageContiguous + 1))
+			$pageindex .= str_replace('{custom}', 'data-baseurl="' . htmlspecialchars(JavaScriptEscape(($flexible_start ? $base_url : strtr($base_url, array('%' => '%%')) . ';start=%1$d')), ENT_COMPAT, 'UTF-8') . '" data-perpage="' . $num_per_page . '" data-firstpage="' . $num_per_page . '" data-lastpage="' . ($start - $num_per_page * $PageContiguous) . '"', $settings['page_index_template']['expand_pages']);
+
+		// Show the pages before the current one. (prev page 1 ... >6 7< [8] 9 10 ... 15 next page)
+		for ($nCont = $PageContiguous; $nCont >= 1; $nCont--)
+			if ($start >= $num_per_page * $nCont)
+			{
+				$tmpStart = $start - $num_per_page * $nCont;
+				$pageindex .= sprintf($base_link, $tmpStart, $tmpStart / $num_per_page + 1);
+			}
+
+		// Show the current page. (prev page 1 ... 6 7 >[8]< 9 10 ... 15 next page)
+		if (!$start_invalid && empty($show['all_selected']))
+			$pageindex .= sprintf($settings['page_index_template']['current_page'], ($start / $num_per_page + 1));
+		else
+			$pageindex .= sprintf($base_link, $start, $start / $num_per_page + 1);
+
+		// Show the pages after the current one... (prev page 1 ... 6 7 [8] >9 10< ... 15 next page)
+		$tmpMaxPages = (int) (($max_value - 1) / $num_per_page) * $num_per_page;
+		for ($nCont = 1; $nCont <= $PageContiguous; $nCont++)
+			if ($start + $num_per_page * $nCont <= $tmpMaxPages)
+			{
+				$tmpStart = $start + $num_per_page * $nCont;
+				$pageindex .= sprintf($base_link, $tmpStart, $tmpStart / $num_per_page + 1);
+			}
+
+		// Show the '...' part near the end. (prev page 1 ... 6 7 [8] 9 10 >...< 15 next page)
+		if ($start + $num_per_page * ($PageContiguous + 1) < $tmpMaxPages)
+			$pageindex .= str_replace('{custom}', 'data-baseurl="' . htmlspecialchars(JavaScriptEscape(($flexible_start ? $base_url : strtr($base_url, array('%' => '%%')) . ';start=%1$d')), ENT_COMPAT, 'UTF-8') . '" data-perpage="' . $num_per_page . '" data-firstpage="' . ($start + $num_per_page * ($PageContiguous + 1)) . '" data-lastpage="' . $tmpMaxPages . '"', $settings['page_index_template']['expand_pages']);
+
+		// Show the last number in the list. (prev page 1 ... 6 7 [8] 9 10 ... >15<  next page)
+		if ($start + $num_per_page * $PageContiguous < $tmpMaxPages)
+			$pageindex .= sprintf($base_link, $tmpMaxPages, $tmpMaxPages / $num_per_page + 1);
+
+		// Show the "next page" link. (prev page 1 ... 6 7 [8] 9 10 ... 15 >next page<)
+		if ($start != $tmpMaxPages && $show['prev_next'] && empty($show['all_selected']))
+			$pageindex .= sprintf($base_link, $start + $num_per_page, str_replace('{next_txt}', $txt['next'], $settings['page_index_template']['next_page']));
+	}
+
+	// The "all" button
+	if ($show['all'])
+	{
+		if (!empty($show['all_selected']))
+			$pageindex .= sprintf($settings['page_index_template']['current_page'], $txt['all']);
+		else
+			$pageindex .= sprintf(str_replace('%1$d', '%1$s', $base_link), '0;all', str_replace('{all_txt}', $txt['all'], $settings['page_index_template']['all']));
+	}
+
+	return $pageindex;
 }
 
 /**
@@ -183,7 +333,7 @@ function constructPageIndex($base_url, &$start, $max_value, $num_per_page, $flex
  * - Caches the formatting data from the setting for optimization.
  *
  * @param float $number The float value to apply comma formatting
- * @param int|bool $override_decimal_count = false or number of decimals
+ * @param integer|bool $override_decimal_count = false or number of decimals
  *
  * @return string
  */
@@ -197,9 +347,7 @@ function comma_format($number, $override_decimal_count = false)
 	{
 		// Not set for whatever reason?
 		if (empty($txt['number_format']) || preg_match('~^1([^\d]*)?234([^\d]*)(0*?)$~', $txt['number_format'], $matches) != 1)
-		{
 			return $number;
-		}
 
 		// Cache these each load...
 		$thousands_separator = $matches[1];
@@ -208,21 +356,20 @@ function comma_format($number, $override_decimal_count = false)
 	}
 
 	// Format the string with our friend, number_format.
-	$decimals = ((float) $number === $number) ? ($override_decimal_count === false ? $decimal_count : $override_decimal_count) : 0;
-	return number_format((float) $number, (int) $decimals, $decimal_separator, $thousands_separator);
+	return number_format($number, (float) $number === $number ? ($override_decimal_count === false ? $decimal_count : $override_decimal_count) : 0, $decimal_separator, $thousands_separator);
 }
 
 /**
  * Formats a number to a multiple of thousands x, x k, x M, x G, x T
  *
  * @param float $number The value to format
- * @param int|bool $override_decimal_count = false or number of decimals
+ * @param integer|bool $override_decimal_count = false or number of decimals
  *
  * @return string
  */
 function thousands_format($number, $override_decimal_count = false)
 {
-	foreach (['', ' k', ' M', ' G', ' T'] as $kb)
+	foreach (array('', ' k', ' M', ' G', ' T') as $kb)
 	{
 		if ($number < 1000)
 		{
@@ -246,6 +393,7 @@ function byte_format($number)
 {
 	global $txt;
 
+	$kb = '';
 	foreach (array('byte', 'kilobyte', 'megabyte', 'gigabyte') as $kb)
 	{
 		if ($number < 1024)
@@ -264,50 +412,40 @@ function byte_format($number)
  *
  * What it does:
  *
- * - Returns a pretty formatted version of time based on the user's format in User::$info->time_format.
+ * - Returns a pretty formatted version of time based on the user's format in $user_info['time_format'].
  * - Applies all necessary time offsets to the timestamp, unless offset_type is set.
- * - If todayMod is set and show_today was not specified or true, an
+ * - If todayMod is set and show_today was not not specified or true, an
  *   alternate format string is used to show the date with something to show it is "today" or "yesterday".
- * - Performs localization (more than just strftime would do alone.)
+ * - Performs localization (more than just Util::strftime would do alone.)
  *
  * @param int $log_time A unix timestamp
  * @param string|bool $show_today = true show "Today"/"Yesterday",
  *   false shows the date, a string can force a date format to use %b %d, %Y
  * @param string|bool $offset_type = false If false, uses both user time offset and forum offset.
  *   If 'forum', uses only the forum offset. Otherwise no offset is applied.
- *
- * @return string
  */
 function standardTime($log_time, $show_today = true, $offset_type = false)
 {
-	global $txt, $modSettings;
-	static $non_twelve_hour, $is_win = null;
+	global $user_info, $txt, $modSettings;
+	static $non_twelve_hour, $support_e = null;
 
-	if ($is_win === null)
+	if ($support_e === null)
 	{
-		$is_win = detectServer()->is('windows');
+		$support_e = detectServer()->is('windows');
 	}
 
 	// Offset the time.
 	if (!$offset_type)
-	{
-		$time = $log_time + (User::$info->time_offset + $modSettings['time_offset']) * 3600;
-	}
+		$time = $log_time + ($user_info['time_offset'] + $modSettings['time_offset']) * 3600;
 	// Just the forum offset?
 	elseif ($offset_type === 'forum')
-	{
 		$time = $log_time + $modSettings['time_offset'] * 3600;
-	}
 	else
-	{
 		$time = $log_time;
-	}
 
 	// We can't have a negative date (on Windows, at least.)
 	if ($log_time < 0)
-	{
 		$log_time = 0;
-	}
 
 	// Today and Yesterday?
 	if ($modSettings['todayMod'] >= 1 && $show_today === true)
@@ -319,83 +457,51 @@ function standardTime($log_time, $show_today = true, $offset_type = false)
 		$now = @getdate($nowtime);
 
 		// Try to make something of a time format string...
-		$s = strpos(User::$info->time_format, '%S') === false ? '' : ':%S';
-		if (strpos(User::$info->time_format, '%H') === false && strpos(User::$info->time_format, '%T') === false)
+		$s = strpos($user_info['time_format'], '%S') === false ? '' : ':%S';
+		if (strpos($user_info['time_format'], '%H') === false && strpos($user_info['time_format'], '%T') === false)
 		{
-			$h = strpos(User::$info->time_format, '%l') === false ? '%I' : '%l';
+			$h = strpos($user_info['time_format'], '%l') === false ? '%I' : '%l';
 			$today_fmt = $h . ':%M' . $s . ' %p';
 		}
 		else
-		{
 			$today_fmt = '%H:%M' . $s;
-		}
 
 		// Same day of the year, same year.... Today!
-		if ($then['yday'] === $now['yday'] && $then['year'] === $now['year'])
-		{
+		if ($then['yday'] == $now['yday'] && $then['year'] == $now['year'])
 			return sprintf($txt['today'], standardTime($log_time, $today_fmt, $offset_type));
-		}
 
 		// Day-of-year is one less and same year, or it's the first of the year and that's the last of the year...
-		if ((int) $modSettings['todayMod'] === 2
-			&& (($then['yday'] === $now['yday'] - 1 && $then['year'] === $now['year'])
-				|| (($now['yday'] === 0 && $then['year'] === $now['year'] - 1) && $then['mon'] === 12 && $then['mday'] === 31)))
-		{
+		if ($modSettings['todayMod'] == '2' && (($then['yday'] == $now['yday'] - 1 && $then['year'] == $now['year']) || ($now['yday'] == 0 && $then['year'] == $now['year'] - 1) && $then['mon'] == 12 && $then['mday'] == 31))
 			return sprintf($txt['yesterday'], standardTime($log_time, $today_fmt, $offset_type));
-		}
 	}
 
-	$str = is_bool($show_today) ? User::$info->time_format : $show_today;
-
-	// Windows requires a slightly different language code identifier (LCID).
-	// https://msdn.microsoft.com/en-us/library/cc233982.aspx
-	if ($is_win)
-	{
-		$txt['lang_locale'] = str_replace('_', '-', $txt['lang_locale']);
-	}
+	$str = !is_bool($show_today) ? $show_today : $user_info['time_format'];
 
 	if (setlocale(LC_TIME, $txt['lang_locale']))
 	{
 		if (!isset($non_twelve_hour))
-		{
 			$non_twelve_hour = trim(Util::strftime('%p')) === '';
-		}
-
 		if ($non_twelve_hour && strpos($str, '%p') !== false)
-		{
 			$str = str_replace('%p', (Util::strftime('%H', $time) < 12 ? $txt['time_am'] : $txt['time_pm']), $str);
-		}
 
-		foreach (['%a', '%A', '%b', '%B'] as $token)
-		{
+		foreach (array('%a', '%A', '%b', '%B') as $token)
 			if (strpos($str, $token) !== false)
-			{
-				$str = str_replace($token, empty($txt['lang_capitalize_dates']) ? Util::strftime($token, $time) : Util::ucwords(Util::strftime($token, $time)), $str);
-			}
-		}
+				$str = str_replace($token, !empty($txt['lang_capitalize_dates']) ? Util::ucwords(Util::strftime($token, $time)) : Util::strftime($token, $time), $str);
 	}
 	else
 	{
 		// Do-it-yourself time localization.  Fun.
-		foreach (['%a' => 'days_short', '%A' => 'days', '%b' => 'months_short', '%B' => 'months'] as $token => $text_label)
-		{
+		foreach (array('%a' => 'days_short', '%A' => 'days', '%b' => 'months_short', '%B' => 'months') as $token => $text_label)
 			if (strpos($str, $token) !== false)
-			{
 				$str = str_replace($token, $txt[$text_label][(int) Util::strftime($token === '%a' || $token === '%A' ? '%w' : '%m', $time)], $str);
-			}
-		}
 
 		if (strpos($str, '%p') !== false)
-		{
 			$str = str_replace('%p', (Util::strftime('%H', $time) < 12 ? $txt['time_am'] : $txt['time_pm']), $str);
-		}
 	}
 
-	// Windows doesn't support %e; on some versions, strftime fails altogether if used, so let's prevent that.
-	if ($is_win && strpos($str, '%e') !== false)
-	{
+	// Windows doesn't support %e; on some versions, Util::strftime fails altogether if used, so let's prevent that.
+	if ($support_e && strpos($str, '%e') !== false)
 		$str = str_replace('%e', ltrim(Util::strftime('%d', $time), '0'), $str);
-	}
 
 	// Format any other characters..
 	return Util::strftime($str, $time);
@@ -413,9 +519,7 @@ function htmlTime($timestamp)
 	global $txt, $context;
 
 	if (empty($timestamp))
-	{
 		return '';
-	}
 
 	$forumtime = forum_time(false, $timestamp);
 	$timestamp = forum_time(true, $timestamp);
@@ -423,45 +527,7 @@ function htmlTime($timestamp)
 	$stdtime = standardTime($timestamp, true, true);
 
 	// @todo maybe htmlspecialchars on the title attribute?
-	return '<time title="' . (empty($context['using_relative_time']) ? $txt['last_post'] : $stdtime) . '" datetime="' . $time . '" data-timestamp="' . $timestamp . '" data-forumtime="' . $forumtime . '">' . $stdtime . '</time>';
-}
-
-/**
- * Convert a given timestamp to UTC time in the format of Atom date format.
- *
- * This method takes a unix timestamp as input and converts it to UTC time in the format of
- * Atom date format (YYYY-MM-DDTHH:MM:SS+00:00).
- *
- * It considers the user's time offset, system's time offset, and the default timezone setting
- * from the modifications/settings administration panel.
- *
- * @param int $timestamp The timestamp to convert to UTC time.
- * @param int $userAdjust The timestamp is not to be adjusted for user offset
- * @return string The UTC time in the format of Atom date format.
- */
-function utcTime($timestamp, $userAdjust = false)
-{
-	global $user_info, $modSettings;
-
-	// Back out user time
-	if ($userAdjust === true && !empty($user_info['time_offset']))
-	{
-		$timestamp -= ($modSettings['time_offset'] + $user_info['time_offset']) * 3600;
-	}
-
-	// Using the system timezone offset, format the date
-	try
-	{
-		$tz = empty($modSettings['default_timezone']) ? 'UTC' : $modSettings['default_timezone'];
-		$date = new DateTime('@' . $timestamp, new DateTimeZone($tz));
-	}
-	catch (Exception)
-	{
-		return standardTime($timestamp);
-	}
-
-	// Something like 2012-12-21T11:11:00+00:00
-	return $date->format(DateTimeInterface::ATOM);
+	return '<time title="' . (!empty($context['using_relative_time']) ? $stdtime : $txt['last_post']) . '" datetime="' . $time . '" data-timestamp="' . $timestamp . '" data-forumtime="' . $forumtime . '">' . $stdtime . '</time>';
 }
 
 /**
@@ -478,18 +544,14 @@ function utcTime($timestamp, $userAdjust = false)
  */
 function forum_time($use_user_offset = true, $timestamp = null)
 {
-	global $modSettings;
+	global $user_info, $modSettings;
 
 	if ($timestamp === null)
-	{
 		$timestamp = time();
-	}
-	elseif ($timestamp === 0)
-	{
+	elseif ($timestamp == 0)
 		return 0;
-	}
 
-	return $timestamp + ($modSettings['time_offset'] + ($use_user_offset ? User::$info->time_offset : 0)) * 3600;
+	return $timestamp + ($modSettings['time_offset'] + ($use_user_offset ? $user_info['time_offset'] : 0)) * 3600;
 }
 
 /**
@@ -506,13 +568,53 @@ function forum_time($use_user_offset = true, $timestamp = null)
 function un_htmlspecialchars($string)
 {
 	if (empty($string))
-	{
 		return $string;
-	}
 
 	$string = htmlspecialchars_decode($string, ENT_QUOTES);
+	$string = str_replace('&nbsp;', ' ', $string);
 
-	return str_replace('&nbsp;', ' ', $string);
+	return $string;
+}
+
+/**
+ * Calculates all the possible permutations (orders) of an array.
+ *
+ * What it does:
+ *
+ * - Caution: should not be called on arrays bigger than 8 elements as this function is memory hungry
+ * - returns an array containing each permutation.
+ * - e.g. (1,2,3) returns (1,2,3), (1,3,2), (2,1,3), (2,3,1), (3,1,2), and (3,2,1)
+ * - A combinations without repetition N! function so 3! = 6 and 10! = 3,628,800 combinations
+ * - Used by parse_bbc to allow bbc tag parameters to be in any order and still be
+ * parsed properly
+ *
+ * @deprecated since 1.0.5
+ * @param mixed[] $array index array of values
+ *
+ * @return mixed[] array representing all permutations of the supplied array
+ */
+function permute($array)
+{
+	$orders = array($array);
+
+	$n = count($array);
+	$p = range(0, $n);
+	for ($i = 1; $i < $n; null)
+	{
+		$p[$i]--;
+		$j = $i % 2 != 0 ? $p[$i] : 0;
+
+		$temp = $array[$i];
+		$array[$i] = $array[$j];
+		$array[$j] = $temp;
+
+		for ($i = 1; $p[$i] == 0; $i++)
+			$p[$i] = $i;
+
+		$orders[] = $array;
+	}
+
+	return $orders;
 }
 
 /**
@@ -528,17 +630,16 @@ function un_htmlspecialchars($string)
  *
  * Source: O'Reilly PHP Cookbook
  *
- * @param array $p The array keys to apply permutation
+ * @param mixed[] $p The array keys to apply permutation
  * @param int $size The size of our permutation array
  *
- * @return array|bool the next permutation of the passed array $p
+ * @return mixed[] the next permutation of the passed array $p
  */
 function pc_next_permutation($p, $size)
 {
 	// Slide down the array looking for where we're smaller than the next guy
 	for ($i = $size - 1; isset($p[$i]) && $p[$i] >= $p[$i + 1]; --$i)
 	{
-		// Required to set $i
 	}
 
 	// If this doesn't occur, we've finished our permutations
@@ -551,7 +652,6 @@ function pc_next_permutation($p, $size)
 	// Slide down the array looking for a bigger number than what we found before
 	for ($j = $size; $p[$j] <= $p[$i]; --$j)
 	{
-		// Required to set $j
 	}
 
 	// Swap them
@@ -571,29 +671,147 @@ function pc_next_permutation($p, $size)
 }
 
 /**
+ * Parse bulletin board code in a string, as well as smileys optionally.
+ *
+ * @deprecated since 1.1b1
+ *
+ * What it does:
+ *
+ * - Only parses bbc tags which are not disabled in disabledBBC.
+ * - Handles basic HTML, if enablePostHTML is on.
+ * - Caches the from/to replace regular expressions so as not to reload them every time a string is parsed.
+ * - Only parses smileys if smileys is true.
+ *
+ * @param string|false $message if false return list of enabled bbc codes
+ * @param bool $smileys = true if to parse smileys as well
+ *
+ * @return string
+ */
+function parse_bbc($message, $smileys = true)
+{
+	// Don't waste cycles
+	if ($message === '')
+		return '';
+
+	$parser = \BBC\ParserWrapper::instance();
+
+	// This is a deprecated way of getting codes
+	if ($message === false)
+	{
+		return $parser->getCodes();
+	}
+
+	return $parser->parseMessage($message, $smileys);
+}
+
+/**
+ * Parse smileys in the passed message.
+ *
+ * What it does:
+ *
+ * - The smiley parsing function which makes pretty faces appear :).
+ * - If custom smiley sets are turned off by smiley_enable, the default set of smileys will be used.
+ * - These are specifically not parsed in code tags [url=mailto:Dad@blah.com]
+ * - Caches the smileys from the database or array in memory.
+ * - Doesn't return anything, but rather modifies message directly.
+ *
+ * @param string $message The string containing smileys to parse
+ * @deprecated since 1.1b1
+ */
+function parsesmileys(&$message)
+{
+	// No smiley set at all?!
+	if ($GLOBALS['user_info']['smiley_set'] == 'none' || trim($message) == '')
+	{
+		return;
+	}
+
+	$wrapper = \BBC\ParserWrapper::instance();
+	$parser = $wrapper->getSmileyParser();
+	$message = $parser->parseBlock($message);
+}
+
+/**
+ * Highlight any code.
+ *
+ * What it does:
+ *
+ * - Uses PHP's highlight_string() to highlight PHP syntax
+ * - does special handling to keep the tabs in the code available.
+ * - used to parse PHP code from inside [code] and [php] tags.
+ *
+ * @param string $code The string containing php code
+ *
+ * @return string the code with highlighted HTML.
+ */
+function highlight_php_code($code)
+{
+	// Remove special characters.
+	$code = un_htmlspecialchars(strtr($code, array('<br />' => "\n", "\t" => '___TAB();', '&#91;' => '[')));
+
+	$buffer = str_replace(array("\n", "\r"), '', @highlight_string($code, true));
+
+	// Yes, I know this is kludging it, but this is the best way to preserve tabs from PHP :P.
+	$buffer = preg_replace('~___TAB(?:</(?:font|span)><(?:font color|span style)="[^"]*?">)?\\(\\);~', '<pre style="display: inline;">' . "\t" . '</pre>', $buffer);
+
+	return strtr($buffer, array('\'' => '&#039;', '<code>' => '', '</code>' => ''));
+}
+
+/**
  * Ends execution and redirects the user to a new location
  *
  * What it does:
  *
  * - Makes sure the browser doesn't come back and repost the form data.
  * - Should be used whenever anything is posted.
+ * - Calls AddMailQueue to process any mail queue items its can
+ * - Calls call_integration_hook integrate_redirect before headers are sent
  * - Diverts final execution to obExit() which means a end to processing and sending of final output
  *
  * @event integrate_redirect called before headers are sent
  * @param string $setLocation = '' The URL to redirect to
+ * @param bool $refresh = false, enable to send a refresh header, default is a location header
+ * @throws Elk_Exception
  */
-function redirectexit($setLocation = '')
+function redirectexit($setLocation = '', $refresh = false)
 {
-	global $db_show_debug;
+	global $scripturl, $context, $modSettings, $db_show_debug;
 
-	// Note to developers.  The testbed will add the following, allowing phpunit test returns
-	//if (defined("PHPUNITBOOTSTRAP") && defined("STDIN")){return $setLocation;}
+	// In case we have mail to send, better do that - as obExit doesn't always quite make it...
+	if (!empty($context['flush_mail']))
+		// @todo this relies on 'flush_mail' being only set in AddMailQueue itself... :\
+		AddMailQueue(true);
 
-	// Send headers, call integration, do maintance
-	Headers::instance()
-		->removeHeader('all')
-		->redirect($setLocation)
-		->send();
+	Notifications::instance()->send();
+
+	$add = preg_match('~^(ftp|http)[s]?://~', $setLocation) == 0 && substr($setLocation, 0, 6) != 'about:';
+
+	if ($add)
+		$setLocation = $scripturl . ($setLocation != '' ? '?' . $setLocation : '');
+
+	// Put the session ID in.
+	if (empty($_COOKIE) && defined('SID') && SID != '')
+		$setLocation = preg_replace('/^' . preg_quote($scripturl, '/') . '(?!\?' . preg_quote(SID, '/') . ')\\??/', $scripturl . '?' . SID . ';', $setLocation);
+	// Keep that debug in their for template debugging!
+	elseif (isset($_GET['debug']))
+		$setLocation = preg_replace('/^' . preg_quote($scripturl, '/') . '\\??/', $scripturl . '?debug;', $setLocation);
+
+	if (!empty($modSettings['queryless_urls']) && detectServer()->supportRewrite())
+	{
+		if (defined('SID') && SID != '')
+			$setLocation = preg_replace_callback('~^' . preg_quote($scripturl, '~') . '\?(?:' . SID . '(?:;|&|&amp;))((?:board|topic)=[^#]+?)(#[^"]*?)?$~', 'redirectexit_callback', $setLocation);
+		else
+			$setLocation = preg_replace_callback('~^' . preg_quote($scripturl, '~') . '\?((?:board|topic)=[^#"]+?)(#[^"]*?)?$~', 'redirectexit_callback', $setLocation);
+	}
+
+	// Maybe integrations want to change where we are heading?
+	call_integration_hook('integrate_redirect', array(&$setLocation, &$refresh));
+
+	// We send a Refresh header only in special cases because Location looks better. (and is quicker...)
+	if ($refresh)
+		header('Refresh: 0; URL=' . strtr($setLocation, array(' ' => '%20')));
+	else
+		header('Location: ' . str_replace(' ', '%20', $setLocation));
 
 	// Debugging.
 	if ($db_show_debug === true)
@@ -602,6 +820,26 @@ function redirectexit($setLocation = '')
 	}
 
 	obExit(false);
+}
+
+/**
+ * URL fixer for redirect exit
+ *
+ * What it does:
+ *
+ * - Similar to the callback function used in ob_sessrewrite
+ * - Evoked by enabling queryless_urls for systems that support that function
+ *
+ * @param mixed[] $matches results from the calling preg
+ */
+function redirectexit_callback($matches)
+{
+	global $scripturl;
+
+	if (defined('SID') && SID != '')
+		return $scripturl . '/' . strtr($matches[1], '&;=', '//,') . '.html?' . SID . (isset($matches[2]) ? $matches[2] : '');
+	else
+		return $scripturl . '/' . strtr($matches[1], '&;=', '//,') . '.html' . (isset($matches[2]) ? $matches[2] : '');
 }
 
 /**
@@ -618,7 +856,8 @@ function redirectexit($setLocation = '')
  * @param bool|null $do_footer = null Output the footer
  * @param bool $from_index = false If we're coming from index.php
  * @param bool $from_fatal_error = false If we are exiting due to a fatal error
- * @throws \ElkArte\Exceptions\Exception
+ *
+ * @throws Elk_Exception
  */
 function obExit($header = null, $do_footer = null, $from_index = false, $from_fatal_error = false)
 {
@@ -629,28 +868,31 @@ function obExit($header = null, $do_footer = null, $from_index = false, $from_fa
 	// Attempt to prevent a recursive loop.
 	++$level;
 	if ($level > 1 && !$from_fatal_error && !$has_fatal_error)
-	{
 		exit;
-	}
 
 	if ($from_fatal_error)
-	{
 		$has_fatal_error = true;
-	}
 
-	$do_header = $header ?? !$header_done;
-	$do_footer = $do_footer ?? $do_header;
+	// Clear out the stat cache.
+	trackStats();
+
+	Notifications::instance()->send();
+
+	// If we have mail to send, send it.
+	if (!empty($context['flush_mail']))
+		// @todo this relies on 'flush_mail' being only set in AddMailQueue itself... :\
+		AddMailQueue(true);
+
+	$do_header = $header === null ? !$header_done : $header;
+	if ($do_footer === null)
+		$do_footer = $do_header;
 
 	// Has the template/header been done yet?
 	if ($do_header)
 	{
-		handleMaintenance();
-
 		// Was the page title set last minute? Also update the HTML safe one.
 		if (!empty($context['page_title']) && empty($context['page_title_html_safe']))
-		{
-			$context['page_title_html_safe'] = Util::htmlspecialchars(un_htmlspecialchars($context['page_title'])) . (empty($context['current_page']) ? '' : ' - ' . $txt['page'] . ' ' . ($context['current_page'] + 1));
-		}
+			$context['page_title_html_safe'] = Util::htmlspecialchars(un_htmlspecialchars($context['page_title'])) . (!empty($context['current_page']) ? ' - ' . $txt['page'] . ' ' . ($context['current_page'] + 1) : '');
 
 		// Start up the session URL fixer.
 		ob_start('ob_sessrewrite');
@@ -665,7 +907,7 @@ function obExit($header = null, $do_footer = null, $from_index = false, $from_fa
 	if ($do_footer)
 	{
 		// Show the footer.
-		theme()->getTemplates()->loadSubTemplate($context['sub_template'] ?? 'main');
+		loadSubTemplate(isset($context['sub_template']) ? $context['sub_template'] : 'main');
 
 		// Just so we don't get caught in an endless loop of errors from the footer...
 		if (!$footer_done)
@@ -675,17 +917,18 @@ function obExit($header = null, $do_footer = null, $from_index = false, $from_fa
 
 			// Add $db_show_debug = true; to Settings.php if you want to show the debugging information.
 			// (since this is just debugging... it's okay that it's after </html>.)
-			if (($db_show_debug === true)
-				&& !isset($_REQUEST['api'])
-				&& ((!isset($_GET['action']) || $_GET['action'] !== 'viewquery') && !isset($_GET['api'])))
+			if ($db_show_debug === true)
 			{
-				Debug::instance()->display();
+				if (!isset($_REQUEST['xml']) && ((!isset($_GET['action']) || $_GET['action'] != 'viewquery') && !isset($_GET['api'])))
+				{
+					Debug::instance()->display();
+				}
 			}
 		}
 	}
 
 	// Need user agent
-	$req = Request::instance();
+	$req = request();
 
 	setOldUrl();
 
@@ -693,49 +936,22 @@ function obExit($header = null, $do_footer = null, $from_index = false, $from_fa
 	$_SESSION['USER_AGENT'] = $req->user_agent();
 
 	// Hand off the output to the portal, etc. we're integrated with.
-	call_integration_hook('integrate_exit', [$do_footer]);
-
-	// Note to developers.  The testbed will add the following, allowing phpunit test returns
-	//if (defined("PHPUNITBOOTSTRAP") && defined("STDIN")){return;}
+	call_integration_hook('integrate_exit', array($do_footer));
 
 	// Don't exit if we're coming from index.php; that will pass through normally.
 	if (!$from_index)
-	{
 		exit;
-	}
 }
 
-/**
- * Takes care of a few dynamic maintenance items
- */
-function handleMaintenance()
-{
-	global $context;
-
-	// Clear out the stat cache.
-	trackStats();
-
-	// Send off any notifications accumulated
-	Notifications::instance()->send();
-
-	// Queue any mail that needs to be sent
-	if (!empty($context['flush_mail']))
-	{
-		// @todo this relies on 'flush_mail' being only set in AddMailQueue itself... :\
-		AddMailQueue(true);
-	}
-}
-
-/**
- * @param string $index
- */
 function setOldUrl($index = 'old_url')
 {
 	// Remember this URL in case someone doesn't like sending HTTP_REFERER.
 	$invalid_old_url = array(
 		'action=dlattach',
 		'action=jsoption',
-		';api=xml',
+		'action=viewadminfile',
+		';xml',
+		';api',
 	);
 	call_integration_hook('integrate_invalid_old_url', array(&$invalid_old_url));
 	$make_old = true;
@@ -747,8 +963,7 @@ function setOldUrl($index = 'old_url')
 			break;
 		}
 	}
-
-	if ($make_old)
+	if ($make_old === true)
 	{
 		$_SESSION[$index] = $_SERVER['REQUEST_URL'];
 	}
@@ -757,59 +972,76 @@ function setOldUrl($index = 'old_url')
 /**
  * Sets the class of the current topic based on is_very_hot, veryhot, hot, etc
  *
- * @param array $topic_context array of topic information
+ * @param mixed[] $topic_context array of topic information
  */
 function determineTopicClass(&$topic_context)
 {
-	$topic_context['class'] = empty($topic_context['is_poll']) ? 'i-normal' : 'i-poll';
-
 	// Set topic class depending on locked status and number of replies.
 	if ($topic_context['is_very_hot'])
-	{
-		$topic_context['class'] = 'i-hot colorize-red';
-	}
+		$topic_context['class'] = 'veryhot';
 	elseif ($topic_context['is_hot'])
-	{
-		$topic_context['class'] = 'i-hot colorize-yellow';
-	}
+		$topic_context['class'] = 'hot';
+	else
+		$topic_context['class'] = 'normal';
 
-	if ($topic_context['is_sticky'])
-	{
-		$topic_context['class'] = 'i-sticky';
-	}
+	$topic_context['class'] .= !empty($topic_context['is_poll']) ? '_poll' : '_post';
 
 	if ($topic_context['is_locked'])
-	{
-		$topic_context['class'] = 'i-locked';
-	}
+		$topic_context['class'] .= '_locked';
+
+	if ($topic_context['is_sticky'])
+		$topic_context['class'] .= '_sticky';
+
+	// This is so old themes will still work.
+	// @deprecated since 1.0 do not rely on it
+	$topic_context['extended_class'] = &$topic_context['class'];
 }
 
 /**
  * Sets up the basic theme context stuff.
  *
- * @param bool $forceload defaults to false
+ * @param bool $forceload = false
  */
 function setupThemeContext($forceload = false)
 {
-	theme()->setupThemeContext($forceload);
+	return theme()->setupThemeContext($forceload);
+}
+
+/**
+ * Helper function to set the system memory to a needed value
+ *
+ * What it does:
+ *
+ * - If the needed memory is greater than current, will attempt to get more
+ * - If in_use is set to true, will also try to take the current memory usage in to account
+ *
+ * @param string $needed The amount of memory to request, if needed, like 256M
+ * @param bool $in_use Set to true to account for current memory usage of the script
+ *
+ * @return boolean true if we have at least the needed memory
+ * @deprecated since 1.1
+ */
+function setMemoryLimit($needed, $in_use = false)
+{
+	return detectServer()->setMemoryLimit($needed, $in_use);
 }
 
 /**
  * Helper function to convert memory string settings to bytes
  *
- * @param string|bool $val The byte string, like 256M or 1G
+ * @param string $val The byte string, like 256M or 1G
  *
- * @return int The string converted to a proper integer in bytes
+ * @return integer The string converted to a proper integer in bytes
  */
 function memoryReturnBytes($val)
 {
 	// Treat blank values as 0
 	$val = is_bool($val) || empty($val) ? 0 : trim($val);
 
-	// Separate the number from the designator, if any
+	// Separate the number from the designator
 	preg_match('~(\d+)(.*)~', $val, $val);
-	$num = (int) $val[1];
-	$last = strtolower(substr($val[2] ?? '', 0, 1));
+	$num = intval($val[1]);
+	$last = strtolower(substr(!empty($val[2]) ? $val[2] : '', 0, 1));
 
 	// Convert to bytes
 	switch ($last)
@@ -829,149 +1061,165 @@ function memoryReturnBytes($val)
 }
 
 /**
+ * Wrapper function for set_time_limit
+ *
+ * When called, attempts to restart the timeout counter from zero.
+ *
+ * This sets the maximum time in seconds a script is allowed to run before it is terminated by the parser.
+ * You can not change this setting with ini_set() when running in safe mode.
+ * Your web server can have other timeout configurations that may also interrupt PHP execution.
+ * Apache has a Timeout directive and IIS has a CGI timeout function.
+ * Security extension may also disable this function, such as Suhosin
+ * Hosts may add this to the disabled_functions list in php.ini
+ *
+ * If the current time limit is not unlimited it is possible to decrease the
+ * total time limit if the sum of the new time limit and the current time spent
+ * running the script is inferior to the original time limit. It is inherent to
+ * the way set_time_limit() works, it should rather be called with an
+ * appropriate value every time you need to allocate a certain amount of time
+ * to execute a task than only once at the beginning of the script.
+ *
+ * Before calling set_time_limit(), we check if this function is available
+ *
+ * @param int $time_limit The time limit
+ * @param bool $server_reset whether to reset the server timer or not
+ * @deprecated since 1.1
+ */
+function setTimeLimit($time_limit, $server_reset = true)
+{
+	return detectServer()->setTimeLimit($time_limit, $server_reset);
+}
+
+/**
  * This is the only template included in the sources.
- * @return void
  */
 function template_rawdata()
 {
-	theme()->template_rawdata();
+	return theme()->template_rawdata();
 }
 
 /**
  * The header template
- * @return void
  */
 function template_header()
 {
-	theme()->template_header();
+	return theme()->template_header();
 }
 
 /**
  * Show the copyright.
- * @return void
  */
 function theme_copyright()
 {
-	theme()->theme_copyright();
+	return theme()->theme_copyright();
 }
 
 /**
  * The template footer
- * @return void
  */
 function template_footer()
 {
-	theme()->template_footer();
+	return theme()->template_footer();
 }
 
 /**
  * Output the Javascript files
  *
- * @depreciated since 2.0, only for old theme support
- * @return void
+ * What it does:
+ *
+ * - tabbing in this function is to make the HTML source look proper
+ * - outputs jQuery/jQueryUI from the proper source (local/CDN)
+ * - if deferred is set function will output all JS (source & inline) set to load at page end
+ * - if the admin option to combine files is set, will use Combiner.class
+ *
+ * @param bool $do_deferred = false
  */
-function template_javascript()
+function template_javascript($do_deferred = false)
 {
-	theme()->themeJs()->template_javascript();
+	theme()->template_javascript($do_deferred);
+	return;
 }
 
 /**
  * Output the CSS files
  *
- * @depreciated since 2.0, only for old theme suppot
- * @return void
+ * What it does:
+ *  - If the admin option to combine files is set, will use Combiner.class
  */
 function template_css()
 {
-	theme()->themecss->template_css();
+	theme()->template_css();
+	return;
 }
 
 /**
  * Calls on template_show_error from index.template.php to show warnings
  * and security errors for admins
- * @return void
  */
 function template_admin_warning_above()
 {
 	theme()->template_admin_warning_above();
+	return;
 }
 
 /**
- * Convert IP address to IP range
+ * Convert a single IP to a ranged IP.
  *
- *  - Internal function used to convert a user-readable format to a format suitable for the database.
+ * - Internal function used to convert a user-readable format to a format suitable for the database.
  *
- * @param string $fullip The IP address to convert
- * @return array The IP range in the format [ ['low' => 'low_value_1', 'high' => 'high_value_1'], ... ]
- * If the input IP address is invalid or cannot be converted, an empty array is returned.
+ * @param string $fullip A full dot notation IP address
+ *
+ * @return array|string 'unknown' if the ip in the input was '255.255.255.255'
  */
 function ip2range($fullip)
 {
 	// If its IPv6, validate it first.
-	if (isValidIPv6($fullip))
+	if (isValidIPv6($fullip) !== false)
 	{
 		$ip_parts = explode(':', expandIPv6($fullip, false));
-		$ip_array = [];
+		$ip_array = array();
 
-		if (count($ip_parts) !== 8)
-		{
-			return [];
-		}
+		if (count($ip_parts) != 8)
+			return array();
 
 		for ($i = 0; $i < 8; $i++)
 		{
-			if ($ip_parts[$i] === '*')
-			{
-				$ip_array[$i] = ['low' => '0', 'high' => hexdec('ffff')];
-			}
-			elseif (preg_match('/^([0-9A-Fa-f]{1,4})-([0-9A-Fa-f]{1,4})$/', $ip_parts[$i], $range) === 1)
-			{
-				$ip_array[$i] = ['low' => hexdec($range[1]), 'high' => hexdec($range[2])];
-			}
+			if ($ip_parts[$i] == '*')
+				$ip_array[$i] = array('low' => '0', 'high' => hexdec('ffff'));
+			elseif (preg_match('/^([0-9A-Fa-f]{1,4})\-([0-9A-Fa-f]{1,4})$/', $ip_parts[$i], $range) == 1)
+				$ip_array[$i] = array('low' => hexdec($range[1]), 'high' => hexdec($range[2]));
 			elseif (is_numeric(hexdec($ip_parts[$i])))
-			{
-				$ip_array[$i] = ['low' => hexdec($ip_parts[$i]), 'high' => hexdec($ip_parts[$i])];
-			}
+				$ip_array[$i] = array('low' => hexdec($ip_parts[$i]), 'high' => hexdec($ip_parts[$i]));
 		}
 
 		return $ip_array;
 	}
 
 	// Pretend that 'unknown' is 255.255.255.255. (since that can't be an IP anyway.)
-	if ($fullip === 'unknown')
-	{
+	if ($fullip == 'unknown')
 		$fullip = '255.255.255.255';
-	}
 
 	$ip_parts = explode('.', $fullip);
-	$ip_array = [];
+	$ip_array = array();
 
-	if (count($ip_parts) !== 4)
-	{
-		return [];
-	}
+	if (count($ip_parts) != 4)
+		return array();
 
 	for ($i = 0; $i < 4; $i++)
 	{
-		if ($ip_parts[$i] === '*')
-		{
-			$ip_array[$i] = ['low' => '0', 'high' => '255'];
-		}
-		elseif (preg_match('/^(\d{1,3})-(\d{1,3})$/', $ip_parts[$i], $range) === 1)
-		{
-			$ip_array[$i] = ['low' => $range[1], 'high' => $range[2]];
-		}
+		if ($ip_parts[$i] == '*')
+			$ip_array[$i] = array('low' => '0', 'high' => '255');
+		elseif (preg_match('/^(\d{1,3})\-(\d{1,3})$/', $ip_parts[$i], $range) == 1)
+			$ip_array[$i] = array('low' => $range[1], 'high' => $range[2]);
 		elseif (is_numeric($ip_parts[$i]))
-		{
-			$ip_array[$i] = ['low' => $ip_parts[$i], 'high' => $ip_parts[$i]];
-		}
+			$ip_array[$i] = array('low' => $ip_parts[$i], 'high' => $ip_parts[$i]);
 	}
 
 	// Makes it simpler to work with.
-	$ip_array[4] = ['low' => 0, 'high' => 0];
-	$ip_array[5] = ['low' => 0, 'high' => 0];
-	$ip_array[6] = ['low' => 0, 'high' => 0];
-	$ip_array[7] = ['low' => 0, 'high' => 0];
+	$ip_array[4] = array('low' => 0, 'high' => 0);
+	$ip_array[5] = array('low' => 0, 'high' => 0);
+	$ip_array[6] = array('low' => 0, 'high' => 0);
+	$ip_array[7] = array('low' => 0, 'high' => 0);
 
 	return $ip_array;
 }
@@ -990,18 +1238,15 @@ function host_from_ip($ip)
 	$cache = Cache::instance();
 
 	$host = '';
-	if (empty($ip) || $cache->getVar($host, 'hostlookup-' . $ip, 600))
-	{
+	if ($cache->getVar($host, 'hostlookup-' . $ip, 600) || empty($ip))
 		return $host;
-	}
 
 	$t = microtime(true);
 
-	// Check if shell_exec is on the list of disabled functions.
+	// Try the Linux host command, perhaps?
 	if (function_exists('shell_exec'))
 	{
-		// Try the Linux host command, perhaps?
-		if (PHP_OS_FAMILY !== 'Windows' && mt_rand(0, 1) === 1)
+		if ((stripos(PHP_OS, 'win') === false || stripos(PHP_OS, 'darwin') !== false) && mt_rand(0, 1) == 1)
 		{
 			if (!isset($modSettings['host_to_dis']))
 			{
@@ -1012,15 +1257,15 @@ function host_from_ip($ip)
 				$test = @shell_exec('host ' . @escapeshellarg($ip));
 			}
 
-			$test = $test ?? '';
+			$test = isset($test) ? $test : '';
 
 			// Did host say it didn't find anything?
-			if (stripos($test, 'not found') !== false)
+			if (strpos($test, 'not found') !== false)
 			{
 				$host = '';
 			}
 			// Invalid server option?
-			elseif ((stripos($test, 'invalid option') || stripos($test, 'Invalid query name 1')) && !isset($modSettings['host_to_dis']))
+			elseif ((strpos($test, 'invalid option') || strpos($test, 'Invalid query name 1')) && !isset($modSettings['host_to_dis']))
 			{
 				updateSettings(array('host_to_dis' => 1));
 			}
@@ -1031,16 +1276,16 @@ function host_from_ip($ip)
 			}
 		}
 
-		// This is nslookup; usually default on Windows, and possibly some Unix with bind-utils
-		if ((empty($host) || PHP_OS_FAMILY === 'Windows') && mt_rand(0, 1) === 1)
+		// This is nslookup; usually only Windows, but possibly some Unix?
+		if (empty($host) && stripos(PHP_OS, 'win') !== false && stripos(PHP_OS, 'darwin') === false && mt_rand(0, 1) == 1)
 		{
 			$test = @shell_exec('nslookup -timeout=1 ' . @escapeshellarg($ip));
 
-			if (stripos($test, 'Non-existent domain') !== false)
+			if (strpos($test, 'Non-existent domain') !== false)
 			{
 				$host = '';
 			}
-			elseif (preg_match('~(?:Name:|Name =)\s+([^\s]+)~i', $test, $match) === 1)
+			elseif (preg_match('~Name:\s+([^\s]+)~', $test, $match) == 1)
 			{
 				$host = $match[1];
 			}
@@ -1048,16 +1293,12 @@ function host_from_ip($ip)
 	}
 
 	// This is the last try :/.
-	if (!isset($host))
-	{
+	if (!isset($host) || $host === false)
 		$host = @gethostbyaddr($ip);
-	}
 
 	// It took a long time, so let's cache it!
 	if (microtime(true) - $t > 0.5)
-	{
 		$cache->put('hostlookup-' . $ip, $host, 600);
-	}
 
 	return $host;
 }
@@ -1066,19 +1307,15 @@ function host_from_ip($ip)
  * Chops a string into words and prepares them to be inserted into (or searched from) the database.
  *
  * @param string $text The string to process
+ * @param int $max_chars defaults to 20
  *     - if encrypt = true this is the maximum number of bytes to use in integer hashes (for searching)
  *     - if encrypt = false this is the maximum number of letters in each word
  * @param bool $encrypt = false Used for custom search indexes to return an int[] array representing the words
- *
- * @return array
  */
-function text2words($text, $encrypt = false)
+function text2words($text, $max_chars = 20, $encrypt = false)
 {
-	// Step 0: prepare numbers so they are good for search & index 1000.45 -> 1000_45
-	$words = preg_replace('~([\d]+)[.-/]+(?=[\d])~u', '$1_', $text);
-
 	// Step 1: Remove entities/things we don't consider words:
-	$words = preg_replace('~(?:[\x0B\0\x{A0}\t\r\s\n(){}\\[\\]<>!@$%^*.,:+=`\~\?/\\\\]+|&(?:amp|lt|gt|quot);)+~u', ' ', strtr($words, array('<br />' => ' ')));
+	$words = preg_replace('~(?:[\x0B\0\x{A0}\t\r\s\n(){}\\[\\]<>!@$%^*.,:+=`\~\?/\\\\]+|&(?:amp|lt|gt|quot);)+~u', ' ', strtr($text, array('<br />' => ' ')));
 
 	// Step 2: Entities we left to letters, where applicable, lowercase.
 	$words = un_htmlspecialchars(Util::strtolower($words));
@@ -1088,60 +1325,67 @@ function text2words($text, $encrypt = false)
 
 	if ($encrypt)
 	{
-		$blocklist = getBlocklist();
-		$returned_ints = [];
-
-		// Only index unique words
-		$words = array_unique($words);
+		// Range of characters that crypt will produce (0-9, a-z, A-Z .)
+		$possible_chars = array_flip(array_merge(range(46, 57), range(65, 90), range(97, 122)));
+		$returned_ints = array();
 		foreach ($words as $word)
 		{
-			$word = trim($word, "-_'");
-			if ($word !== '' && !in_array($word, $blocklist) && Util::strlen($word) > 2)
+			if (($word = trim($word, '-_\'')) !== '')
 			{
-				// Get a hex representation of this word using a database indexing hash
-				// designed to be fast while maintaining a very low collision rate
-				$encrypted = hash('FNV1A32', $word);
+				// Get a crypt representation of this work
+				$encrypted = substr(crypt($word, 'uk'), 2, $max_chars);
+				$total = 0;
 
-				// Create an integer representation, the hash is an 8 char hex
-				// so the largest int will be 4294967295 which fits in db int(10)
-				$returned_ints[$word] = hexdec($encrypted);
+				// Create an integer representation
+				for ($i = 0; $i < $max_chars; $i++)
+					$total += $possible_chars[ord($encrypted[$i])] * pow(63, $i);
+
+				// Return the value
+				$returned_ints[] = $max_chars == 4 ? min($total, 16777215) : $total;
 			}
 		}
-
-		return $returned_ints;
+		return array_unique($returned_ints);
 	}
-
-	// Trim characters before and after and add slashes for database insertion.
-	$returned_words = [];
-	foreach ($words as $word)
+	else
 	{
-		if (($word = trim($word, "-_'")) !== '')
-		{
-			$returned_words[] = substr($word, 0, 20);
-		}
-	}
+		// Trim characters before and after and add slashes for database insertion.
+		$returned_words = array();
+		foreach ($words as $word)
+			if (($word = trim($word, '-_\'')) !== '')
+				$returned_words[] = $max_chars === null ? $word : substr($word, 0, $max_chars);
 
-	// Filter out all words that occur more than once.
-	return array_unique($returned_words);
+		// Filter out all words that occur more than once.
+		return array_unique($returned_words);
+	}
 }
 
 /**
- * Get the block list from the search controller.
+ * Creates an image/text button
  *
- * @return array
+ * @param string $name
+ * @param string $alt
+ * @param string $label = ''
+ * @param string|boolean $custom = ''
+ * @param boolean $force_use = false
+ *
+ * @return string
+ *
+ * @deprecated since 1.0 this will be removed at some point, do not rely on this function
  */
-function getBlocklist()
+function create_button($name, $alt, $label = '', $custom = '', $force_use = false)
 {
-	static $blocklist;
+	global $settings, $txt;
 
-	if (!isset($blocklist))
-	{
-		$search = new Search();
-		$blocklist = $search->getBlockListedWords();
-		unset($search);
-	}
+	// Does the current loaded theme have this and we are not forcing the usage of this function?
+	if (function_exists('template_create_button') && !$force_use)
+		return template_create_button($name, $alt, $label = '', $custom = '');
 
-	return $blocklist;
+	if (!$settings['use_image_buttons'])
+		return $txt[$alt];
+	elseif (!empty($settings['use_buttons']))
+		return '<img src="' . $settings['images_url'] . '/buttons/' . $name . '" alt="' . $txt[$alt] . '" ' . $custom . ' />' . ($label != '' ? '&nbsp;<strong>' . $txt[$label] . '</strong>' : '');
+	else
+		return '<img src="' . $settings['lang_images_url'] . '/' . $name . '" alt="' . $txt[$alt] . '" ' . $custom . ' />';
 }
 
 /**
@@ -1160,6 +1404,19 @@ function setupMenuContext()
 }
 
 /**
+ * Generate a random seed and ensure it's stored in settings.
+ * @deprecated
+ */
+function elk_seed_generator()
+{
+	global $modSettings;
+
+	// Change the seed.
+	if (mt_rand(1, 250) == 69 || empty($modSettings['rand_seed']))
+		updateSettings(array('rand_seed' => mt_rand()));
+}
+
+/**
  * Process functions of an integration hook.
  *
  * What it does:
@@ -1168,9 +1425,9 @@ function setupMenuContext()
  * - Supports static class method calls.
  *
  * @param string $hook The name of the hook to call
- * @param array $parameters = array() Parameters to pass to the hook
+ * @param mixed[] $parameters = array() Parameters to pass to the hook
  *
- * @return array the results of the functions
+ * @return mixed[] the results of the functions
  */
 function call_integration_hook($hook, $parameters = array())
 {
@@ -1236,58 +1493,41 @@ function remove_integration_function($hook, $function, $file = '')
  * - Uses capture group 2 in the supplied array
  * - Does basic scan to ensure characters are inside a valid range
  *
- * @param array $matches matches from a preg_match_all
+ * @param mixed[] $matches matches from a preg_match_all
  *
  * @return string $string
  */
 function replaceEntities__callback($matches)
 {
 	if (!isset($matches[2]))
-	{
 		return '';
-	}
 
 	$num = $matches[2][0] === 'x' ? hexdec(substr($matches[2], 1)) : (int) $matches[2];
 
 	// remove left to right / right to left overrides
 	if ($num === 0x202D || $num === 0x202E)
-	{
 		return '';
-	}
 
 	// Quote, Ampersand, Apostrophe, Less/Greater Than get html replaced
 	if (in_array($num, array(0x22, 0x26, 0x27, 0x3C, 0x3E)))
-	{
 		return '&#' . $num . ';';
-	}
 
 	// <0x20 are control characters, 0x20 is a space, > 0x10FFFF is past the end of the utf8 character set
 	// 0xD800 >= $num <= 0xDFFF are surrogate markers (not valid for utf8 text)
 	if ($num < 0x20 || $num > 0x10FFFF || ($num >= 0xD800 && $num <= 0xDFFF))
-	{
 		return '';
-	}
-
 	// <0x80 (or less than 128) are standard ascii characters a-z A-Z 0-9 and punctuation
-	if ($num < 0x80)
-	{
+	elseif ($num < 0x80)
 		return chr($num);
-	}
-
 	// <0x800 (2048)
-	if ($num < 0x800)
-	{
+	elseif ($num < 0x800)
 		return chr(($num >> 6) + 192) . chr(($num & 63) + 128);
-	}
-
 	// < 0x10000 (65536)
-	if ($num < 0x10000)
-	{
+	elseif ($num < 0x10000)
 		return chr(($num >> 12) + 224) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
-	}
-
 	// <= 0x10FFFF (1114111)
-	return chr(($num >> 18) + 240) . chr((($num >> 12) & 63) + 128) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
+	else
+		return chr(($num >> 18) + 240) . chr((($num >> 12) & 63) + 128) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
 }
 
 /**
@@ -1299,46 +1539,33 @@ function replaceEntities__callback($matches)
  * - Uses capture group 1 in the supplied array
  * - Does basic checks to keep characters inside a viewable range.
  *
- * @param array $matches array of matches as output from preg_match_all
+ * @param mixed[] $matches array of matches as output from preg_match_all
  *
  * @return string $string
  */
 function fixchar__callback($matches)
 {
 	if (!isset($matches[1]))
-	{
 		return '';
-	}
 
 	$num = $matches[1][0] === 'x' ? hexdec(substr($matches[1], 1)) : (int) $matches[1];
 
 	// <0x20 are control characters, > 0x10FFFF is past the end of the utf8 character set
 	// 0xD800 >= $num <= 0xDFFF are surrogate markers (not valid for utf8 text), 0x202D-E are left to right overrides
 	if ($num < 0x20 || $num > 0x10FFFF || ($num >= 0xD800 && $num <= 0xDFFF) || $num === 0x202D || $num === 0x202E)
-	{
 		return '';
-	}
-
 	// <0x80 (or less than 128) are standard ascii characters a-z A-Z 0-9 and punctuation
-	if ($num < 0x80)
-	{
+	elseif ($num < 0x80)
 		return chr($num);
-	}
-
 	// <0x800 (2048)
-	if ($num < 0x800)
-	{
+	elseif ($num < 0x800)
 		return chr(($num >> 6) + 192) . chr(($num & 63) + 128);
-	}
-
 	// < 0x10000 (65536)
-	if ($num < 0x10000)
-	{
+	elseif ($num < 0x10000)
 		return chr(($num >> 12) + 224) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
-	}
-
 	// <= 0x10FFFF (1114111)
-	return chr(($num >> 18) + 240) . chr((($num >> 12) & 63) + 128) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
+	else
+		return chr(($num >> 18) + 240) . chr((($num >> 12) & 63) + 128) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
 }
 
 /**
@@ -1349,45 +1576,39 @@ function fixchar__callback($matches)
  * - Callback function used of preg_replace_callback in various $ent_checks,
  * - For example strpos, strlen, substr etc
  *
- * @param array $matches array of matches for a preg_match_all
+ * @param mixed[] $matches array of matches for a preg_match_all
  *
  * @return string
  */
 function entity_fix__callback($matches)
 {
 	if (!isset($matches[2]))
-	{
 		return '';
-	}
 
 	$num = $matches[2][0] === 'x' ? hexdec(substr($matches[2], 1)) : (int) $matches[2];
 
 	// We don't allow control characters, characters out of range, byte markers, etc
 	if ($num < 0x20 || $num > 0x10FFFF || ($num >= 0xD800 && $num <= 0xDFFF) || $num == 0x202D || $num == 0x202E)
-	{
 		return '';
-	}
-
-	return '&#' . $num . ';';
+	else
+		return '&#' . $num . ';';
 }
 
 /**
  * Retrieve additional search engines, if there are any, as an array.
  *
- * @return array array of engines
+ * @return mixed[] array of engines
  */
 function prepareSearchEngines()
 {
 	global $modSettings;
 
-	$engines = [];
+	$engines = array();
 	if (!empty($modSettings['additional_search_engines']))
 	{
 		$search_engines = Util::unserialize($modSettings['additional_search_engines']);
 		foreach ($search_engines as $engine)
-		{
 			$engines[strtolower(preg_replace('~[^A-Za-z0-9 ]~', '', $engine['name']))] = $engine;
-		}
 	}
 
 	return $engines;
@@ -1404,28 +1625,26 @@ function prepareSearchEngines()
  * @param resource $messages_request holds a query result
  * @param bool $reset
  *
- * @return int|bool
- * @throws Exception
+ * @return integer|boolean
  */
 function currentContext($messages_request, $reset = false)
 {
+	// Can't work with a database without a database :P
+	$db = database();
+
 	// Start from the beginning...
 	if ($reset)
-	{
-		return $messages_request->data_seek(0);
-	}
+		return $db->data_seek($messages_request, 0);
 
 	// If the query has already returned false, get out of here
-	if ($messages_request->hasResults())
-	{
+	if (empty($messages_request))
 		return false;
-	}
 
 	// Attempt to get the next message.
-	$message = $messages_request->fetch_assoc();
+	$message = $db->fetch_assoc($messages_request);
 	if (!$message)
 	{
-		$messages_request->free_result();
+		$db->free_result($messages_request);
 
 		return false;
 	}
@@ -1441,37 +1660,35 @@ function currentContext($messages_request, $reset = false)
  * - Intended for addon use to allow such things as
  * - Adding in a new menu item to an existing menu array
  *
- * @param array $input the array we will insert to
+ * @param mixed[] $input the array we will insert to
  * @param string $key the key in the array that we are looking to find for the insert action
- * @param array $insert the actual data to insert before or after the key
+ * @param mixed[] $insert the actual data to insert before or after the key
  * @param string $where adding before or after
  * @param bool $assoc if the array is a assoc array with named keys or a basic index array
  * @param bool $strict search for identical elements, this means it will also check the types of the needle.
- *
- * @return array
  */
 function elk_array_insert($input, $key, $insert, $where = 'before', $assoc = true, $strict = false)
 {
-	$position = $assoc ? array_search($key, array_keys($input), $strict) : array_search($key, $input, $strict);
+	// Search for key names or values
+	if ($assoc)
+		$position = array_search($key, array_keys($input), $strict);
+	else
+		$position = array_search($key, $input, $strict);
 
 	// If the key is not found, just insert it at the end
 	if ($position === false)
-	{
 		return array_merge($input, $insert);
-	}
 
 	if ($where === 'after')
-	{
 		$position++;
-	}
 
 	// Insert as first
-	if (empty($position))
-	{
-		return array_merge($insert, $input);
-	}
+	if ($position === 0)
+		$input = array_merge($insert, $input);
+	else
+		$input = array_merge(array_slice($input, 0, $position), $insert, array_slice($input, $position));
 
-	return array_merge(array_slice($input, 0, $position), $insert, array_slice($input, $position));
+	return $input;
 }
 
 /**
@@ -1489,13 +1706,9 @@ function scheduleTaskImmediate($task)
 	global $modSettings;
 
 	if (!isset($modSettings['scheduleTaskImmediate']))
-	{
 		$scheduleTaskImmediate = array();
-	}
 	else
-	{
 		$scheduleTaskImmediate = Util::unserialize($modSettings['scheduleTaskImmediate']);
-	}
 
 	// If it has not been scheduled, the do so now
 	if (!isset($scheduleTaskImmediate[$task]))
@@ -1526,11 +1739,9 @@ function removeScheduleTaskImmediate($task, $calculateNextTrigger = true)
 
 	// Not on, bail
 	if (!isset($modSettings['scheduleTaskImmediate']))
-	{
 		return;
-	}
-
-	$scheduleTaskImmediate = Util::unserialize($modSettings['scheduleTaskImmediate']);
+	else
+		$scheduleTaskImmediate = Util::unserialize($modSettings['scheduleTaskImmediate']);
 
 	// Clear / remove the task if it was set
 	if (isset($scheduleTaskImmediate[$task]))
@@ -1569,19 +1780,19 @@ function replaceBasicActionUrl($string)
 			'{forum_name_html_unsafe}' => un_htmlspecialchars($context['forum_name_html_safe']),
 			'{script_url}' => $scripturl,
 			'{board_url}' => $boardurl,
-			'{login_url}' => getUrl('action', ['action' => 'login']),
-			'{register_url}' => getUrl('action', ['action' => 'register']),
-			'{activate_url}' => getUrl('action', ['action' => 'register', 'sa' => 'activate']),
-			'{help_url}' => getUrl('action', ['action' => 'help']),
-			'{admin_url}' => getUrl('admin', ['action' => 'admin']),
-			'{moderate_url}' => getUrl('moderate', ['action' => 'moderate']),
-			'{recent_url}' => getUrl('action', ['action' => 'recent']),
-			'{search_url}' => getUrl('action', ['action' => 'search']),
-			'{who_url}' => getUrl('action', ['action' => 'who']),
-			'{credits_url}' => getUrl('action', ['action' => 'about', 'sa' => 'credits']),
-			'{calendar_url}' => getUrl('action', ['action' => 'calendar']),
-			'{memberlist_url}' => getUrl('action', ['action' => 'memberlist']),
-			'{stats_url}' => getUrl('action', ['action' => 'stats']),
+			'{login_url}' => $scripturl . '?action=login',
+			'{register_url}' => $scripturl . '?action=register',
+			'{activate_url}' => $scripturl . '?action=register;sa=activate',
+			'{help_url}' => $scripturl . '?action=help',
+			'{admin_url}' => $scripturl . '?action=admin',
+			'{moderate_url}' => $scripturl . '?action=moderate',
+			'{recent_url}' => $scripturl . '?action=recent',
+			'{search_url}' => $scripturl . '?action=search',
+			'{who_url}' => $scripturl . '?action=who',
+			'{credits_url}' => $scripturl . '?action=who;sa=credits',
+			'{calendar_url}' => $scripturl . '?action=calendar',
+			'{memberlist_url}' => $scripturl . '?action=memberlist',
+			'{stats_url}' => $scripturl . '?action=stats',
 		);
 		call_integration_hook('integrate_basic_url_replacement', array(&$find_replace));
 	}
@@ -1597,13 +1808,13 @@ function replaceBasicActionUrl($string)
  * - Calls integration hook integrate_list_"unique_list_id" to allow easy modifying
  *
  * @event integrate_list_$listID called before every createlist to allow access to its listoptions
- * @param array $listOptions associative array of option => value
+ * @param mixed[] $listOptions associative array of option => value
  */
 function createList($listOptions)
 {
 	call_integration_hook('integrate_list_' . $listOptions['id'], array(&$listOptions));
 
-	$list = new GenericList($listOptions);
+	$list = new Generic_List($listOptions);
 
 	$list->buildList();
 }
@@ -1634,11 +1845,9 @@ function db_last_error()
 	$time = trim(file_get_contents(BOARDDIR . '/db_last_error.txt'));
 
 	if (preg_match('~^\d{10}$~', $time) === 1)
-	{
 		return $time;
-	}
-
-	return 0;
+	else
+		return 0;
 }
 
 /**
@@ -1649,7 +1858,7 @@ function db_last_error()
  */
 function response_prefix()
 {
-	global $language, $txt;
+	global $language, $user_info, $txt;
 	static $response_prefix = null;
 
 	$cache = Cache::instance();
@@ -1657,16 +1866,13 @@ function response_prefix()
 	// Get a response prefix, but in the forum's default language.
 	if ($response_prefix === null && (!$cache->getVar($response_prefix, 'response_prefix') || !$response_prefix))
 	{
-		if ($language === User::$info->language)
-		{
+		if ($language === $user_info['language'])
 			$response_prefix = $txt['response_prefix'];
-		}
 		else
 		{
-			$mtxt = [];
-			$lang_loader = new Loader($language, $mtxt, database());
-			$lang_loader->load('index');
-			$response_prefix = $mtxt['response_prefix'];
+			loadLanguage('index', $language, false);
+			$response_prefix = $txt['response_prefix'];
+			loadLanguage('index');
 		}
 
 		$cache->put('response_prefix', $response_prefix, 600);
@@ -1688,17 +1894,10 @@ function response_prefix()
 function isValidEmail($value)
 {
 	$value = trim($value);
-	if (!filter_var($value, FILTER_VALIDATE_EMAIL))
-	{
+	if (filter_var($value, FILTER_VALIDATE_EMAIL) && Util::strlen($value) < 255)
+		return $value;
+	else
 		return false;
-	}
-
-	if (Util::strlen($value) >= 255)
-	{
-		return false;
-	}
-
-	return $value;
 }
 
 /**
@@ -1719,61 +1918,22 @@ function addProtocol($url, $protocols = array())
 	}
 	else
 	{
-		$pattern = '~^(' . implode('|', array_map(static fn($val) => preg_quote($val, '~'), $protocols)) . ')~i';
+		$pattern = '~^(' . implode('|', array_map(function ($val) {return preg_quote($val, '~');}, $protocols)) . ')~i';
 	}
 
 	$found = false;
-	$url = preg_replace_callback($pattern, static function ($match) use (&$found) {
+	$url = preg_replace_callback($pattern, function($match) use (&$found) {
 		$found = true;
 
 		return strtolower($match[0]);
 	}, $url);
 
-	if ($found)
+	if ($found === true)
 	{
-		return $url;
+			return $url;
 	}
 
 	return $protocols[0] . $url;
-}
-
-/**
- * Validate if a URL is allowed to be a "dofollow"
- *
- * @param string $checkUrl The URL to be checked
- * @return bool Returns true if the URL is allowed, false otherwise
- */
-function validateURLAllowList($checkUrl)
-{
-	global $modSettings, $boardurl;
-	static $allowList = null;
-
-	if ($allowList === null)
-	{
-		$allowList = empty($modSettings['nofollow_allowlist']) ? [] : json_decode($modSettings['nofollow_allowlist']);
-
-		// Always allow your own site
-		$parse = parse_url($boardurl);
-		$allowList[] = $parse['host'];
-
-		$allowList = array_unique($allowList);
-	}
-
-	$parsed = parse_url($checkUrl);
-	if (empty($parsed['host']))
-	{
-		return false;
-	}
-
-	foreach ($allowList as $validDomain)
-	{
-		if (substr($parsed['host'], -strlen($validDomain)) === $validDomain)
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 /**
@@ -1795,10 +1955,16 @@ function removeNestedQuotes($text)
 	// How many levels will we allow?
 	$max_depth = (int) $modSettings['removeNestedQuotes'];
 
-	// Remove quotes over our limit, then we need to find them all
-	preg_match_all('~(\[/?quote(.*?)?])~i', $text, $matches, PREG_OFFSET_CAPTURE);
+	// Remove all nested quotes?
+	if ($max_depth === 0)
+	{
+		return preg_replace(array('~\n?\[quote.*?\].+?\[/quote\]\n?~is', '~^\n~', '~\[/quote\]~'), '', $text);
+	}
+
+	// Remove just -some- of the quotes, then we need to find them all
+	preg_match_all('~(\[\/?quote(?:(.*?))?\])~i', $text, $matches, PREG_OFFSET_CAPTURE);
 	$depth = 0;
-	$remove = [];
+	$remove = array();
 	$start_pos = 0;
 
 	// Mark ones that are in excess of the limit.  $match[0] will be the found tag
@@ -1816,7 +1982,7 @@ function removeNestedQuotes($text)
 				// This quote position in the string, note [/quote] = 8
 				$end_pos = $match[1] + 8;
 				$length = $end_pos - $start_pos;
-				$remove[] = [$start_pos, $length];
+				$remove[] = array($start_pos, $length);
 			}
 
 			continue;
@@ -1831,12 +1997,12 @@ function removeNestedQuotes($text)
 	}
 
 	// Time to cull the herd
-	foreach (array_reverse($remove) as [$start_pos, $length])
+	foreach (array_reverse($remove) as list($start_pos, $length))
 	{
 		$text = substr_replace($text, '', $start_pos, $length);
 	}
 
-	return trim($text);
+	return $text;
 }
 
 /**
@@ -1864,20 +2030,61 @@ function removeBr($string)
 }
 
 /**
+ * Are we using this browser?
+ *
+ * - Wrapper function for detectBrowser
+ *
+ * @param string $browser  the browser we are checking for.
+ */
+function isBrowser($browser)
+{
+	global $context;
+
+	// Don't know any browser!
+	if (empty($context['browser']))
+		detectBrowser();
+
+	return !empty($context['browser'][$browser]) || !empty($context['browser']['is_' . $browser]) ? true : false;
+}
+
+/**
+ * Replace all vulgar words with respective proper words. (substring or whole words..)
+ *
+ * @deprecated use censor() or Censor class
+ *
+ * What it does:
+ *
+ * - it censors the passed string.
+ * - if the admin setting allow_no_censored is on it does not censor unless force is also set.
+ * - if the admin setting allow_no_censored is off will censor words unless the user has set
+ * it to not censor in their profile and force is off
+ * - it caches the list of censored words to reduce parsing.
+ * - Returns the censored text
+ *
+ * @param string &$text
+ * @param bool $force = false
+ */
+function censorText(&$text, $force = false)
+{
+	$text = censor($text, $force);
+
+	return $text;
+}
+
+/**
  * Replace all vulgar words with respective proper words. (substring or whole words..)
  *
  * What it does:
- *  - it censors the passed string.
- *  - if the admin setting allow_no_censored is on it does not censor unless force is also set.
- *  - if the admin setting allow_no_censored is off will censor words unless the user has set
+ *
+ * - it censors the passed string.
+ * - if the admin setting allow_no_censored is on it does not censor unless force is also set.
+ * - if the admin setting allow_no_censored is off will censor words unless the user has set
  * it to not censor in their profile and force is off
- *  - it caches the list of censored words to reduce parsing.
- *  - Returns the censored text
+ * - it caches the list of censored words to reduce parsing.
+ * - Returns the censored text
  *
  * @param string $text
  * @param bool $force = false
- *
- * @return string
  */
 function censor($text, $force = false)
 {
@@ -1896,7 +2103,7 @@ function censor($text, $force = false)
  * Helper function able to determine if the current member can see at least
  * one button of a button strip.
  *
- * @param array $button_strip
+ * @param mixed[] $button_strip
  *
  * @return bool
  */
@@ -1904,21 +2111,17 @@ function can_see_button_strip($button_strip)
 {
 	global $context;
 
-	foreach ($button_strip as $value)
+	foreach ($button_strip as $key => $value)
 	{
 		if (!isset($value['test']) || !empty($context[$value['test']]))
-		{
 			return true;
-		}
 	}
 
 	return false;
 }
 
 /**
- * Get the current theme instance.
- *
- * @return \ElkArte\Themes\DefaultTheme\Theme The current theme instance.
+ * @return Themes\DefaultTheme\Theme
  */
 function theme()
 {
@@ -1926,45 +2129,9 @@ function theme()
 }
 
 /**
- * Set the JSON template for sending JSON response.
+ * Stops the execution with a 1x1 gif file
  *
- * This method prepares the template layers, loads the 'Json' template,
- * and sets the sub_template to 'send_json' in the global $context array.
- * The JSON data is initialized to null.
- *
- * @return void
- */
-function setJsonTemplate()
-{
-	global $context;
-
-	$template_layers = $GLOBALS['context']['theme_instance']->getLayers();
-	$template_layers->removeAll();
-	$GLOBALS['context']['theme_instance']->getTemplates()->load('Json');
-	$context['sub_template'] = 'send_json';
-
-	$context['json_data'] = null;
-}
-
-function setPWACacheStale($refresh = false)
-{
-	global $modSettings;
-
-	// We need a PWA cache stale to keep things moving, changing this will trigger a PWA cache flush
-	if (empty($modSettings['elk_pwa_cache_stale']) || $refresh)
-	{
-		$tokenizer = new TokenHash();
-		$elk_pwa_cache_stale = $tokenizer->generate_hash(8);
-		updateSettings(['elk_pwa_cache_stale' => $elk_pwa_cache_stale]);
-	}
-}
-
-/**
- * Send a 1x1 GIF response and terminate the script execution
- *
- * @param bool $expired Flag to determine if header Expires should be sent
- *
- * @return void
+ * @param bool $expired Sends an expired header.
  */
 function dieGif($expired = false)
 {
@@ -1974,15 +2141,13 @@ function dieGif($expired = false)
 		die();
 	}
 
-	$headers = Headers::instance();
-	if ($expired)
+	if ($expired === true)
 	{
-		$headers
-			->header('Expires', 'Mon, 26 Jul 1997 05:00:00 GMT')
-			->header('Last-Modified', gmdate('D, d M Y H:i:s') . ' GMT');
+		header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 	}
 
-	$headers->contentType('image/gif')->sendHeaders();
+	header('Content-Type: image/gif');
 	die("\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x21\xF9\x04\x01\x00\x00\x00\x00\x2C\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3B");
 }
 
@@ -1999,265 +2164,13 @@ function obStart($use_compression = false)
 		@ob_end_clean();
 	}
 
-	if ($use_compression)
+	if ($use_compression === true)
 	{
 		ob_start('ob_gzhandler');
 	}
 	else
 	{
 		ob_start();
-		Headers::instance()->header('Content-Encoding', 'none');
+		header('Content-Encoding: none');
 	}
-}
-
-/**
- * Returns a URL based on the parameters passed and the selected generator
- *
- * @param string $type The type of the URL (depending on the type, the
- *                     generator can act differently
- * @param array $params All the parameters of the URL
- *
- * @return string An URL
- */
-function getUrl($type, $params)
-{
-	static $generator = null;
-
-	if ($generator === null)
-	{
-		$generator = initUrlGenerator();
-	}
-
-	return $generator->get($type, $params);
-}
-
-/**
- * Returns the query part of a URL based on the parameters passed and the selected generator
- *
- * @param string $type The type of the URL (depending on the type, the
- *                     generator can act differently
- * @param array $params All the parameters of the URL
- *
- * @return string The query part of an URL
- */
-function getUrlQuery($type, $params)
-{
-	static $generator = null;
-
-	if ($generator === null)
-	{
-		$generator = initUrlGenerator();
-	}
-
-	return $generator->getQuery($type, $params);
-}
-
-/**
- * Initialize the URL generator
- *
- * @return object The URL generator object
- */
-function initUrlGenerator()
-{
-	global $scripturl, $context, $url_format;
-
-	$generator = new UrlGenerator([
-		'generator' => ucfirst($url_format ?? 'standard'),
-		'scripturl' => $scripturl,
-		'replacements' => [
-			'{session_data}' => isset($context['session_var']) ? $context['session_var'] . '=' . $context['session_id'] : ''
-		]
-	]);
-
-	$generator->register('Topic');
-	$generator->register('Board');
-	$generator->register('Profile');
-
-	return $generator;
-}
-
-/**
- * This function only checks if a certain feature (in core features)
- * is enabled or not.
- *
- * @param string $feature The abbreviated code of a core feature
- * @return bool true/false for enabled/disabled
- */
-function featureEnabled($feature)
-{
-	global $modSettings, $context;
-	static $features = null;
-
-	if ($features === null)
-	{
-		// This allows us to change the way things look for the admin.
-		$features = explode(',', $modSettings['admin_features'] ?? 'cd,cp,k,w,rg,ml,pm');
-
-		// @deprecated since 2.0 - Next line is just for backward compatibility to remove before release
-		$context['admin_features'] = $features;
-	}
-
-	return in_array($feature, $features, true);
-}
-
-/**
- * Clean up the XML to make sure it doesn't contain invalid characters.
- *
- * What it does:
- *
- * - Removes invalid XML characters to assure the input string being parsed properly.
- *
- * @param string $string The string to clean
- *
- * @return string The clean string
- */
-function cleanXml($string)
-{
-	// https://www.w3.org/TR/2008/REC-xml-20081126/#NT-Char
-	$string = preg_replace('~[\x00-\x08\x0B\x0C\x0E-\x1F\x{FFFE}\x{FFFF}]~u', '', $string);
-
-	// Discouraged
-	return preg_replace('~[\x7F-\x84\x86-\x9F\x{FDD0}-\x{FDEF}\x{1FFFE}-\x{1FFFF}\x{2FFFE}-\x{2FFFF}\x{3FFFE}-\x{3FFFF}\x{4FFFE}-\x{4FFFF}\x{5FFFE}-\x{5FFFF}\x{6FFFE}-\x{6FFFF}\x{7FFFE}-\x{7FFFF}\x{8FFFE}-\x{8FFFF}\x{9FFFE}-\x{9FFFF}\x{AFFFE}-\x{AFFFF}\x{BFFFE}-\x{BFFFF}\x{CFFFE}-\x{CFFFF}\x{DFFFE}-\x{DFFFF}\x{EFFFE}-\x{EFFFF}\x{FFFFE}-\x{FFFFF}\x{10FFFE}-\x{10FFFF}]~u', '', $string);
-}
-
-/**
- * Validates a IPv6 address. returns true if it is ipv6.
- *
- * @param string $ip ip address to be validated
- *
- * @return bool true|false
- */
-function isValidIPv6($ip)
-{
-	return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-}
-
-/**
- * Converts IPv6s to numbers.  These make ban checks much easier.
- *
- * @param string $ip ip address to be converted
- *
- * @return int[] array
- */
-function convertIPv6toInts($ip)
-{
-	static $expanded = array();
-
-	// Check if we have done this already.
-	if (isset($expanded[$ip]))
-	{
-		return $expanded[$ip];
-	}
-
-	// Expand the IP out.
-	$expanded_ip = explode(':', expandIPv6($ip));
-
-	$new_ip = array();
-	foreach ($expanded_ip as $int)
-	{
-		$new_ip[] = hexdec($int);
-	}
-
-	// Save this in case of repeated use.
-	$expanded[$ip] = $new_ip;
-
-	return $expanded[$ip];
-}
-
-/**
- * Expands a IPv6 address to its full form.
- *
- * @param string $addr ipv6 address string
- * @param bool $strict_check checks length to expanded address for compliance
- *
- * @return bool|string expanded ipv6 address.
- */
-function expandIPv6($addr, $strict_check = true)
-{
-	static $converted = array();
-
-	// Check if we have done this already.
-	if (isset($converted[$addr]))
-	{
-		return $converted[$addr];
-	}
-
-	// Check if there are segments missing, insert if necessary.
-	if (strpos($addr, '::') !== false)
-	{
-		$part = explode('::', $addr);
-		$part[0] = explode(':', $part[0]);
-		$part[1] = explode(':', $part[1]);
-		$missing = array();
-
-		// Looks like this is an IPv4 address
-		if (isset($part[1][1]) && strpos($part[1][1], '.') !== false)
-		{
-			$ipoct = explode('.', $part[1][1]);
-			$p1 = dechex($ipoct[0]) . dechex($ipoct[1]);
-			$p2 = dechex($ipoct[2]) . dechex($ipoct[3]);
-
-			$part[1] = array(
-				$part[1][0],
-				$p1,
-				$p2
-			);
-		}
-
-		$limit = count($part[0]) + count($part[1]);
-		for ($i = 0; $i < (8 - $limit); $i++)
-		{
-			$missing[] = '0000';
-		}
-
-		$part = array_merge($part[0], $missing, $part[1]);
-	}
-	else
-	{
-		$part = explode(':', $addr);
-	}
-
-	// Pad each segment until it has 4 digits.
-	foreach ($part as &$p)
-	{
-		while (strlen($p) < 4)
-		{
-			$p = '0' . $p;
-		}
-	}
-
-	unset($p);
-
-	// Join segments.
-	$result = implode(':', $part);
-
-	// Save this in case of repeated use.
-	$converted[$addr] = $result;
-
-	// Quick check to make sure the length is as expected.
-	if (!$strict_check || strlen($result) == 39)
-	{
-		return $result;
-	}
-
-	return false;
-}
-
-/**
- * Removed in 2.0, always returns false.
- *
- * Logs the depreciation notice, returns false, sets context value such that
- * old themes don't go sour ;)
- *
- * @param string $browser the browser we are checking for.
- */
-function isBrowser($browser)
-{
-	global $context;
-
-	\ElkArte\Errors::instance()->log_deprecated('isBrowser()', 'Nothing');
-
-	$context['browser_body_id'] = 'elkarte';
-
-	return false;
 }

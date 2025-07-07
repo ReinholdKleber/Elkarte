@@ -4,43 +4,41 @@
  * This file is mainly concerned with minor tasks relating to boards, such as
  * marking them read, collapsing categories, or quick moderation.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
-
-use ElkArte\BoardsTree;
-use ElkArte\Cache\Cache;
-use ElkArte\Helper\Util;
-use ElkArte\User;
 
 /**
  * Mark a board or multiple boards read.
  *
+ * @package Boards
  * @param int[]|int $boards
  * @param bool $unread = false
  * @param bool $resetTopics = false
- * @package Boards
  */
 function markBoardsRead($boards, $unread = false, $resetTopics = false)
 {
-	global $modSettings;
+	global $user_info, $modSettings;
 
 	$db = database();
 
-	$boards = !is_array($boards) ? array($boards) : array_unique($boards);
+	// Force $boards to be an array.
+	if (!is_array($boards))
+		$boards = array($boards);
+	else
+		$boards = array_unique($boards);
 
 	// No boards, nothing to mark as read.
 	if (empty($boards))
-	{
 		return;
-	}
 
 	// Allow the user to mark a board as unread.
 	if ($unread)
@@ -52,17 +50,16 @@ function markBoardsRead($boards, $unread = false, $resetTopics = false)
 			WHERE id_board IN ({array_int:board_list})
 				AND id_member = {int:current_member}',
 			array(
-				'current_member' => User::$info->id,
+				'current_member' => $user_info['id'],
 				'board_list' => $boards,
 			)
 		);
-
 		$db->query('', '
 			DELETE FROM {db_prefix}log_boards
 			WHERE id_board IN ({array_int:board_list})
 				AND id_member = {int:current_member}',
 			array(
-				'current_member' => User::$info->id,
+				'current_member' => $user_info['id'],
 				'board_list' => $boards,
 			)
 		);
@@ -72,11 +69,9 @@ function markBoardsRead($boards, $unread = false, $resetTopics = false)
 	{
 		$markRead = array();
 		foreach ($boards as $board)
-		{
-			$markRead[] = array($modSettings['maxMsgID'], User::$info->id, $board);
-		}
+			$markRead[] = array($modSettings['maxMsgID'], $user_info['id'], $board);
 
-		$db->replace(
+		$db->insert('replace',
 			'{db_prefix}log_boards',
 			array('id_msg' => 'int', 'id_member' => 'int', 'id_board' => 'int'),
 			$markRead,
@@ -100,69 +95,58 @@ function markBoardsRead($boards, $unread = false, $resetTopics = false)
 		// Update log_mark_read and log_boards.
 		// @todo check this condition <= I think I did, but better double check
 		if (!$unread && !empty($markRead))
-		{
-			$db->replace(
+			$db->insert('replace',
 				'{db_prefix}log_mark_read',
 				array('id_msg' => 'int', 'id_member' => 'int', 'id_board' => 'int'),
 				$markRead,
 				array('id_board', 'id_member')
 			);
-		}
 
 		$result = $db->query('', '
-			SELECT 
-				MIN(id_topic)
+			SELECT MIN(id_topic)
 			FROM {db_prefix}log_topics
 			WHERE id_member = {int:current_member}',
 			array(
-				'current_member' => User::$info->id,
+				'current_member' => $user_info['id'],
 			)
 		);
-		list ($lowest_topic) = $result->fetch_row();
-		$result->free_result();
+		list ($lowest_topic) = $db->fetch_row($result);
+		$db->free_result($result);
 
 		if (empty($lowest_topic))
-		{
 			return;
-		}
 
 		// @todo SLOW This query seems to eat it sometimes.
 		$delete_topics = array();
 		$update_topics = array();
-		$db->fetchQuery('
-			SELECT 
-				lt.id_topic, lt.unwatched
+		$db->fetchQueryCallback('
+			SELECT lt.id_topic, lt.unwatched
 			FROM {db_prefix}log_topics AS lt
 				INNER JOIN {db_prefix}topics AS t /*!40000 USE INDEX (PRIMARY) */ ON (t.id_topic = lt.id_topic
 					AND t.id_board IN ({array_int:board_list}))
 			WHERE lt.id_member = {int:current_member}
 				AND lt.id_topic >= {int:lowest_topic}',
 			array(
-				'current_member' => User::$info->id,
+				'current_member' => $user_info['id'],
 				'board_list' => $boards,
 				'lowest_topic' => $lowest_topic,
-			)
-		)->fetch_callback(
-			function ($row) use (&$delete_topics, &$update_topics, $modSettings) {
+			),
+			function ($row) use (&$delete_topics, &$update_topics, $user_info, $modSettings)
+			{
 				if (!empty($row['unwatched']))
-				{
 					$update_topics[] = array(
-						User::$info->id,
+						$user_info['id'],
 						$modSettings['maxMsgID'],
 						$row['id_topic'],
 						1,
 					);
-				}
 				else
-				{
 					$delete_topics[] = $row['id_topic'];
-				}
 			}
 		);
 
 		if (!empty($update_topics))
-		{
-			$db->replace(
+			$db->insert('replace',
 				'{db_prefix}log_topics',
 				array(
 					'id_member' => 'int',
@@ -173,29 +157,26 @@ function markBoardsRead($boards, $unread = false, $resetTopics = false)
 				$update_topics,
 				array('id_topic', 'id_member')
 			);
-		}
 
 		if (!empty($delete_topics))
-		{
 			$db->query('', '
 				DELETE FROM {db_prefix}log_topics
 				WHERE id_member = {int:current_member}
 					AND id_topic IN ({array_int:topic_list})',
 				array(
-					'current_member' => User::$info->id,
+					'current_member' => $user_info['id'],
 					'topic_list' => $delete_topics,
 				)
 			);
-		}
 	}
 }
 
 /**
  * Get the id_member associated with the specified message ID.
  *
+ * @package Boards
  * @param int $messageID message ID
  * @return int the member id
- * @package Boards
  */
 function getMsgMemberID($messageID)
 {
@@ -210,37 +191,25 @@ function getMsgMemberID($messageID)
  *
  * - Used by ManageBoards.controller.php to change the settings of a board.
  *
- * @param int $board_id
- * @param mixed[] $boardOptions
- *
- * @throws \ElkArte\Exceptions\Exception no_board, mboards_board_own_child_error
  * @package Boards
  *
+ * @param int     $board_id
+ * @param mixed[] $boardOptions
+ *
+ * @throws Elk_Exception no_board
  */
 function modifyBoard($board_id, &$boardOptions)
 {
+	global $cat_tree, $boards;
+
 	$db = database();
 
 	// Get some basic information about all boards and categories.
-	$boardTree = new BoardsTree($db);
-	$cat_tree = $boardTree->getCategories();
-	$boards = $boardTree->getBoards();
+	getBoardTree();
 
 	// Make sure given boards and categories exist.
-	if (!isset($boards[$board_id]))
-	{
-		throw new \ElkArte\Exceptions\Exception('no_board');
-	}
-
-	if (isset($boardOptions['target_board']) && !isset($boards[$boardOptions['target_board']]))
-	{
-		throw new \ElkArte\Exceptions\Exception('no_board');
-	}
-
-	if (isset($boardOptions['target_category']) && !isset($cat_tree[$boardOptions['target_category']]))
-	{
-		throw new \ElkArte\Exceptions\Exception('no_board');
-	}
+	if (!isset($boards[$board_id]) || (isset($boardOptions['target_board']) && !isset($boards[$boardOptions['target_board']])) || (isset($boardOptions['target_category']) && !isset($cat_tree[$boardOptions['target_category']])))
+		throw new Elk_Exception('no_board');
 
 	// All things that will be updated in the database will be in $boardUpdates.
 	$boardUpdates = array();
@@ -250,53 +219,46 @@ function modifyBoard($board_id, &$boardOptions)
 	if (isset($boardOptions['move_to']))
 	{
 		// Move the board to the top of a given category.
-		if ($boardOptions['move_to'] === 'top')
+		if ($boardOptions['move_to'] == 'top')
 		{
 			$id_cat = $boardOptions['target_category'];
 			$child_level = 0;
 			$id_parent = 0;
 			$after = $cat_tree[$id_cat]['last_board_order'];
 		}
+
 		// Move the board to the bottom of a given category.
-		elseif ($boardOptions['move_to'] === 'bottom')
+		elseif ($boardOptions['move_to'] == 'bottom')
 		{
 			$id_cat = $boardOptions['target_category'];
 			$child_level = 0;
 			$id_parent = 0;
 			$after = 0;
 			foreach ($cat_tree[$id_cat]['children'] as $id_board => $dummy)
-			{
 				$after = max($after, $boards[$id_board]['order']);
-			}
 		}
+
 		// Make the board a child of a given board.
-		elseif ($boardOptions['move_to'] === 'child')
+		elseif ($boardOptions['move_to'] == 'child')
 		{
 			$id_cat = $boards[$boardOptions['target_board']]['category'];
 			$child_level = $boards[$boardOptions['target_board']]['level'] + 1;
 			$id_parent = $boardOptions['target_board'];
 
 			// People can be creative, in many ways...
-			if ($boardTree->isChildOf($id_parent, $board_id))
-			{
-				throw new \ElkArte\Exceptions\Exception('mboards_parent_own_child_error', false);
-			}
+			if (isChildOf($id_parent, $board_id))
+				throw new Elk_Exception('mboards_parent_own_child_error', false);
 			elseif ($id_parent == $board_id)
-			{
-				throw new \ElkArte\Exceptions\Exception('mboards_board_own_child_error', false);
-			}
+				throw new Elk_Exception('mboards_board_own_child_error', false);
 
 			$after = $boards[$boardOptions['target_board']]['order'];
 
 			// Check if there are already children and (if so) get the max board order.
 			if (!empty($boards[$id_parent]['tree']['children']) && empty($boardOptions['move_first_child']))
-			{
 				foreach ($boards[$id_parent]['tree']['children'] as $childBoard_id => $dummy)
-				{
 					$after = max($after, $boards[$childBoard_id]['order']);
-				}
-			}
 		}
+
 		// Place a board before or after another board, on the same child level.
 		elseif (in_array($boardOptions['move_to'], array('before', 'after')))
 		{
@@ -305,35 +267,29 @@ function modifyBoard($board_id, &$boardOptions)
 			$id_parent = $boards[$boardOptions['target_board']]['parent'];
 			$after = $boards[$boardOptions['target_board']]['order'] - ($boardOptions['move_to'] == 'before' ? 1 : 0);
 		}
+
 		// Oops...?
 		else
-		{
 			trigger_error('modifyBoard(): The move_to value \'' . $boardOptions['move_to'] . '\' is incorrect', E_USER_ERROR);
-		}
 
 		// Get a list of children of this board.
-		$childList = $boardTree->allChildsOf($board_id);
+		$childList = array();
+		recursiveBoards($childList, $boards[$board_id]['tree']);
 
 		// See if there are changes that affect children.
 		$childUpdates = array();
 		$levelDiff = $child_level - $boards[$board_id]['level'];
 		if ($levelDiff != 0)
-		{
 			$childUpdates[] = 'child_level = child_level ' . ($levelDiff > 0 ? '+ ' : '') . '{int:level_diff}';
-		}
-
 		if ($id_cat != $boards[$board_id]['category'])
-		{
 			$childUpdates[] = 'id_cat = {int:category}';
-		}
 
 		// Fix the children of this board.
 		if (!empty($childList) && !empty($childUpdates))
-		{
 			$db->query('', '
 				UPDATE {db_prefix}boards
-				SET 
-					' . implode(', ', $childUpdates) . '
+				SET ' . implode(',
+					', $childUpdates) . '
 				WHERE id_board IN ({array_int:board_list})',
 				array(
 					'board_list' => $childList,
@@ -341,13 +297,11 @@ function modifyBoard($board_id, &$boardOptions)
 					'level_diff' => $levelDiff,
 				)
 			);
-		}
 
 		// Make some room for this spot.
 		$db->query('', '
 			UPDATE {db_prefix}boards
-			SET 
-				board_order = board_order + {int:new_order}
+			SET board_order = board_order + {int:new_order}
 			WHERE board_order > {int:insert_after}
 				AND id_board != {int:selected_board}',
 			array(
@@ -374,13 +328,6 @@ function modifyBoard($board_id, &$boardOptions)
 	{
 		$boardUpdates[] = 'count_posts = {int:count_posts}';
 		$boardUpdateParameters['count_posts'] = $boardOptions['posts_count'] ? 0 : 1;
-	}
-
-	// Warn on old posts in this board
-	if (isset($boardOptions['old_posts']))
-	{
-		$boardUpdates[] = 'old_posts = {int:old_posts}';
-		$boardUpdateParameters['old_posts'] = $boardOptions['old_posts'] ? 0 : 1;
 	}
 
 	// Set the theme for this board.
@@ -445,7 +392,6 @@ function modifyBoard($board_id, &$boardOptions)
 
 	// Do the updates (if any).
 	if (!empty($boardUpdates))
-	{
 		$db->query('', '
 			UPDATE {db_prefix}boards
 			SET
@@ -456,7 +402,6 @@ function modifyBoard($board_id, &$boardOptions)
 				'selected_board' => $board_id,
 			))
 		);
-	}
 
 	// Set moderators of this board.
 	if (isset($boardOptions['moderators']) || isset($boardOptions['moderator_string']))
@@ -471,40 +416,35 @@ function modifyBoard($board_id, &$boardOptions)
 		);
 
 		// Validate and get the IDs of the new moderators.
-		if (isset($boardOptions['moderator_string']) && trim($boardOptions['moderator_string']) !== '')
+		if (isset($boardOptions['moderator_string']) && trim($boardOptions['moderator_string']) != '')
 		{
 			// Divvy out the usernames, remove extra space.
 			$moderator_string = strtr(Util::htmlspecialchars($boardOptions['moderator_string'], ENT_QUOTES), array('&quot;' => '"'));
 			preg_match_all('~"([^"]+)"~', $moderator_string, $matches);
 			$moderators = array_merge($matches[1], explode(',', preg_replace('~"[^"]+"~', '', $moderator_string)));
-			foreach ($moderators as $k => $moderator)
+			for ($k = 0, $n = count($moderators); $k < $n; $k++)
 			{
-				$moderators[$k] = trim($moderator);
-				if ($moderators[$k] === '')
-				{
+				$moderators[$k] = trim($moderators[$k]);
+
+				if (strlen($moderators[$k]) == 0)
 					unset($moderators[$k]);
-				}
 			}
 
 			// Find all the id_member's for the member_name's in the list.
 			if (empty($boardOptions['moderators']))
-			{
 				$boardOptions['moderators'] = array();
-			}
-
 			if (!empty($moderators))
 			{
-				$boardOptions['moderators'] = $db->fetchQuery('
-					SELECT 
-						id_member
+				$boardOptions['moderators'] = $db->fetchQueryCallback('
+					SELECT id_member
 					FROM {db_prefix}members
 					WHERE member_name IN ({array_string:moderator_list}) OR real_name IN ({array_string:moderator_list})
 					LIMIT ' . count($moderators),
 					array(
 						'moderator_list' => $moderators,
-					)
-				)->fetch_callback(
-					function ($row) {
+					),
+					function ($row)
+					{
 						return $row['id_member'];
 					}
 				);
@@ -516,9 +456,7 @@ function modifyBoard($board_id, &$boardOptions)
 		{
 			$inserts = array();
 			foreach ($boardOptions['moderators'] as $moderator)
-			{
 				$inserts[] = array($board_id, $moderator);
-			}
 
 			$db->insert('insert',
 				'{db_prefix}moderators',
@@ -533,16 +471,12 @@ function modifyBoard($board_id, &$boardOptions)
 	}
 
 	if (isset($boardOptions['move_to']))
-	{
-		$boardTree->reorderBoards();
-	}
+		reorderBoards();
 
-	Cache::instance()->clean('data');
+	clean_cache('data');
 
 	if (empty($boardOptions['dont_log']))
-	{
 		logAction('edit_board', array('board' => $board_id), 'admin');
-	}
 }
 
 /**
@@ -552,29 +486,27 @@ function modifyBoard($board_id, &$boardOptions)
  * - With the option inherit_permissions set, the parent board permissions
  * will be inherited.
  *
+ * @package Boards
  * @param mixed[] $boardOptions
  * @return int The new board id
- * @package Boards
+ * @throws Elk_Exception
  */
 function createBoard($boardOptions)
 {
+	global $boards;
+
 	$db = database();
 
 	// Trigger an error if one of the required values is not set.
-	if (!isset($boardOptions['board_name']) || trim($boardOptions['board_name']) === '' || !isset($boardOptions['move_to']) || !isset($boardOptions['target_category']))
-	{
+	if (!isset($boardOptions['board_name']) || trim($boardOptions['board_name']) == '' || !isset($boardOptions['move_to']) || !isset($boardOptions['target_category']))
 		trigger_error('createBoard(): One or more of the required options is not set', E_USER_ERROR);
-	}
 
 	if (in_array($boardOptions['move_to'], array('child', 'before', 'after')) && !isset($boardOptions['target_board']))
-	{
 		trigger_error('createBoard(): Target board is not set', E_USER_ERROR);
-	}
 
 	// Set every optional value to its default value.
 	$boardOptions += array(
 		'posts_count' => true,
-		'old_posts' => true,
 		'override_theme' => false,
 		'board_theme' => 0,
 		'access_groups' => array(),
@@ -594,17 +526,16 @@ function createBoard($boardOptions)
 	);
 
 	// Insert a board, the settings are dealt with later.
-	$board_id = $db->insert('',
+	$db->insert('',
 		'{db_prefix}boards',
 		$board_columns,
 		$board_parameters,
 		array('id_board')
-	)->insert_id();
+	);
+	$board_id = $db->insert_id('{db_prefix}boards', 'id_board');
 
 	if (empty($board_id))
-	{
 		return 0;
-	}
 
 	// Change the board according to the given specifications.
 	modifyBoard($board_id, $boardOptions);
@@ -612,31 +543,26 @@ function createBoard($boardOptions)
 	// Do we want the parent permissions to be inherited?
 	if ($boardOptions['inherit_permissions'])
 	{
-		$boardTree = new BoardsTree($db);
+		getBoardTree();
 
-		try
+		if (!empty($boards[$board_id]['parent']))
 		{
-			$board = $boardTree->getBoardById($board_id);
-			$board_data = fetchBoardsInfo(array('boards' => $board['parent']), array('selects' => 'permissions'));
+			$board_data = fetchBoardsInfo(array('boards' => $boards[$board_id]['parent']), array('selects' => 'permissions'));
 
 			$db->query('', '
 				UPDATE {db_prefix}boards
-				SET 
-					id_profile = {int:new_profile}
+				SET id_profile = {int:new_profile}
 				WHERE id_board = {int:current_board}',
 				array(
-					'new_profile' => $board_data[$board['parent']]['id_profile'],
+					'new_profile' => $board_data[$boards[$board_id]['parent']]['id_profile'],
 					'current_board' => $board_id,
 				)
 			);
 		}
-		catch (Exception $e)
-		{
-		}
 	}
 
 	// Clean the data cache.
-	Cache::instance()->clean('data');
+	clean_cache('data');
 
 	// Created it.
 	logAction('add_board', array('board' => $board_id), 'admin');
@@ -646,17 +572,387 @@ function createBoard($boardOptions)
 }
 
 /**
+ * Remove one or more boards.
+ *
+ * - Allows to move the children of the board before deleting it
+ * - if moveChildrenTo is set to null, the sub-boards will be deleted.
+ * - Deletes:
+ *   - all topics that are on the given boards;
+ *   - all information that's associated with the given boards;
+ * - updates the statistics to reflect the new situation.
+ *
+ * @package Boards
+ * @param int[] $boards_to_remove
+ * @param int|null $moveChildrenTo = null
+ * @throws Elk_Exception
+ */
+function deleteBoards($boards_to_remove, $moveChildrenTo = null)
+{
+	global $boards;
+
+	$db = database();
+
+	// No boards to delete? Return!
+	if (empty($boards_to_remove))
+		return;
+
+	getBoardTree();
+
+	call_integration_hook('integrate_delete_board', array($boards_to_remove, &$moveChildrenTo));
+
+	// If $moveChildrenTo is set to null, include the children in the removal.
+	if ($moveChildrenTo === null)
+	{
+		// Get a list of the sub-boards that will also be removed.
+		$child_boards_to_remove = array();
+		foreach ($boards_to_remove as $board_to_remove)
+			recursiveBoards($child_boards_to_remove, $boards[$board_to_remove]['tree']);
+
+		// Merge the children with their parents.
+		if (!empty($child_boards_to_remove))
+			$boards_to_remove = array_unique(array_merge($boards_to_remove, $child_boards_to_remove));
+	}
+	// Move the children to a safe home.
+	else
+	{
+		foreach ($boards_to_remove as $id_board)
+		{
+			// @todo Separate category?
+			if ($moveChildrenTo === 0)
+				fixChildren($id_board, 0, 0);
+			else
+				fixChildren($id_board, $boards[$moveChildrenTo]['level'] + 1, $moveChildrenTo);
+		}
+	}
+
+	// Delete ALL topics in the selected boards (done first so topics can't be marooned.)
+	$topics = $db->fetchQuery('
+		SELECT id_topic
+		FROM {db_prefix}topics
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+
+	require_once(SUBSDIR . '/Topic.subs.php');
+	removeTopics($topics, false);
+
+	// Delete the board's logs.
+	$db->query('', '
+		DELETE FROM {db_prefix}log_mark_read
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+	$db->query('', '
+		DELETE FROM {db_prefix}log_boards
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+	$db->query('', '
+		DELETE FROM {db_prefix}log_notify
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+
+	// Delete this board's moderators.
+	$db->query('', '
+		DELETE FROM {db_prefix}moderators
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+
+	// Delete any extra events in the calendar.
+	$db->query('', '
+		DELETE FROM {db_prefix}calendar
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+
+	// Delete any message icons that only appear on these boards.
+	$db->query('', '
+		DELETE FROM {db_prefix}message_icons
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+
+	// Delete the boards.
+	$db->query('', '
+		DELETE FROM {db_prefix}boards
+		WHERE id_board IN ({array_int:boards_to_remove})',
+		array(
+			'boards_to_remove' => $boards_to_remove,
+		)
+	);
+
+	// Latest message/topic might not be there anymore.
+	require_once(SUBSDIR . '/Messages.subs.php');
+	updateMessageStats();
+	require_once(SUBSDIR . '/Topic.subs.php');
+	updateTopicStats();
+	updateSettings(array(
+		'calendar_updated' => time(),
+	));
+
+	// Plus reset the cache to stop people getting odd results.
+	updateSettings(array('settings_updated' => time()));
+
+	// Clean the cache as well.
+	clean_cache('data');
+
+	// Let's do some serious logging.
+	foreach ($boards_to_remove as $id_board)
+		logAction('delete_board', array('boardname' => $boards[$id_board]['name']), 'admin');
+
+	reorderBoards();
+}
+
+/**
+ * Put all boards in the right order and sorts the records of the boards table.
+ *
+ * - Used by modifyBoard(), deleteBoards(), modifyCategory(), and deleteCategories() functions
+ *
+ * @deprecated since 1.0 - the ordering is done in the query, probably not needed
+ */
+function reorderBoards()
+{
+	global $cat_tree, $boardList, $boards;
+
+	$db = database();
+
+	getBoardTree();
+
+	// Set the board order for each category.
+	$board_order = 0;
+	foreach ($cat_tree as $catID => $dummy)
+	{
+		foreach ($boardList[$catID] as $boardID)
+			if ($boards[$boardID]['order'] != ++$board_order)
+				$db->query('', '
+					UPDATE {db_prefix}boards
+					SET board_order = {int:new_order}
+					WHERE id_board = {int:selected_board}',
+					array(
+						'new_order' => $board_order,
+						'selected_board' => $boardID,
+					)
+				);
+	}
+
+	// Sort the records of the boards table on the board_order value.
+	$db->skip_next_error();
+	$db->query('alter_table', '
+		ALTER TABLE {db_prefix}boards
+		ORDER BY board_order',
+		array(
+		)
+	);
+}
+
+/**
+ * Fixes the children of a board by setting their child_levels to new values.
+ *
+ * - Used when a board is deleted or moved, to affect its children.
+ *
+ * @package Boards
+ * @param int $parent
+ * @param int $newLevel
+ * @param int $newParent
+ */
+function fixChildren($parent, $newLevel, $newParent)
+{
+	$db = database();
+
+	// Grab all children of $parent...
+	$children = $db->fetchQueryCallback('
+		SELECT id_board
+		FROM {db_prefix}boards
+		WHERE id_parent = {int:parent_board}',
+		array(
+			'parent_board' => $parent,
+		),
+		function ($row)
+		{
+			return $row['id_board'];
+		}
+	);
+
+	// ...and set it to a new parent and child_level.
+	$db->query('', '
+		UPDATE {db_prefix}boards
+		SET id_parent = {int:new_parent}, child_level = {int:new_child_level}
+		WHERE id_parent = {int:parent_board}',
+		array(
+			'new_parent' => $newParent,
+			'new_child_level' => $newLevel,
+			'parent_board' => $parent,
+		)
+	);
+
+	// Recursively fix the children of the children.
+	foreach ($children as $child)
+		fixChildren($child, $newLevel + 1, $child);
+}
+
+/**
+ * Load a lot of useful information regarding the boards and categories.
+ *
+ * - The information retrieved is stored in globals:
+ *   $boards:    properties of each board.
+ *   $boardList: a list of boards grouped by category ID.
+ *   $cat_tree:  properties of each category.
+ *
+ * @param array $query
+ *
+ * @throws Elk_Exception no_valid_parent
+ * @package Boards
+ */
+function getBoardTree($query = array())
+{
+	global $cat_tree, $boards, $boardList;
+
+	$db = database();
+
+	// Addons may want to add their own information to the board table.
+	call_integration_hook('integrate_board_tree_query', array(&$query));
+
+	// Getting all the board and category information you'd ever wanted.
+	$request = $db->query('', '
+		SELECT
+			COALESCE(b.id_board, 0) AS id_board, b.id_parent, b.name AS board_name, b.description, b.child_level,
+			b.board_order, b.count_posts, b.member_groups, b.id_theme, b.override_theme, b.id_profile, b.redirect,
+			b.num_posts, b.num_topics, b.deny_member_groups, c.id_cat, c.name AS cat_name, c.cat_order, c.can_collapse' . (!empty($query['select']) ?
+			$query['select'] : '') . '
+		FROM {db_prefix}categories AS c
+			LEFT JOIN {db_prefix}boards AS b ON (b.id_cat = c.id_cat)' . (!empty($query['join']) ?
+			$query['join'] : '') . '
+		ORDER BY c.cat_order, b.child_level, b.board_order',
+		array(
+		)
+	);
+	$cat_tree = array();
+	$boards = array();
+	$last_board_order = 0;
+	while ($row = $db->fetch_assoc($request))
+	{
+		if (!isset($cat_tree[$row['id_cat']]))
+		{
+			$cat_tree[$row['id_cat']] = array(
+				'node' => array(
+					'id' => $row['id_cat'],
+					'name' => $row['cat_name'],
+					'order' => $row['cat_order'],
+					'can_collapse' => $row['can_collapse']
+				),
+				'is_first' => empty($cat_tree),
+				'last_board_order' => $last_board_order,
+				'children' => array()
+			);
+			$prevBoard = 0;
+			$curLevel = 0;
+		}
+
+		if (!empty($row['id_board']))
+		{
+			if ($row['child_level'] != $curLevel)
+				$prevBoard = 0;
+
+			$boards[$row['id_board']] = array(
+				'id' => $row['id_board'],
+				'category' => $row['id_cat'],
+				'parent' => $row['id_parent'],
+				'level' => $row['child_level'],
+				'order' => $row['board_order'],
+				'name' => $row['board_name'],
+				'member_groups' => explode(',', $row['member_groups']),
+				'deny_groups' => explode(',', $row['deny_member_groups']),
+				'description' => $row['description'],
+				'count_posts' => empty($row['count_posts']),
+				'posts' => $row['num_posts'],
+				'topics' => $row['num_topics'],
+				'theme' => $row['id_theme'],
+				'override_theme' => $row['override_theme'],
+				'profile' => $row['id_profile'],
+				'redirect' => $row['redirect'],
+				'prev_board' => $prevBoard
+			);
+			$prevBoard = $row['id_board'];
+			$last_board_order = $row['board_order'];
+
+			if (empty($row['child_level']))
+			{
+				$cat_tree[$row['id_cat']]['children'][$row['id_board']] = array(
+					'node' => &$boards[$row['id_board']],
+					'is_first' => empty($cat_tree[$row['id_cat']]['children']),
+					'children' => array()
+				);
+				$boards[$row['id_board']]['tree'] = &$cat_tree[$row['id_cat']]['children'][$row['id_board']];
+			}
+			else
+			{
+				// Parent doesn't exist!
+				if (!isset($boards[$row['id_parent']]['tree']))
+					throw new Elk_Exception('no_valid_parent', false, array($row['board_name']));
+
+				// Wrong childlevel...we can silently fix this...
+				if ($boards[$row['id_parent']]['tree']['node']['level'] != $row['child_level'] - 1)
+					$db->query('', '
+						UPDATE {db_prefix}boards
+						SET child_level = {int:new_child_level}
+						WHERE id_board = {int:selected_board}',
+						array(
+							'new_child_level' => $boards[$row['id_parent']]['tree']['node']['level'] + 1,
+							'selected_board' => $row['id_board'],
+						)
+					);
+
+				$boards[$row['id_parent']]['tree']['children'][$row['id_board']] = array(
+					'node' => &$boards[$row['id_board']],
+					'is_first' => empty($boards[$row['id_parent']]['tree']['children']),
+					'children' => array()
+				);
+				$boards[$row['id_board']]['tree'] = &$boards[$row['id_parent']]['tree']['children'][$row['id_board']];
+			}
+		}
+
+		// Let integration easily add data to $boards and $cat_tree
+		call_integration_hook('integrate_board_tree', array($row));
+	}
+	$db->free_result($request);
+
+	// Get a list of all the boards in each category (using recursion).
+	$boardList = array();
+	foreach ($cat_tree as $catID => $node)
+	{
+		$boardList[$catID] = array();
+		recursiveBoards($boardList[$catID], $node);
+	}
+}
+
+/**
  * Generates the query to determine the list of available boards for a user
  *
  * - Executes the query and returns the list
  *
+ * @package Boards
  * @param mixed[] $boardListOptions
- * @param bool $simple if true a simple array is returned containing some basic
+ * @param boolean $simple if true a simple array is returned containing some basic
  *                information regarding the board (id_board, board_name, child_level, id_cat, cat_name)
  *                if false the boards are returned in an array subdivided by categories including also
  *                additional data like the number of boards
  * @return array An array of boards sorted according to the normal boards order
- * @package Boards
  */
 function getBoardList($boardListOptions = array(), $simple = false)
 {
@@ -665,9 +961,7 @@ function getBoardList($boardListOptions = array(), $simple = false)
 	$db = database();
 
 	if ((isset($boardListOptions['excluded_boards']) || isset($boardListOptions['allowed_to'])) && isset($boardListOptions['included_boards']))
-	{
 		trigger_error('getBoardList(): Setting both excluded_boards and included_boards is not allowed.', E_USER_ERROR);
-	}
 
 	$where = array();
 	$join = array();
@@ -686,9 +980,7 @@ function getBoardList($boardListOptions = array(), $simple = false)
 	{
 		$boardListOptions['included_boards'] = boardsAllowedTo($boardListOptions['allowed_to']);
 		if (in_array(0, $boardListOptions['included_boards']))
-		{
 			unset($boardListOptions['included_boards']);
-		}
 	}
 
 	// Just want to include certain boards in the query
@@ -724,13 +1016,10 @@ function getBoardList($boardListOptions = array(), $simple = false)
 	}
 
 	if (!empty($boardListOptions['ignore_boards']) && empty($boardListOptions['override_permissions']))
-	{
 		$where[] = '{query_wanna_see_board}';
-	}
+
 	elseif (empty($boardListOptions['override_permissions']))
-	{
 		$where[] = '{query_see_board}';
-	}
 
 	if (!empty($boardListOptions['not_redirection']))
 	{
@@ -740,9 +1029,7 @@ function getBoardList($boardListOptions = array(), $simple = false)
 
 	// Bring all the options together and make the query
 	$request = $db->query('', '
-		SELECT 
-			c.name AS cat_name, c.id_cat, 
-			b.id_board, b.name AS board_name, b.child_level' . $select . '
+		SELECT c.name AS cat_name, c.id_cat, b.id_board, b.name AS board_name, b.child_level' . $select . '
 		FROM {db_prefix}boards AS b
 			LEFT JOIN {db_prefix}categories AS c ON (c.id_cat = b.id_cat)' . (empty($join) ? '' : implode(' ', $join)) . (empty($where) ? '' : '
 		WHERE ' . implode('
@@ -755,28 +1042,28 @@ function getBoardList($boardListOptions = array(), $simple = false)
 	if ($simple)
 	{
 		$return_value = array();
-		while (($row = $request->fetch_assoc()))
+		while ($row = $db->fetch_assoc($request))
 		{
 			$return_value[$row['id_board']] = array(
-				'id_cat' => (int) $row['id_cat'],
+				'id_cat' => $row['id_cat'],
 				'cat_name' => $row['cat_name'],
-				'id_board' => (int) $row['id_board'],
+				'id_board' => $row['id_board'],
 				'board_name' => $row['board_name'],
-				'child_level' => (int) $row['child_level'],
+				'child_level' => $row['child_level'],
 			);
 
 			// Do we want access information?
 			if (isset($boardListOptions['access']) && $boardListOptions['access'] !== false)
 			{
-				$return_value[$row['id_board']]['allow'] = !(empty($row['can_access']) || $row['can_access'] === 'f');
-				$return_value[$row['id_board']]['deny'] = !(empty($row['cannot_access']) || $row['cannot_access'] === 'f');
+				$return_value[$row['id_board']]['allow'] = !(empty($row['can_access']) || $row['can_access'] == 'f');
+				$return_value[$row['id_board']]['deny'] = !(empty($row['cannot_access']) || $row['cannot_access'] == 'f');
 			}
 
 			// Do we want moderation information?
 			if (!empty($boardListOptions['moderator']))
 			{
 				$return_value[$row['id_board']] += array(
-					'id_profile' => (int) $row['id_profile'],
+					'id_profile' => $row['id_profile'],
 					'member_groups' => $row['member_groups'],
 					'is_mod' => $row['is_mod'],
 				);
@@ -786,30 +1073,28 @@ function getBoardList($boardListOptions = array(), $simple = false)
 	else
 	{
 		$return_value = array(
-			'num_boards' => $request->num_rows(),
+			'num_boards' => $db->num_rows($request),
 			'boards_check_all' => true,
 			'boards_current_disabled' => true,
 			'categories' => array(),
 		);
-		while (($row = $request->fetch_assoc()))
+		while ($row = $db->fetch_assoc($request))
 		{
 			// This category hasn't been set up yet..
 			if (!isset($return_value['categories'][$row['id_cat']]))
-			{
 				$return_value['categories'][$row['id_cat']] = array(
-					'id' => (int) $row['id_cat'],
+					'id' => $row['id_cat'],
 					'name' => $row['cat_name'],
 					'boards' => array(),
 				);
-			}
 
 			// Shortcuts are useful to keep things simple
 			$this_cat = &$return_value['categories'][$row['id_cat']];
 
-			$this_cat['boards'][(int) $row['id_board']] = array(
-				'id' => (int) $row['id_board'],
+			$this_cat['boards'][$row['id_board']] = array(
+				'id' => $row['id_board'],
 				'name' => $row['board_name'],
-				'child_level' => (int) $row['child_level'],
+				'child_level' => $row['child_level'],
 				'allow' => false,
 				'deny' => false,
 				'selected' => isset($boardListOptions['selected_board']) && $boardListOptions['selected_board'] == $row['id_board'],
@@ -818,8 +1103,8 @@ function getBoardList($boardListOptions = array(), $simple = false)
 
 			if (!empty($boardListOptions['access']))
 			{
-				$this_cat['boards'][$row['id_board']]['allow'] = !(empty($row['can_access']) || $row['can_access'] === 'f');
-				$this_cat['boards'][$row['id_board']]['deny'] = !(empty($row['cannot_access']) || $row['cannot_access'] === 'f');
+				$this_cat['boards'][$row['id_board']]['allow'] = !(empty($row['can_access']) || $row['can_access'] == 'f');
+				$this_cat['boards'][$row['id_board']]['deny'] = !(empty($row['cannot_access']) || $row['cannot_access'] == 'f');
 			}
 
 			// If is_ignored is set, it means we could have to deselect a board
@@ -829,16 +1114,14 @@ function getBoardList($boardListOptions = array(), $simple = false)
 
 				// If a board wasn't checked that probably should have been ensure the board selection is selected, yo!
 				if (!empty($this_cat['boards'][$row['id_board']]['selected']) && (empty($modSettings['recycle_enable']) || $row['id_board'] != $modSettings['recycle_board']))
-				{
 					$return_value['boards_check_all'] = false;
-				}
 			}
 
 			// Do we want moderation information?
 			if (!empty($boardListOptions['moderator']))
 			{
-				$this_cat['boards'][(int) $row['id_board']] += array(
-					'id_profile' => (int) $row['id_profile'],
+				$this_cat['boards'][$row['id_board']] += array(
+					'id_profile' => $row['id_profile'],
 					'member_groups' => $row['member_groups'],
 					'is_mod' => $row['is_mod'],
 				);
@@ -846,7 +1129,7 @@ function getBoardList($boardListOptions = array(), $simple = false)
 		}
 	}
 
-	$request->free_result();
+	$db->free_result($request);
 
 	return $return_value;
 }
@@ -854,25 +1137,44 @@ function getBoardList($boardListOptions = array(), $simple = false)
 /**
  * Recursively get a list of boards.
  *
- * @param array $tree the board tree
- * @return array list of child boards id
+ * - Used by getBoardTree
+ *
  * @package Boards
+ * @param int[] $_boardList The board list
+ * @param array $_tree the board tree
  */
-function recursiveBoards($tree)
+function recursiveBoards(&$_boardList, &$_tree)
 {
-	if (empty($tree['children']))
-	{
-		return [];
-	}
+	if (empty($_tree['children']))
+		return;
 
-	$boardsList = [];
-	foreach ($tree['children'] as $id => $node)
+	foreach ($_tree['children'] as $id => $node)
 	{
-		$boardsList[] = $id;
-		$boardsList = array_merge($boardsList, recursiveBoards($node));
+		$_boardList[] = $id;
+		recursiveBoards($_boardList, $node);
 	}
+}
 
-	return $boardsList;
+/**
+ * Returns whether the sub-board id is actually a child of the parent (recursive).
+ *
+ * @package Boards
+ * @param int $child The ID of the child board
+ * @param int $parent The ID of a parent board
+ *
+ * @return boolean if the specified child board is a child of the specified parent board.
+ */
+function isChildOf($child, $parent)
+{
+	global $boards;
+
+	if (empty($boards[$child]['parent']))
+		return false;
+
+	if ($boards[$child]['parent'] == $parent)
+		return true;
+
+	return isChildOf($boards[$child]['parent'], $parent);
 }
 
 /**
@@ -888,8 +1190,7 @@ function hasBoardNotification($id_member, $id_board)
 
 	// Find out if they have notification set for this board already.
 	$request = $db->query('', '
-		SELECT 
-			id_member
+		SELECT id_member
 		FROM {db_prefix}log_notify
 		WHERE id_member = {int:current_member}
 			AND id_board = {int:current_board}
@@ -899,8 +1200,8 @@ function hasBoardNotification($id_member, $id_board)
 			'current_member' => $id_member,
 		)
 	);
-	$hasNotification = $request->num_rows() !== 0;
-	$request->free_result();
+	$hasNotification = $db->num_rows($request) != 0;
+	$db->free_result($request);
 
 	return $hasNotification;
 }
@@ -908,10 +1209,10 @@ function hasBoardNotification($id_member, $id_board)
 /**
  * Set board notification on or off for the given member.
  *
+ * @package Boards
  * @param int $id_member
  * @param int $id_board
  * @param bool $on = false
- * @package Boards
  */
 function setBoardNotification($id_member, $id_board, $on = false)
 {
@@ -949,11 +1250,11 @@ function setBoardNotification($id_member, $id_board, $on = false)
  * This is unexpected, but it's done this way to avoid any extra-query is executed on MessageIndex::action_messageindex().
  * Just ignore the return value for normal use.
  *
+ * @package Boards
  * @param int $id_member
  * @param int $id_board
  * @param bool $check = true check if the user has notifications enabled for the board
  * @return bool if the board was marked for notifications
- * @package Boards
  */
 function resetSentBoardNotification($id_member, $id_board, $check = true)
 {
@@ -964,8 +1265,7 @@ function resetSentBoardNotification($id_member, $id_board, $check = true)
 	{
 		// check if the member has notifications enabled for this board
 		$request = $db->query('', '
-			SELECT 
-				sent
+			SELECT sent
 			FROM {db_prefix}log_notify
 			WHERE id_board = {int:current_board}
 				AND id_member = {int:current_member}
@@ -976,25 +1276,20 @@ function resetSentBoardNotification($id_member, $id_board, $check = true)
 			)
 		);
 		// nothing to do
-		if ($request->num_rows() === 0)
-		{
+		if ($db->num_rows($request) == 0)
 			return false;
-		}
-		$sent = $request->fetch_row();
-		$request->free_result();
+		$sent = $db->fetch_row($request);
+		$db->free_result($request);
 
 		// not sent already? No need to stay around then
 		if (empty($sent))
-		{
 			return true;
-		}
 	}
 
 	// Reset 'sent' status.
 	$db->query('', '
 		UPDATE {db_prefix}log_notify
-		SET 
-			sent = {int:is_sent}
+		SET sent = {int:is_sent}
 		WHERE id_board = {int:current_board}
 			AND id_member = {int:current_member}',
 		array(
@@ -1003,37 +1298,37 @@ function resetSentBoardNotification($id_member, $id_board, $check = true)
 			'is_sent' => 0,
 		)
 	);
-
 	return true;
 }
 
 /**
  * Counts the board notification for a given member.
  *
+ * @package Boards
  * @param int $memID
  * @return int
- * @package Boards
  */
 function getBoardNotificationsCount($memID)
 {
+	global $user_info;
+
 	$db = database();
 
 	// All the boards that you have notification enabled
 	$request = $db->query('', '
-		SELECT 
-			COUNT(*)
+		SELECT COUNT(*)
 		FROM {db_prefix}log_notify AS ln
 			INNER JOIN {db_prefix}boards AS b ON (b.id_board = ln.id_board)
 			LEFT JOIN {db_prefix}log_boards AS lb ON (lb.id_board = b.id_board AND lb.id_member = {int:current_member})
 		WHERE ln.id_member = {int:selected_member}
 			AND {query_see_board}',
 		array(
-			'current_member' => User::$info->id,
+			'current_member' => $user_info['id'],
 			'selected_member' => $memID,
 		)
 	);
-	list ($totalNotifications) = $request->fetch_row();
-	$request->free_result();
+	list ($totalNotifications) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return $totalNotifications;
 }
@@ -1045,12 +1340,9 @@ function getBoardNotificationsCount($memID)
  * - If $id_boards is given, filters the boards to only those accessible.
  * - The function doesn't guarantee the boards are properly sorted
  *
+ * @package Boards
  * @param int[]|null $id_parents array of ints representing board ids
  * @param int[]|null $id_boards
- *
- * @return array
- * @package Boards
- *
  */
 function accessibleBoards($id_boards = null, $id_parents = null)
 {
@@ -1061,8 +1353,7 @@ function accessibleBoards($id_boards = null, $id_parents = null)
 	{
 		// Find all boards down from $id_parent
 		$request = $db->query('', '
-			SELECT 
-				b.id_board
+			SELECT b.id_board
 			FROM {db_prefix}boards AS b
 			WHERE b.id_parent IN ({array_int:parent_list})
 				AND {query_see_board}',
@@ -1075,8 +1366,7 @@ function accessibleBoards($id_boards = null, $id_parents = null)
 	{
 		// Find all the boards this user can see between those selected
 		$request = $db->query('', '
-			SELECT 
-				b.id_board
+			SELECT b.id_board
 			FROM {db_prefix}boards AS b
 			WHERE b.id_board IN ({array_int:board_list})
 				AND {query_see_board}',
@@ -1089,19 +1379,17 @@ function accessibleBoards($id_boards = null, $id_parents = null)
 	{
 		// Find all the boards this user can see.
 		$request = $db->query('', '
-			SELECT
-			 	b.id_board
+			SELECT b.id_board
 			FROM {db_prefix}boards AS b
 			WHERE {query_see_board}',
-			array()
+			array(
+			)
 		);
 	}
-	while (($row = $request->fetch_assoc()))
-	{
-		$boards[] = (int) $row['id_board'];
-	}
 
-	$request->free_result();
+	while ($row = $db->fetch_assoc($request))
+		$boards[] = $row['id_board'];
+	$db->free_result($request);
 
 	return $boards;
 }
@@ -1109,16 +1397,13 @@ function accessibleBoards($id_boards = null, $id_parents = null)
 /**
  * Returns the boards the current user wants to see.
  *
+ * @package Boards
  * @param string $see_board either 'query_see_board' or 'query_wanna_see_board'
  * @param bool $hide_recycle is tru the recycle bin is not returned
- *
- * @return array
- * @package Boards
- *
  */
 function wantedBoards($see_board, $hide_recycle = true)
 {
-	global $modSettings;
+	global $modSettings, $user_info;
 
 	$db = database();
 	$allowed_see = array(
@@ -1127,17 +1412,16 @@ function wantedBoards($see_board, $hide_recycle = true)
 	);
 
 	// Find all boards down from $id_parent
-	return $db->fetchQuery('
-		SELECT 
-			b.id_board
+	return $db->fetchQueryCallback('
+		SELECT b.id_board
 		FROM {db_prefix}boards AS b
-		WHERE ' . User::$info->{in_array($see_board, $allowed_see) ? $see_board : $allowed_see[0]} . ($hide_recycle && !empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] > 0 ? '
+		WHERE ' . $user_info[in_array($see_board, $allowed_see) ? $see_board : $allowed_see[0]] . ($hide_recycle && !empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] > 0 ? '
 			AND b.id_board != {int:recycle_board}' : ''),
 		array(
 			'recycle_board' => (int) $modSettings['recycle_board'],
-		)
-	)->fetch_callback(
-		function ($row) {
+		),
+		function ($row)
+		{
 			return $row['id_board'];
 		}
 	);
@@ -1149,10 +1433,9 @@ function wantedBoards($see_board, $hide_recycle = true)
  * - if supplied a topic id will also return the message subject
  * - honors query_see_board to ensure a user can see the information
  *
+ * @package Boards
  * @param int $board_id
  * @param int|null $topic_id
- * @return mixed[]
- * @package Boards
  */
 function boardInfo($board_id, $topic_id = null)
 {
@@ -1161,8 +1444,7 @@ function boardInfo($board_id, $topic_id = null)
 	if (!empty($topic_id))
 	{
 		$request = $db->query('', '
-			SELECT 
-				b.count_posts, b.name, m.subject
+			SELECT b.count_posts, b.name, m.subject
 			FROM {db_prefix}boards AS b
 				INNER JOIN {db_prefix}topics AS t ON (t.id_topic = {int:current_topic})
 				INNER JOIN {db_prefix}messages AS m ON (m.id_msg = t.id_first_msg)
@@ -1180,8 +1462,7 @@ function boardInfo($board_id, $topic_id = null)
 	else
 	{
 		$request = $db->query('', '
-			SELECT 
-				b.count_posts, b.name
+			SELECT b.count_posts, b.name
 			FROM {db_prefix}boards AS b
 			WHERE {query_see_board}
 				AND b.id_board = {int:board}
@@ -1194,8 +1475,8 @@ function boardInfo($board_id, $topic_id = null)
 		);
 	}
 
-	$returns = $request->fetch_assoc();
-	$request->free_result();
+	$returns = $db->fetch_assoc($request);
+	$db->free_result($request);
 
 	return $returns;
 }
@@ -1203,10 +1484,10 @@ function boardInfo($board_id, $topic_id = null)
 /**
  * Loads properties from non-standard groups
  *
- * @param int $curBoard
- * @param bool $new_board = false Whether this is a new board
- * @return array
  * @package Boards
+ * @param int $curBoard
+ * @param boolean $new_board = false Whether this is a new board
+ * @return array
  */
 function getOtherGroups($curBoard, $new_board = false)
 {
@@ -1215,9 +1496,8 @@ function getOtherGroups($curBoard, $new_board = false)
 	$groups = array();
 
 	// Load membergroups.
-	$db->fetchQuery('
-		SELECT 
-			group_name, id_group, min_posts
+	$request = $db->query('', '
+		SELECT group_name, id_group, min_posts
 		FROM {db_prefix}membergroups
 		WHERE id_group > {int:moderator_group} OR id_group = {int:global_moderator}
 		ORDER BY min_posts, id_group != {int:global_moderator}, group_name',
@@ -1225,22 +1505,22 @@ function getOtherGroups($curBoard, $new_board = false)
 			'moderator_group' => 3,
 			'global_moderator' => 2,
 		)
-	)->fetch_callback(
-		function ($row) use (&$new_board, &$groups, &$curBoard) {
-			if ($new_board && $row['min_posts'] == -1)
-			{
-				$curBoard['member_groups'][] = $row['id_group'];
-			}
-
-			$groups[(int) $row['id_group']] = array(
-				'id' => $row['id_group'],
-				'name' => trim($row['group_name']),
-				'allow' => in_array($row['id_group'], $curBoard['member_groups']),
-				'deny' => in_array($row['id_group'], $curBoard['deny_groups']),
-				'is_post_group' => $row['min_posts'] != -1,
-			);
-		}
 	);
+
+	while ($row = $db->fetch_assoc($request))
+	{
+		if ($new_board && $row['min_posts'] == -1)
+			$curBoard['member_groups'][] = $row['id_group'];
+
+		$groups[(int) $row['id_group']] = array(
+			'id' => $row['id_group'],
+			'name' => trim($row['group_name']),
+			'allow' => in_array($row['id_group'], $curBoard['member_groups']),
+			'deny' => in_array($row['id_group'], $curBoard['deny_groups']),
+			'is_post_group' => $row['min_posts'] != -1,
+		);
+		}
+	$db->free_result($request);
 
 	return $groups;
 }
@@ -1248,10 +1528,10 @@ function getOtherGroups($curBoard, $new_board = false)
 /**
  * Get a list of moderators from a specific board
  *
+ * @package Boards
  * @param int $idboard
  * @param bool $only_id return only the id of the moderators instead of id and name (default false)
  * @return array
- * @package Boards
  */
 function getBoardModerators($idboard, $only_id = false)
 {
@@ -1261,23 +1541,20 @@ function getBoardModerators($idboard, $only_id = false)
 
 	if ($only_id)
 	{
-		$db->fetchQuery('
-			SELECT 
-				id_member
+		$request = $db->query('', '
+			SELECT id_member
 			FROM {db_prefix}moderators
 			WHERE id_board = {int:current_board}',
 			array(
 				'current_board' => $idboard,
 			)
-		)->fetch_callback(
-			function ($row) use (&$moderators) {
-				$moderators[] = $row['id_member'];
-			}
 		);
+		while ($row = $db->fetch_assoc($request))
+			$moderators[] = $row['id_member'];
 	}
 	else
 	{
-		$db->fetchQuery('
+		$request = $db->query('', '
 			SELECT mem.id_member, mem.real_name
 			FROM {db_prefix}moderators AS mods
 				INNER JOIN {db_prefix}members AS mem ON (mem.id_member = mods.id_member)
@@ -1285,12 +1562,12 @@ function getBoardModerators($idboard, $only_id = false)
 			array(
 				'current_board' => $idboard,
 			)
-		)->fetch_callback(
-			function ($row) use (&$moderators) {
-				$moderators[$row['id_member']] = $row['real_name'];
-			}
 		);
+
+		while ($row = $db->fetch_assoc($request))
+			$moderators[$row['id_member']] = $row['real_name'];
 	}
+	$db->free_result($request);
 
 	return $moderators;
 }
@@ -1298,10 +1575,10 @@ function getBoardModerators($idboard, $only_id = false)
 /**
  * Get a list of all the board moderators (every board)
  *
+ * @package Boards
  * @param bool $only_id return array with key of id_member of the moderator(s)
  * otherwise array with key of id_board id (default false)
  * @return array
- * @package Boards
  */
 function allBoardModerators($only_id = false)
 {
@@ -1310,37 +1587,29 @@ function allBoardModerators($only_id = false)
 	$moderators = array();
 
 	if ($only_id)
-	{
 		$request = $db->query('', '
-			SELECT 
-				id_board, id_member
+			SELECT id_board, id_member
 			FROM {db_prefix}moderators',
-			array()
+			array(
+			)
 		);
-	}
 	else
-	{
 		$request = $db->query('', '
-			SELECT 
-				mods.id_board, mods.id_member, mem.real_name
+			SELECT mods.id_board, mods.id_member, mem.real_name
 			FROM {db_prefix}moderators AS mods
-			INNER JOIN {db_prefix}members AS mem ON (mem.id_member = mods.id_member)',
-			array()
+				INNER JOIN {db_prefix}members AS mem ON (mem.id_member = mods.id_member)',
+			array(
+			)
 		);
-	}
 
-	while (($row = $request->fetch_assoc()))
+	while ($row = $db->fetch_assoc($request))
 	{
 		if ($only_id)
-		{
 			$moderators[$row['id_member']][] = $row;
-		}
 		else
-		{
 			$moderators[$row['id_board']][] = $row;
-		}
 	}
-	$request->free_result();
+	$db->free_result($request);
 
 	return $moderators;
 }
@@ -1348,24 +1617,23 @@ function allBoardModerators($only_id = false)
 /**
  * Get a list of all the board moderated by a certain user
  *
+ * @package Boards
  * @param int $id_member the id of a member
  * @return array
- * @package Boards
  */
 function boardsModerated($id_member)
 {
 	$db = database();
 
-	return $db->fetchQuery('
-		SELECT 
-			id_board
+	return $db->fetchQueryCallback('
+		SELECT id_board
 		FROM {db_prefix}moderators
 		WHERE id_member = {int:current_member}',
 		array(
 			'current_member' => $id_member,
-		)
-	)->fetch_callback(
-		function ($row) {
+		),
+		function ($row)
+		{
 			return $row['id_board'];
 		}
 	);
@@ -1374,8 +1642,8 @@ function boardsModerated($id_member)
 /**
  * Get all available themes
  *
- * @return array
  * @package Boards
+ * @return array
  */
 function getAllThemes()
 {
@@ -1383,22 +1651,21 @@ function getAllThemes()
 
 	// Get all the themes...
 	return $db->fetchQuery('
-		SELECT 
-			id_theme AS id, value AS name
+		SELECT id_theme AS id, value AS name
 		FROM {db_prefix}themes
 		WHERE variable = {string:name}',
 		array(
 			'name' => 'name',
 		)
-	)->fetch_all();
+	);
 }
 
 /**
  * Gets redirect infos and post count from a selected board.
  *
+ * @package Boards
  * @param int $idboard
  * @return array
- * @package Boards
  */
 function getBoardProperties($idboard)
 {
@@ -1407,16 +1674,15 @@ function getBoardProperties($idboard)
 	$properties = array();
 
 	$request = $db->query('', '
-		SELECT 
-			redirect, num_posts
+		SELECT redirect, num_posts
 		FROM {db_prefix}boards
 		WHERE id_board = {int:current_board}',
 		array(
 			'current_board' => $idboard,
 		)
 	);
-	list ($properties['oldRedirect'], $properties['numPosts']) = $request->fetch_row();
-	$request->free_result();
+	list ($properties['oldRedirect'], $properties['numPosts']) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return $properties;
 }
@@ -1424,14 +1690,11 @@ function getBoardProperties($idboard)
 /**
  * Fetch the number of posts in an array of boards based on board IDs or category IDs
  *
+ * @package Boards
  * @param int[]|null $boards an array of board IDs
  * @param int[]|null $categories an array of category IDs
  * @param bool $wanna_see_board if true uses {query_wanna_see_board}, otherwise {query_see_board}
  * @param bool $include_recycle if false excludes any results from the recycle board (if enabled)
- *
- * @return array
- * @package Boards
- *
  */
 function boardsPosts($boards, $categories, $wanna_see_board = false, $include_recycle = true)
 {
@@ -1462,24 +1725,20 @@ function boardsPosts($boards, $categories, $wanna_see_board = false, $include_re
 	}
 
 	if (empty($clauses))
-	{
 		return array();
-	}
 
-	$return = array();
-	$db->fetchQuery('
-		SELECT 
-			b.id_board, b.num_posts
+	$request = $db->query('', '
+		SELECT b.id_board, b.num_posts
 		FROM {db_prefix}boards AS b
 		WHERE ' . ($wanna_see_board ? '{query_wanna_see_board}' : '{query_see_board}') . '
 			AND b.' . implode(' OR b.', $clauses) . (!empty($removals) ? '
 			AND b.' . implode(' AND b.', $removals) : ''),
 		$clauseParameters
-	)->fetch_callback(
-		function ($row) use (&$return) {
-			$return[$row['id_board']] = $row['num_posts'];
-		}
 	);
+	$return = array();
+	while ($row = $db->fetch_assoc($request))
+		$return[$row['id_board']] = $row['num_posts'];
+	$db->free_result($request);
 
 	return $return;
 }
@@ -1495,8 +1754,7 @@ function sumRecentPosts()
 	global $modSettings;
 
 	$request = $db->query('', '
-		SELECT 
-			COALESCE(SUM(num_posts), 0)
+		SELECT COALESCE(SUM(num_posts), 0)
 		FROM {db_prefix}boards as b
 		WHERE {query_wanna_see_board}' . (!empty($modSettings['recycle_enable']) && $modSettings['recycle_board'] > 0 ? '
 			AND b.id_board != {int:recycle_board}' : ''),
@@ -1504,8 +1762,8 @@ function sumRecentPosts()
 			'recycle_board' => $modSettings['recycle_board']
 		)
 	);
-	list ($result) = $request->fetch_row();
-	$request->free_result();
+	list ($result) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return $result;
 }
@@ -1513,6 +1771,7 @@ function sumRecentPosts()
 /**
  * Returns information of a set of boards based on board IDs or category IDs
  *
+ * @package Boards
  * @param mixed[]|string $conditions is an associative array that holds the board or the cat IDs
  *              'categories' => an array of category IDs (it accepts a single ID too)
  *              'boards' => an array of board IDs (it accepts a single ID too)
@@ -1523,14 +1782,10 @@ function sumRecentPosts()
  *                           Allowed values: 'name', 'posts', 'detailed', 'permissions', 'reports';
  *                           default: 'name';
  *                           see the function for details on the fields associated to each value
- *              'override_permissions' => (bool) if true doesn't use neither {query_wanna_see_board} nor
- *     {query_see_board} (default false)
+ *              'override_permissions' => (bool) if true doesn't use neither {query_wanna_see_board} nor {query_see_board} (default false)
  *              'wanna_see_board' => (bool) if true uses {query_wanna_see_board}, otherwise {query_see_board}
  *              'include_recycle' => (bool) recycle board is included (default true)
  *              'include_redirects' => (bool) redirects are included (default true)
- *
- * @return array
- * @package Boards
  *
  * @todo unify the two queries?
  */
@@ -1551,13 +1806,9 @@ function fetchBoardsInfo($conditions = 'all', $params = array())
 	);
 
 	if (!empty($params['sort_by']) && in_array($params['sort_by'], $allowed_sort))
-	{
 		$sort_by = 'ORDER BY ' . $params['sort_by'];
-	}
 	else
-	{
 		$sort_by = '';
-	}
 
 	// @todo: memos for optimization
 	/*
@@ -1568,8 +1819,8 @@ function fetchBoardsInfo($conditions = 'all', $params = array())
 	*/
 	$known_selects = array(
 		'name' => 'b.id_board, b.name',
-		'posts' => 'b.id_board, b.count_posts, b.old_posts, b.num_posts',
-		'detailed' => 'b.id_board, b.name, b.count_posts, b.old_posts, b.num_posts',
+		'posts' => 'b.id_board, b.count_posts, b.num_posts',
+		'detailed' => 'b.id_board, b.name, b.count_posts, b.num_posts',
 		'permissions' => 'b.id_board, b.name, b.member_groups, b.id_profile',
 		'reports' => 'b.id_board, b.name, b.member_groups, b.id_profile, b.deny_member_groups',
 	);
@@ -1577,7 +1828,7 @@ function fetchBoardsInfo($conditions = 'all', $params = array())
 	$select = $known_selects[empty($params['selects']) || !isset($known_selects[$params['selects']]) ? 'name' : $params['selects']];
 
 	// If $conditions wasn't set or is 'all', get all boards
-	if (!is_array($conditions) && $conditions === 'all')
+	if (!is_array($conditions) && $conditions == 'all')
 	{
 		// id_board, name, id_profile => used in admin/Reports.controller.php
 		$request = $db->query('', '
@@ -1604,19 +1855,13 @@ function fetchBoardsInfo($conditions = 'all', $params = array())
 		}
 
 		if ($params['override_permissions'])
-		{
 			$security = '1=1';
-		}
 		else
-		{
 			$security = $params['wanna_see_board'] ? '{query_wanna_see_board}' : '{query_see_board}';
-		}
 
 		// Prevent a bad query, from a triggered scheduled task or some other issue.
 		if (empty($security))
-		{
-			return [];
-		}
+			return array();
 
 		$request = $db->query('', '
 			SELECT ' . $select . '
@@ -1633,11 +1878,10 @@ function fetchBoardsInfo($conditions = 'all', $params = array())
 		);
 	}
 	$return = array();
-	while (($row = $request->fetch_assoc()))
-	{
+	while ($row = $db->fetch_assoc($request))
 		$return[$row['id_board']] = $row;
-	}
-	$request->free_result();
+
+	$db->free_result($request);
 
 	return $return;
 }
@@ -1645,14 +1889,14 @@ function fetchBoardsInfo($conditions = 'all', $params = array())
 /**
  * Retrieve the all the sub-boards of an array of boards and add the ids to the same array
  *
+ * @package Boards
  * @param int[]|int $boards an array of board IDs (it accepts a single board too).
  * NOTE: the $boards param is deprecated since 1.1 - The param is passed by ref in 1.0 and the result
  * is returned through the param itself, starting from 1.1 the expected behaviour
- * is that the result is returned.
- * @return bool|int[]
- * @package Boards
+ * is that the result is returned. The pass-by-ref is kept for backward compatibility.
+ * @return int[]
  */
-function addChildBoards($boards)
+function addChildBoards(&$boards)
 {
 	$db = database();
 
@@ -1666,8 +1910,8 @@ function addChildBoards($boards)
 		$boards = array($boards);
 	}
 
-	$db->fetchQuery('
-		SELECT
+	$request = $db->query('', '
+		SELECT 
 			b.id_board, b.id_parent
 		FROM {db_prefix}boards AS b
 		WHERE {query_see_board}
@@ -1679,14 +1923,15 @@ function addChildBoards($boards)
 			'no_parents' => 0,
 			'board_list' => $boards,
 		)
-	)->fetch_callback(
-		function ($row) use (&$boards) {
-			if (in_array($row['id_parent'], $boards))
-			{
-				$boards[] = $row['id_board'];
-			}
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+	{
+		if (in_array($row['id_parent'], $boards))
+		{
+			$boards[] = $row['id_board'];
+		}
+	}
+	$db->free_result($request);
 
 	return $boards;
 }
@@ -1694,9 +1939,9 @@ function addChildBoards($boards)
 /**
  * Increment a board stat field, for example num_posts.
  *
+ * @package Boards
  * @param int $id_board
  * @param mixed[]|string $values an array of index => value of a string representing the index to increment
- * @package Boards
  */
 function incrementBoard($id_board, $values)
 {
@@ -1723,9 +1968,7 @@ function incrementBoard($id_board, $values)
 	}
 
 	if (empty($set))
-	{
 		return;
-	}
 
 	$db->query('', '
 		UPDATE {db_prefix}boards
@@ -1740,9 +1983,9 @@ function incrementBoard($id_board, $values)
 /**
  * Decrement a board stat field, for example num_posts.
  *
+ * @package Boards
  * @param int $id_board
  * @param mixed[]|string $values an array of index => value of a string representing the index to decrement
- * @package Boards
  */
 function decrementBoard($id_board, $values)
 {
@@ -1769,9 +2012,7 @@ function decrementBoard($id_board, $values)
 	}
 
 	if (empty($set))
-	{
 		return;
-	}
 
 	$db->query('', '
 		UPDATE {db_prefix}boards
@@ -1790,42 +2031,39 @@ function decrementBoard($id_board, $values)
  * or they're not.
  * - (used by createList() callbacks)
  *
+ * @package Boards
+ * @param int $start The item to start with (for pagination purposes)
+ * @param int $items_per_page  The number of items to show per page
  * @param string $sort A string indicating how to sort the results
  * @param int $memID id_member
- *
  * @return array
- * @package Boards
- *
  */
-function boardNotifications($sort, $memID)
+function boardNotifications($start, $items_per_page, $sort, $memID)
 {
-	global $modSettings;
+	global $scripturl, $user_info, $modSettings;
 
 	$db = database();
 
 	// All the boards that you have notification enabled
-	$notification_boards = $db->fetchQuery('
-		SELECT 
-			b.id_board, b.name, COALESCE(lb.id_msg, 0) AS board_read, b.id_msg_updated
+	$notification_boards = $db->fetchQueryCallback('
+		SELECT b.id_board, b.name, COALESCE(lb.id_msg, 0) AS board_read, b.id_msg_updated
 		FROM {db_prefix}log_notify AS ln
-		INNER JOIN {db_prefix}boards AS b ON (b.id_board = ln.id_board)
-		LEFT JOIN {db_prefix}log_boards AS lb ON (lb.id_board = b.id_board AND lb.id_member = {int:current_member})
+			INNER JOIN {db_prefix}boards AS b ON (b.id_board = ln.id_board)
+			LEFT JOIN {db_prefix}log_boards AS lb ON (lb.id_board = b.id_board AND lb.id_member = {int:current_member})
 		WHERE ln.id_member = {int:selected_member}
 			AND {query_see_board}
 		ORDER BY ' . $sort,
 		array(
-			'current_member' => User::$info->id,
+			'current_member' => $user_info['id'],
 			'selected_member' => $memID,
-		)
-	)->fetch_callback(
-		function ($row) {
-			$href = getUrl('board', ['board' => $row['id_board'], 'start' => '0', 'name' => $row['name']]);
-
+		),
+		function ($row) use ($scripturl)
+		{
 			return array(
 				'id' => $row['id_board'],
 				'name' => $row['name'],
-				'href' => $href,
-				'link' => '<a href="' . $href . '"><strong>' . $row['name'] . '</strong></a>',
+				'href' => $scripturl . '?board=' . $row['id_board'] . '.0',
+				'link' => '<a href="' . $scripturl . '?board=' . $row['id_board'] . '.0"><strong>' . $row['name'] . '</strong></a>',
 				'new' => $row['board_read'] < $row['id_msg_updated'],
 				'checked' => 'checked="checked"',
 			);
@@ -1833,9 +2071,8 @@ function boardNotifications($sort, $memID)
 	);
 
 	// and all the boards that you can see but don't have notify turned on for
-	$db->fetchQuery('
-		SELECT 
-			b.id_board, b.name, COALESCE(lb.id_msg, 0) AS board_read, b.id_msg_updated
+	$request = $db->query('', '
+		SELECT b.id_board, b.name, COALESCE(lb.id_msg, 0) AS board_read, b.id_msg_updated
 		FROM {db_prefix}boards AS b
 			LEFT JOIN {db_prefix}log_notify AS ln ON (ln.id_board = b.id_board AND ln.id_member = {int:selected_member})
 			LEFT JOIN {db_prefix}log_boards AS lb ON (lb.id_board = b.id_board AND lb.id_member = {int:current_member})
@@ -1845,22 +2082,20 @@ function boardNotifications($sort, $memID)
 		ORDER BY ' . $sort,
 		array(
 			'selected_member' => $memID,
-			'current_member' => User::$info->id,
+			'current_member' => $user_info['id'],
 			'recycle_board' => $modSettings['recycle_board'],
 		)
-	)->fetch_callback(
-		function ($row) use (&$notification_boards) {
-			$href = getUrl('board', ['board' => $row['id_board'], 'start' => '0', 'name' => $row['name']]);
-			$notification_boards[] = array(
-				'id' => $row['id_board'],
-				'name' => $row['name'],
-				'href' => $href,
-				'link' => '<a href="' . $href . '">' . $row['name'] . '</a>',
-				'new' => $row['board_read'] < $row['id_msg_updated'],
-				'checked' => '',
-			);
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+		$notification_boards[] = array(
+			'id' => $row['id_board'],
+			'name' => $row['name'],
+			'href' => $scripturl . '?board=' . $row['id_board'] . '.0',
+			'link' => '<a href="' . $scripturl . '?board=' . $row['id_board'] . '.0">' . $row['name'] . '</a>',
+			'new' => $row['board_read'] < $row['id_msg_updated'],
+			'checked' => '',
+		);
+	$db->free_result($request);
 
 	return $notification_boards;
 }
@@ -1868,6 +2103,7 @@ function boardNotifications($sort, $memID)
 /**
  * Count boards all or specific depending on argument, redirect boards excluded by default.
  *
+ * @package Boards
  * @param mixed[]|string $conditions is an associative array that holds the board or the cat IDs
  *              'categories' => an array of category IDs (it accepts a single ID too)
  *              'boards' => an array of board IDs (it accepts a single ID too)
@@ -1877,7 +2113,6 @@ function boardNotifications($sort, $memID)
  *              'include_recycle' => (bool) recycle board is included (default true)
  *              'include_redirects' => (bool) redirects are included (default true)
  * @return int
- * @package Boards
  */
 function countBoards($conditions = 'all', $params = array())
 {
@@ -1892,12 +2127,11 @@ function countBoards($conditions = 'all', $params = array())
 	$clauseParameters = array();
 
 	// if $conditions wasn't set or is 'all', get all boards
-	if (!is_array($conditions) && $conditions === 'all')
+	if (!is_array($conditions) && $conditions == 'all')
 	{
 		// id_board, name, id_profile => used in admin/Reports.controller.php
 		$request = $db->query('', '
-			SELECT 
-				COUNT(*)
+			SELECT COUNT(*)
 			FROM {db_prefix}boards AS b',
 			array()
 		);
@@ -1919,8 +2153,7 @@ function countBoards($conditions = 'all', $params = array())
 		}
 
 		$request = $db->query('', '
-			SELECT 
-				COUNT(*)
+			SELECT COUNT(*)
 			FROM {db_prefix}boards AS b
 			WHERE ' . ($params['wanna_see_board'] ? '{query_wanna_see_board}' : '{query_see_board}') . (!empty($clauses) ? '
 				AND b.' . implode(' OR b.', $clauses) : '') . ($params['include_recycle'] ? '' : '
@@ -1933,8 +2166,8 @@ function countBoards($conditions = 'all', $params = array())
 		);
 	}
 
-	list ($num_boards) = $request->fetch_row();
-	$request->free_result();
+	list ($num_boards) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	return $num_boards;
 }

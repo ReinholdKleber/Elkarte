@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -17,24 +18,22 @@
  */
 function template_whos_selection_above()
 {
-	global $context, $txt;
+	global $context, $scripturl, $txt;
 
-	// Display the table header and breadcrumbs.
+	// Display the table header and linktree.
 	echo '
 	<div id="whos_online">
-		<form action="', getUrl('action', ['action' => 'who']), '" method="post" id="whoFilter" accept-charset="UTF-8">
+		<form action="', $scripturl, '?action=who" method="post" id="whoFilter" accept-charset="UTF-8">
 			<h2 class="category_header">', $txt['who_title'], '</h2>';
 
 	$extra = '
-			<div class="selectbox flow_flex_right">
+			<div class="selectbox floatright">
 				<label for="show_top">' . $txt['who_show1'] . '</label>
 				<select name="show_top" id="show_top" onchange="document.forms.whoFilter.show.value = this.value; document.forms.whoFilter.submit();">';
 
 	foreach ($context['show_methods'] as $value => $label)
-	{
 		$extra .= '
 					<option value="' . $value . '" ' . ($value == $context['show_by'] ? ' selected="selected"' : '') . '>' . $label . '</option>';
-	}
 
 	$extra .= '
 				</select>
@@ -77,10 +76,8 @@ function template_whos_online()
 							</span>';
 
 		if (!empty($member['ip']))
-		{
 			echo '
-							<a class="track_ip" href="' . $member['track_href'] . '">(' . $member['ip'] . ')</a>';
-		}
+							<a class="track_ip" href="' . $scripturl . '?action=', ($member['is_guest'] ? 'trackip' : 'profile;area=history;sa=ip;u=' . $member['id']), ';searchip=' . $member['ip'] . '">' . $member['ip'] . '</a>';
 
 		echo '
 						</div>
@@ -94,12 +91,10 @@ function template_whos_online()
 
 	// No members?
 	if (empty($context['members']))
-	{
 		echo '
 				<div class="well centertext">
 					', $txt['who_no_online_' . ($context['show_by'] == 'guests' || $context['show_by'] == 'spiders' ? $context['show_by'] : 'members')], '
 				</div>';
-	}
 
 	echo '
 			</div>';
@@ -113,15 +108,12 @@ function template_whos_selection_below()
 	global $context, $txt;
 
 	$extra = '
-			<div class="selectbox flow_flex_right">
-				<label for="show">' . $txt['who_show1'] . '</label>
+			<div class="selectbox floatright"><label for="show">' . $txt['who_show1'] . '</label>
 				<select name="show" id="show" onchange="document.forms.whoFilter.submit();">';
 
 	foreach ($context['show_methods'] as $value => $label)
-	{
 		$extra .= '
 					<option value="' . $value . '" ' . ($value == $context['show_by'] ? ' selected="selected"' : '') . '>' . $label . '</option>';
-	}
 
 	$extra .= '
 				</select>
@@ -134,5 +126,135 @@ function template_whos_selection_below()
 
 	echo '
 		</form>
+	</div>';
+}
+
+/**
+ * Display the credits page.
+ */
+function template_credits()
+{
+	global $context, $txt;
+
+	// The most important part - the credits :P.
+	echo '
+	<div id="credits">
+		<h2 class="category_header">', $txt['credits'], '</h2>';
+
+	foreach ($context['credits'] as $section)
+	{
+		if (isset($section['pretext']))
+			echo '
+		<div class="content">
+			', $section['pretext'], '
+		</div>';
+
+		if (isset($section['title']))
+			echo '
+			<h2 class="category_header">', $section['title'], '</h2>';
+
+		echo '
+		<div class="content">
+			<dl>';
+
+		foreach ($section['groups'] as $group)
+		{
+			if (isset($group['title']))
+				echo '
+				<dt>
+					<strong>', $group['title'], '</strong>
+				</dt>
+				<dd>';
+
+			// Try to make this read nicely.
+			if (count($group['members']) <= 2)
+				echo implode(' ' . $txt['credits_and'] . ' ', $group['members']);
+			else
+			{
+				$last_peep = array_pop($group['members']);
+				echo implode(', ', $group['members']), ' ', $txt['credits_and'], ' ', $last_peep;
+			}
+
+			echo '
+				</dd>';
+		}
+
+		echo '
+			</dl>';
+
+		if (isset($section['posttext']))
+			echo '
+			<p><em>', $section['posttext'], '</em></p>';
+
+		echo '
+		</div>';
+	}
+
+	// Other software and graphics
+	if (!empty($context['credits_software_graphics']))
+	{
+		echo '
+		<h2 class="category_header">', $txt['credits_software_graphics'], '</h2>
+		<div class="content">';
+
+		foreach ($context['credits_software_graphics'] as $section => $credits)
+			echo '
+			<dl>
+				<dt>
+					<strong>', $txt['credits_' . $section], '</strong>
+				</dt>
+				<dd>', implode('</dd><dd>', $credits), '</dd>
+			</dl>';
+
+		echo '
+		</div>';
+	}
+
+	// Addons credits, copyright, license
+	if (!empty($context['credits_addons']))
+	{
+		echo '
+		<h2 class="category_header">', $txt['credits_addons'], '</h2>
+		<div class="content">';
+
+		echo '
+			<dl>
+				<dt>
+					<strong>', $txt['credits_addons'], '</strong>
+				</dt>
+				<dd>', implode('</dd><dd>', $context['credits_addons']), '</dd>
+			</dl>';
+
+		echo '
+		</div>';
+	}
+
+	// ElkArte !
+	echo '
+		<h2 class="category_header">', $txt['credits_copyright'], '</h2>
+		<div class="content">
+			<dl>
+				<dt>
+					<strong>', $txt['credits_forum'], '</strong>
+				</dt>
+				<dd>', $context['copyrights']['elkarte'];
+
+	echo '
+				</dd>
+			</dl>';
+
+	if (!empty($context['copyrights']['addons']))
+	{
+		echo '
+			<dl>
+				<dt>
+					<strong>', $txt['credits_addons'], '</strong>
+				</dt>
+				<dd>', implode('</dd><dd>', $context['copyrights']['addons']), '</dd>
+			</dl>';
+	}
+
+	echo '
+		</div>
 	</div>';
 }

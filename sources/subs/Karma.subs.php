@@ -3,19 +3,19 @@
 /**
  * This file contains the database work for karma.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
 /**
  * Remove old karma from the log
  *
- * @param int $karmaWaitTime
  * @package Karma
+ * @param int $karmaWaitTime
  */
 function clearKarma($karmaWaitTime)
 {
@@ -35,11 +35,9 @@ function clearKarma($karmaWaitTime)
 /**
  * Last action this user has done
  *
+ * @package Karma
  * @param int $id_executor
  * @param int $id_target
- *
- * @return null
- * @package Karma
  */
 function lastActionOn($id_executor, $id_target)
 {
@@ -47,8 +45,7 @@ function lastActionOn($id_executor, $id_target)
 
 	// Find out if this user has done this recently...
 	$request = $db->query('', '
-		SELECT 
-			action
+		SELECT action
 		FROM {db_prefix}log_karma
 		WHERE id_target = {int:id_target}
 			AND id_executor = {int:current_member}
@@ -58,29 +55,27 @@ function lastActionOn($id_executor, $id_target)
 			'id_target' => $id_target,
 		)
 	);
-	if ($request->num_rows() > 0)
-	{
-		list ($action) = $request->fetch_row();
-	}
-	$request->free_result();
+	if ($db->num_rows($request) > 0)
+		list ($action) = $db->fetch_row($request);
+	$db->free_result($request);
 
-	return $action ?? null;
+	return isset($action) ? $action : null;
 }
 
 /**
  * Add a karma action, from executor to target.
  *
+ * @package Karma
  * @param int $id_executor
  * @param int $id_target
  * @param int $direction - options: -1 or 1
- * @package Karma
  */
 function addKarma($id_executor, $id_target, $direction)
 {
 	$db = database();
 
 	// Put it in the log.
-	$db->replace(
+	$db->insert('replace',
 		'{db_prefix}log_karma',
 		array('action' => 'int', 'id_target' => 'int', 'id_executor' => 'int', 'log_time' => 'int'),
 		array($direction, $id_target, $id_executor, time()),
@@ -95,10 +90,10 @@ function addKarma($id_executor, $id_target, $direction)
 /**
  * Update a former karma action from executor to target.
  *
+ * @package Karma
  * @param int $id_executor
  * @param int $id_target
  * @param int $direction - options: -1 or 1
- * @package Karma
  */
 function updateKarma($id_executor, $id_target, $direction)
 {
@@ -107,8 +102,7 @@ function updateKarma($id_executor, $id_target, $direction)
 	// You decided to go back on your previous choice?
 	$db->query('', '
 		UPDATE {db_prefix}log_karma
-		SET 
-			action = {int:action}, log_time = {int:current_time}
+		SET action = {int:action}, log_time = {int:current_time}
 		WHERE id_target = {int:id_target}
 			AND id_executor = {int:current_member}',
 		array(
@@ -122,11 +116,7 @@ function updateKarma($id_executor, $id_target, $direction)
 	// It was recently changed the OTHER way... so... reverse it!
 	require_once(SUBSDIR . '/Members.subs.php');
 	if ($direction == 1)
-	{
 		updateMemberData($_REQUEST['uid'], array('karma_good' => '+', 'karma_bad' => '-'));
-	}
 	else
-	{
 		updateMemberData($_REQUEST['uid'], array('karma_bad' => '+', 'karma_good' => '-'));
-	}
 }

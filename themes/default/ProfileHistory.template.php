@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -17,7 +18,7 @@
  */
 function template_trackActivity()
 {
-	global $context, $txt;
+	global $context, $scripturl, $txt;
 
 	// The first table shows IP information about the user.
 	echo '
@@ -31,17 +32,15 @@ function template_trackActivity()
 					<dl class="noborder">
 						<dt>', $txt['most_recent_ip'], ':
 							', (empty($context['last_ip2']) ? '' : '<br />
-							<span class="smalltext">(<a href="' . getUrl('action', ['action' => 'quickhelp', 'help' => 'whytwoip']) . '" onclick="return reqOverlayDiv(this.href);">' . $txt['why_two_ip_address'] . '</a>)</span>'), '
+							<span class="smalltext">(<a href="' . $scripturl . '?action=quickhelp;help=whytwoip" onclick="return reqOverlayDiv(this.href);">' . $txt['why_two_ip_address'] . '</a>)</span>'), '
 						</dt>
 						<dd>
-							<a href="', getUrl('action', ['action' => 'profile', 'area' => 'history', 'sa' => 'ip', 'searchip' => $context['last_ip'], 'u' => $context['member']['id']]), '">', $context['last_ip'], '</a>';
+							<a href="', $scripturl, '?action=profile;area=history;sa=ip;searchip=', $context['last_ip'], ';u=', $context['member']['id'], '">', $context['last_ip'], '</a>';
 
 	// Second address detected?
 	if (!empty($context['last_ip2']))
-	{
 		echo '
-							, <a href="', getUrl('action', ['action' => 'profile', 'area' => 'history', 'sa' => 'ip', 'searchip' => $context['last_ip2'], 'u' => $context['member']['id']]), '">', $context['last_ip2'], '</a>';
-	}
+							, <a href="', $scripturl, '?action=profile;area=history;sa=ip;searchip=', $context['last_ip2'], ';u=', $context['member']['id'], '">', $context['last_ip2'], '</a>';
 
 	echo '
 						</dd>';
@@ -110,10 +109,8 @@ function template_trackIP()
 			<div class="content">';
 
 		foreach ($context['whois_servers'] as $server)
-		{
 			echo '
 					<a href="', $server['url'], '" target="_blank" class="new_win">', $server['name'], '</a><br />';
-		}
 
 		echo '
 			</div>';
@@ -124,10 +121,8 @@ function template_trackIP()
 		<h2 class="category_header">', $txt['members_from_ip'], ' ', $context['ip'], '</h2>';
 
 	if (empty($context['ips']))
-	{
 		echo '
 		<p class="description"><em>', $txt['no_members_from_ip'], '</em></p>';
-	}
 	else
 	{
 		echo '
@@ -142,13 +137,11 @@ function template_trackIP()
 
 		// Loop through each of the members and display them.
 		foreach ($context['ips'] as $ip => $memberlist)
-		{
 			echo '
 				<tr>
 					<td><a href="', $context['base_url'], ';searchip=', $ip, '">', $ip, '</a></td>
 					<td>', implode(', ', $memberlist), '</td>
 				</tr>';
-		}
 
 		echo '
 			</tbody>

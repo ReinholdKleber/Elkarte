@@ -1,16 +1,25 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
+
+/**
+ * Have the generic templates available
+ */
+function template_MoveTopic_init()
+{
+	loadTemplate('GenericHelpers');
+}
 
 /**
  * Show an interface for selecting which board to move a post to.
@@ -48,7 +57,7 @@ function template_move_topic()
 							</dl>
 							<label for="enforce_subject"><input type="checkbox" name="enforce_subject" id="enforce_subject" /> ', $txt['moveTopic4'], '.</label>
 						</fieldset>
-						<label for="postRedirect"><input type="checkbox" name="postRedirect" id="postRedirect" ', $context['is_approved'] ? 'checked="checked"' : '', ' onclick="', $context['is_approved'] ? '' : "if (this.checked && !confirm('" . $txt['move_topic_unapproved_js'] . "')) return false; ", 'document.getElementById(\'reasonArea\').style.display = this.checked ? \'block\' : \'none\';" /> ', $txt['moveTopic1'], '.</label>
+						<label for="postRedirect"><input type="checkbox" name="postRedirect" id="postRedirect" ', $context['is_approved'] ? 'checked="checked"' : '', ' onclick="', $context['is_approved'] ? '' : 'if (this.checked && !confirm(\'' . $txt['move_topic_unapproved_js'] . '\')) return false; ', 'document.getElementById(\'reasonArea\').style.display = this.checked ? \'block\' : \'none\';" /> ', $txt['moveTopic1'], '.</label>
 						<fieldset id="reasonArea" class="', $context['is_approved'] ? '' : 'hide', '">
 							<dl class="settings">
 								<dt>
@@ -61,7 +70,7 @@ function template_move_topic()
 									<label for="redirect_topic">', $txt['movetopic_redirect'], '</label>
 								</dt>
 								<dd>
-									<input type="checkbox" name="redirect_topic" id="redirect_topic" ', empty($context['redirect_topic']) ? '' : 'checked="checked"', ' />
+									<input type="checkbox" name="redirect_topic" id="redirect_topic" ', !empty($context['redirect_topic']) ? 'checked="checked"' : '', ' />
 								</dd>
 								<dt>
 									<label for="redirect_expires">', $txt['movetopic_expires'], '</label>
@@ -86,10 +95,8 @@ function template_move_topic()
 			</div>';
 
 	if ($context['back_to_topic'])
-	{
 		echo '
 			<input type="hidden" name="goback" value="1" />';
-	}
 
 	echo '
 			<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />

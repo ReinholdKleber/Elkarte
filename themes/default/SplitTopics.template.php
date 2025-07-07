@@ -1,16 +1,25 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
+
+/**
+ * Generic reuse templates is where its at
+ */
+function template_SplitTopics_init()
+{
+	loadTemplate('GenericHelpers');
+}
 
 /**
  * Show an interface to ask the user the options for split topics.
@@ -57,7 +66,6 @@ function template_ask()
 					</fieldset>';
 
 	if (!empty($context['can_move']))
-	{
 		echo '
 					<p>
 						<label for="move_new_topic">
@@ -67,7 +75,6 @@ function template_ask()
 							document.getElementById(\'board_list\').style.display = \'none\';
 						</script>
 					</p>';
-	}
 
 	echo '
 					<div class="submitbutton">
@@ -125,19 +132,17 @@ function template_select()
 				<ul id="messages_not_selected" class="split_messages smalltext">';
 
 	foreach ($context['not_selected']['messages'] as $message)
-	{
 		echo '
 					<li id="not_selected_', $message['id'], '">
 						<div class="content">
 							<div class="message_header">
-								<a class="split_icon floatright" href="', $scripturl, '?action=splittopics;sa=selectTopics;subname=', $context['topic']['subject'], ';topic=', $context['topic']['id'], '.', $context['not_selected']['start'], ';start2=', $context['selected']['start'], ';move=down;msg=', $message['id'], '" onclick="return topicSplitselect(\'down\', ', $message['id'], ');"><i class="icon icon-big i-chevron-circle-right"></i></a>
+								<a class="split_icon floatright" href="', $scripturl, '?action=splittopics;sa=selectTopics;subname=', $context['topic']['subject'], ';topic=', $context['topic']['id'], '.', $context['not_selected']['start'], ';start2=', $context['selected']['start'], ';move=down;msg=', $message['id'], '" onclick="return topicSplitselect(\'down\', ', $message['id'], ');"><i class="icon icon-lg i-chevron-circle-right"></i></a>
 								<strong>', $message['subject'], '</strong> ', $txt['by'], ' <strong>', $message['poster'], '</strong><br />
 								<em>', $message['time'], '</em>
 							</div>
 							<div class="post">', $message['body'], '</div>
 						</div>
 					</li>';
-	}
 
 	echo '
 					<li class="dummy"></li>
@@ -155,19 +160,17 @@ function template_select()
 	if (!empty($context['selected']['messages']))
 	{
 		foreach ($context['selected']['messages'] as $message)
-		{
 			echo '
 					<li id="selected_', $message['id'], '">
 						<div class="content">
 							<div class="message_header">
-								<a class="split_icon floatleft" href="', $scripturl, '?action=splittopics;sa=selectTopics;subname=', $context['topic']['subject'], ';topic=', $context['topic']['id'], '.', $context['not_selected']['start'], ';start2=', $context['selected']['start'], ';move=up;msg=', $message['id'], '" onclick="return topicSplitselect(\'up\', ', $message['id'], ');"><i class="icon icon-big i-chevron-circle-left"></i></a>
+								<a class="split_icon floatleft" href="', $scripturl, '?action=splittopics;sa=selectTopics;subname=', $context['topic']['subject'], ';topic=', $context['topic']['id'], '.', $context['not_selected']['start'], ';start2=', $context['selected']['start'], ';move=up;msg=', $message['id'], '" onclick="return topicSplitselect(\'up\', ', $message['id'], ');"><i class="icon icon-lg i-chevron-circle-left"></i></a>
 								<strong>', $message['subject'], '</strong> ', $txt['by'], ' <strong>', $message['poster'], '</strong><br />
 								<em>', $message['time'], '</em>
 							</div>
 							<div class="post">', $message['body'], '</div>
 						</div>
 					</li>';
-		}
 	}
 
 	echo '

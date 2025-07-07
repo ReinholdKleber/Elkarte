@@ -3,11 +3,11 @@
 /**
  * Templates for the PBE maillist function
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
 
@@ -72,14 +72,12 @@ function template_bounce_email()
 			// Otherwise see what we can do...';
 
 	foreach ($context['bounce_templates'] as $k => $type)
-	{
 		echo '
 			if (index == ', $k, ')
 			{
 				document.getElementById(\'warn_body\').value = "', strtr($type['body'], array('"' => "'", "\n" => '\\n', "\r" => '')), '";
 				document.getElementById(\'warn_sub\').value = "', strtr($type['subject'], array('"' => "'", "\n" => '\\n', "\r" => '')), '";
 			}';
-	}
 
 	echo '
 		}
@@ -88,16 +86,14 @@ function template_bounce_email()
 
 	echo '
 	<form id="admin_form_wrapper" action="', $scripturl, '?action=admin;area=maillist;sa=bounce" method="post" class="flow_hidden" accept-charset="UTF-8">
-		<h2 class="category_header hdicon i-envelope">
+		<h2 class="category_header hdicon cat_img_mail">
 			', $txt['show_notice'], '
 		</h2>';
 
 	// Any special messages?
 	if (!empty($context['settings_message']))
-	{
 		echo '
 			<div class="successbox">', $context['settings_message'], '</div>';
-	}
 
 	// The main body
 	echo '
@@ -129,10 +125,8 @@ function template_bounce_email()
 						<option value="-1" disabled="disabled">', str_repeat('&#8212;', strlen($txt['bounce_notify_template'])), '</option>';
 
 	foreach ($context['bounce_templates'] as $id_template => $template)
-	{
 		echo '
 							<option value="', $id_template, '">&#10148;&nbsp;', $template['title'], '</option>';
-	}
 
 	echo '
 					</select>
@@ -196,10 +190,8 @@ function template_callback_maillist_receive_email_list()
 				<select class="input_select" name="boardto[', $data['id'], ']" >';
 
 		foreach ($context['boards'] as $board_id => $board_name)
-		{
 			echo '
 					<option value="', $board_id, '"', (($data['boardto'] == $board_id) ? ' selected="selected"' : ''), '>', $board_name, '</option>';
-		}
 
 		echo '
 				</select>
@@ -219,10 +211,8 @@ function template_callback_maillist_receive_email_list()
 				<select name="boardto[', $count, ']" >';
 
 			foreach ($context['boards'] as $board_id => $board_name)
-			{
 				echo '
 					<option value="', $board_id, '">', $board_name, '</option>';
-			}
 
 			echo '
 				</select>
@@ -234,7 +224,7 @@ function template_callback_maillist_receive_email_list()
 		<dt id="add_more_email_placeholder" class="hide"></dt>
 		<dd></dd>
 		<dt id="add_more_board_div" class="hide">
-			<a href="#" onclick="addAnotherOption(sEmailParent, oEmailOptionsdt, oEmailOptionsdd, oEmailSelectData); return false;" class="linkbutton floatleft">', $txt['reply_add_more'], '</a>
+			<a href="#" onclick="addAnotherOption(sEmailParent, oEmailOptionsdt, oEmailOptionsdd, oEmailSelectData); return false;" class="linkbutton_left">', $txt['reply_add_more'], '</a>
 		</dt>
 		<dd></dd>';
 }
@@ -296,7 +286,6 @@ function template_bounce_template()
 			</dl>';
 
 	if ($context['template_data']['can_edit_personal'])
-	{
 		echo '
 			<input type="checkbox" name="make_personal" id="make_personal" ', $context['template_data']['personal'] ? 'checked="checked"' : '', ' />
 				<label for="make_personal">
@@ -304,7 +293,6 @@ function template_bounce_template()
 				</label>
 				<br />
 				<span class="smalltext">', $txt['ml_bounce_template_personal_desc'], '</span>';
-	}
 
 	echo '
 			<div class="submitbutton">
@@ -317,7 +305,7 @@ function template_bounce_template()
 	</form>
 	<script>
 		$(function() {
-			$("#preview_button").on("click", function() {
+			$("#preview_button").click(function() {
 				return ajax_getEmailTemplatePreview();
 			});
 		});

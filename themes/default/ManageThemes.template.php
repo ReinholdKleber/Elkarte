@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -28,7 +29,7 @@ function template_manage_themes()
 		<div id="admin_form_wrapper">
 			<form action="', $scripturl, '?action=admin;area=theme;sa=admin" method="post" accept-charset="UTF-8">
 				<h2 class="category_header">
-					<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=theme_forum_theme" onclick="return reqOverlayDiv(this.href);" id="theme_forum_theme" title="', $txt['help'], '"></a> ', $txt['theme_forum_theme'], '
+					<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=theme_forum_theme" onclick="return reqOverlayDiv(this.href);" id="theme_forum_theme" title="', $txt['help'], '"></a> ', $txt['theme_forum_theme'], '
 				</h2>
 				<div class="content">
 					<dl class="settings">
@@ -37,7 +38,7 @@ function template_manage_themes()
 						</dt>
 						<dd>
 							<input type="hidden" value="0" name="options[theme_allow]">
-							<input type="checkbox" name="options[theme_allow]" id="options-theme_allow" value="1"', empty($modSettings['theme_allow']) ? '' : ' checked="checked"', ' />
+							<input type="checkbox" name="options[theme_allow]" id="options-theme_allow" value="1"', !empty($modSettings['theme_allow']) ? ' checked="checked"' : '', ' />
 						</dd>
 						<dt>
 							<label for="known_themes_list">', $txt['themeadmin_selectable'], '</label>
@@ -48,12 +49,10 @@ function template_manage_themes()
 								<ul id="known_themes_list_ul">';
 
 	foreach ($context['themes'] as $theme)
-	{
 		echo '
 									<li>
 										<label for="options-known_themes_', $theme['id'], '"><input type="checkbox" name="options[known_themes][]" id="options-known_themes_', $theme['id'], '" value="', $theme['id'], '"', $theme['known'] ? ' checked="checked"' : '', ' /> ', $theme['name'], '</label>
 									</li>';
-	}
 
 	echo '
 								</ul>
@@ -67,16 +66,12 @@ function template_manage_themes()
 
 	// Put an option for each theme in the select box.
 	foreach ($context['themes'] as $theme)
-	{
 		echo '
 								<option value="', $theme['id'], '"', $modSettings['theme_guests'] == $theme['id'] ? ' selected="selected"' : '', '>', $theme['name'], '</option>';
-	}
 
 	echo '
 							</select>
-							<span class="smalltext pick_theme">
-								<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;sa=pick;u=-1;', $context['session_var'], '=', $context['session_id'], '">', $txt['theme_select'], '</a>
-							</span>
+							<span class="smalltext pick_theme"><a href="', $scripturl, '?action=theme;sa=pick;u=-1;', $context['session_var'], '=', $context['session_id'], '">', $txt['theme_select'], '</a></span>
 						</dd>
 						<dt>
 							<label for="theme_reset">', $txt['theme_reset'], '</label>
@@ -88,16 +83,12 @@ function template_manage_themes()
 
 	// Same thing, this time for changing the theme of everyone.
 	foreach ($context['themes'] as $theme)
-	{
 		echo '
 								<option value="', $theme['id'], '">', $theme['name'], '</option>';
-	}
 
 	echo '
 							</select>
-							<span class="smalltext pick_theme">
-								<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;sa=pick;u=0;', $context['session_var'], '=', $context['session_id'], '">', $txt['theme_select'], '</a>
-							</span>
+							<span class="smalltext pick_theme"><a href="', $scripturl, '?action=theme;sa=pick;u=0;', $context['session_var'], '=', $context['session_id'], '">', $txt['theme_select'], '</a></span>
 						</dd>
 					</dl>
 					<div class="submitbutton">
@@ -110,24 +101,21 @@ function template_manage_themes()
 
 	echo '
 			<h2 class="category_header">
-				<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=theme_install" onclick="return reqOverlayDiv(this.href);" id="theme_install" title="', $txt['help'], '"></a> ', $txt['theme_install'], '
+				<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=theme_install" onclick="return reqOverlayDiv(this.href);" id="theme_install" title="', $txt['help'], '"></a> ', $txt['theme_install'], '
 			</h2>
 			<form action="', $scripturl, '?action=admin;area=theme;sa=install" method="post" accept-charset="UTF-8" enctype="multipart/form-data" onsubmit="return confirm(\'', $txt['theme_install_new_confirm'], '\');">
 				<div class="content">';
 
 	// Warn them if theme creation isn't possible!
 	if (!$context['can_create_new'])
-	{
 		echo '
 					<div class="errorbox">', $txt['theme_install_writable'], '</div>';
-	}
 
 	echo '
 					<dl class="settings">';
 
 	// Here's a little box for installing a new theme.
 	if ($context['can_create_new'])
-	{
 		echo '
 						<dt>
 							<label for="theme_gz">', $txt['theme_install_file'], '</label>
@@ -135,7 +123,6 @@ function template_manage_themes()
 						<dd>
 							<input type="file" name="theme_gz" id="theme_gz" value="theme_gz" size="40" onchange="this.form.copy.disabled = this.value != \'\'; this.form.theme_dir.disabled = this.value != \'\';" class="input_file" />
 						</dd>';
-	}
 
 	echo '
 						<dt>
@@ -146,7 +133,6 @@ function template_manage_themes()
 						</dd>';
 
 	if ($context['can_create_new'])
-	{
 		echo '
 						<dt>
 							<label for="copy">', $txt['theme_install_new'], '</label>
@@ -154,7 +140,6 @@ function template_manage_themes()
 						<dd>
 							<input type="text" name="copy" id="copy" value="', $context['new_theme_name'], '" size="40" class="input_text" />
 						</dd>';
-	}
 
 	echo '
 					</dl>
@@ -174,7 +159,7 @@ function template_manage_themes()
  */
 function template_list_themes()
 {
-	global $context, $scripturl, $txt;
+	global $context, $settings, $scripturl, $txt;
 
 	echo '
 	<div id="admincenter">
@@ -191,21 +176,17 @@ function template_list_themes()
 		echo '
 			<div class="theme_', $theme['id'], '">
 				<h2 class="category_header">
-					', $theme['name'], '', empty($theme['version']) ? '' : ' <em>(' . $theme['version'] . ')</em>';
+					', $theme['name'], '', !empty($theme['version']) ? ' <em>(' . $theme['version'] . ')</em>' : '';
 
 		// You *cannot* delete the default theme. It's important!
 		if ($theme['id'] != 1)
-		{
 			echo '
 						<a class="delete_theme icon" data-theme_id="', $theme['id'], '" href="', $scripturl, '?action=admin;area=theme;sa=remove;th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';', $context['admin-tr_token_var'], '=', $context['admin-tr_token'], '">
-							<i class="icon i-delete" title="', $txt['theme_remove'], '"><s>', $txt['theme_remove'], '</s></i>
+							<img src="', $settings['images_url'], '/icons/delete.png" alt="', $txt['theme_remove'], '" title="', $txt['theme_remove'], '" />
 						</a>';
-		}
 		else
-		{
 			echo '
-						<a class="hdicon i-help help floatleft" href="' . $scripturl . '?action=quickhelp;help=themeadmin_delete_help" onclick="return reqOverlayDiv(this.href);" id="themeadmin_delete_help" title="' . $txt['help'] . '"></a>';
-		}
+						<a class="hdicon cat_img_helptopics help floatleft" href="' . $scripturl . '?action=quickhelp;help=themeadmin_delete_help" onclick="return reqOverlayDiv(this.href);" id="themeadmin_delete_help" title="' . $txt['help'] . '"></a>';
 
 		echo '
 				</h2>
@@ -223,7 +204,7 @@ function template_list_themes()
 
 	echo '
 			<h2 class="category_header">
-				<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=themeadmin_list_reset" onclick="return reqOverlayDiv(this.href);" id="themeadmin_list_reset" title="', $txt['help'], '"></a> ', $txt['themeadmin_list_reset'], '
+				<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=themeadmin_list_reset" onclick="return reqOverlayDiv(this.href);" id="themeadmin_list_reset" title="', $txt['help'], '"></a> ', $txt['themeadmin_list_reset'], '
 			</h2>
 			<dl class="content settings themes_list">
 				<dt>
@@ -246,7 +227,7 @@ function template_list_themes()
 			</div>
 		</form>
 	</div>';
-	theme()->addInlineJavascript('
+	addInlineJavascript('
 		initDeleteThemes();', true);
 }
 
@@ -293,7 +274,7 @@ function template_reset_list()
 }
 
 /**
- * Template to allow setting options.
+ * Template to allow to set options.
  */
 function template_set_options()
 {
@@ -319,14 +300,12 @@ function template_set_options()
 
 		// Show the change option box ?
 		if ($context['theme_options_reset'])
-		{
 			echo '
-						<select name="', empty($setting['default']) ? '' : 'default_', 'options_master[', $setting['id'], ']" onchange="this.form.options_', $setting['id'], '.disabled = this.selectedIndex != 1;">
+						<select name="', !empty($setting['default']) ? 'default_' : '', 'options_master[', $setting['id'], ']" onchange="this.form.options_', $setting['id'], '.disabled = this.selectedIndex != 1;">
 							<option value="0" selected="selected">', $txt['themeadmin_reset_options_none'], '</option>
 							<option value="1">', $txt['themeadmin_reset_options_change'], '</option>
 							<option value="2">', $txt['themeadmin_reset_options_default'], '</option>
 						</select>';
-		}
 
 		// Display checkbox options
 		if ($setting['type'] == 'checkbox')
@@ -334,16 +313,14 @@ function template_set_options()
 			echo '
 						<label for="options_', $setting['id'], '">', $setting['label'], '</label>';
 			if (isset($setting['description']))
-			{
 				echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-			}
 
 			echo '
 					</dt>
 					<dd>
-						<input type="hidden" name="' . (empty($setting['default']) ? '' : 'default_') . 'options[' . $setting['id'] . ']" value="0" />
-						<input type="checkbox" name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="options_', $setting['id'], '"', empty($setting['value']) ? '' : ' checked="checked"', $context['theme_options_reset'] ? ' disabled="disabled"' : '', ' value="1" class="input_check floatleft" />';
+						<input type="hidden" name="' . (!empty($setting['default']) ? 'default_' : '') . 'options[' . $setting['id'] . ']" value="0" />
+						<input type="checkbox" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="options_', $setting['id'], '"', !empty($setting['value']) ? ' checked="checked"' : '', $context['theme_options_reset'] ? ' disabled="disabled"' : '', ' value="1" class="input_check floatleft" />';
 		}
 		// How about selection lists, we all love them
 		elseif ($setting['type'] == 'list')
@@ -352,21 +329,17 @@ function template_set_options()
 						<label for="options_', $setting['id'], '">', $setting['label'], '</label>';
 
 			if (isset($setting['description']))
-			{
 				echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-			}
 
 			echo '
 					</dt>
 					<dd>
-						<select class="floatleft" name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="options_', $setting['id'], '"', $context['theme_options_reset'] ? ' disabled="disabled"' : '', '>';
+						<select class="floatleft" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="options_', $setting['id'], '"', $context['theme_options_reset'] ? ' disabled="disabled"' : '', '>';
 
 			foreach ($setting['options'] as $value => $label)
-			{
 				echo '
 							<option value="', $value, '"', $value == $setting['value'] ? ' selected="selected"' : '', '>', $label, '</option>';
-			}
 
 			echo '
 						</select>';
@@ -378,15 +351,13 @@ function template_set_options()
 						<label for="options_', $setting['id'], '">', $setting['label'], '</label>';
 
 			if (isset($setting['description']))
-			{
 				echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-			}
 
 			echo '
 					</dt>
 					<dd>
-						<input type="text" name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="options_', $setting['id'], '" value="', $setting['value'], '"', $setting['type'] == 'number' ? ' size="5"' : '', $context['theme_options_reset'] ? ' disabled="disabled"' : '', ' class="input_text" />';
+						<input type="text" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="options_', $setting['id'], '" value="', $setting['value'], '"', $setting['type'] == 'number' ? ' size="5"' : '', $context['theme_options_reset'] ? ' disabled="disabled"' : '', ' class="input_text" />';
 		}
 
 		// End of this definition
@@ -417,12 +388,25 @@ function template_set_settings()
 	echo '
 	<div id="admincenter">
 		<h2 class="category_header">
-			<a class="hdicon i-help help" href="', $scripturl, '?action=quickhelp;help=theme_settings" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['theme_settings'], ' - ', $context['theme_settings']['name'], '
+			<a class="hdicon cat_img_helptopics help" href="', $scripturl, '?action=quickhelp;help=theme_settings" onclick="return reqOverlayDiv(this.href);" title="', $txt['help'], '"></a> ', $txt['theme_settings'], ' - ', $context['theme_settings']['name'], '
 		</h2>
 		<form id="admin_form_wrapper" action="', $scripturl, '?action=admin;area=theme;sa=list;th=', $context['theme_settings']['theme_id'], '" method="post" accept-charset="UTF-8">';
 
 	echo '
-			<h2 class="category_header hdicon i-cog">
+			<h2 class="category_header hdicon cat_img_config">
+				', $txt['theme_edit'], '
+			</h2>
+			<ul class="basic_options content">
+				<li>
+					<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;th=', $context['theme_settings']['theme_id'], ';', $context['session_var'], '=', $context['session_id'], ';sa=edit;filename=index.template.php">', $txt['theme_edit_index'], '</a>
+				</li>
+				<li>
+					<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;th=', $context['theme_settings']['theme_id'], ';', $context['session_var'], '=', $context['session_id'], ';sa=browse;directory=css">', $txt['theme_edit_style'], '</a>
+				</li>
+			</ul>';
+
+	echo '
+			<h2 class="category_header hdicon cat_img_config">
 				', $txt['theme_url_config'], '
 			</h2>
 			<div class="content theme_settings">
@@ -458,7 +442,7 @@ function template_set_settings()
 	if (!empty($context['theme_variants']))
 	{
 		echo '
-			<h2 class="category_header hdicon i-cog">
+			<h2 class="category_header hdicon cat_img_config">
 				', $txt['theme_variants'], '
 			</h2>
 			<div class="content">
@@ -470,10 +454,8 @@ function template_set_settings()
 						<select id="variant" name="options[default_variant]" onchange="changeVariant(this.value)">';
 
 		foreach ($context['theme_variants'] as $key => $variant)
-		{
 			echo '
 							<option value="', $key, '" ', $context['default_variant'] == $key ? 'selected="selected"' : '', '>', $variant['label'], '</option>';
-		}
 
 		echo '
 						</select>
@@ -483,7 +465,7 @@ function template_set_settings()
 					</dt>
 					<dd>
 						<input type="hidden" name="options[disable_user_variant]" value="0" />
-						<input type="checkbox" name="options[disable_user_variant]" id="disable_user_variant"', empty($context['theme_settings']['disable_user_variant']) ? '' : ' checked="checked"', ' value="1" />
+						<input type="checkbox" name="options[disable_user_variant]" id="disable_user_variant"', !empty($context['theme_settings']['disable_user_variant']) ? ' checked="checked"' : '', ' value="1" />
 					</dd>
 				</dl>
 				<img src="', $context['theme_variants'][$context['default_variant']]['thumbnail'], '" id="variant_preview" alt="" />
@@ -491,7 +473,7 @@ function template_set_settings()
 	}
 
 	echo '
-			<h2 class="category_header hdicon i-cog">
+			<h2 class="category_header hdicon cat_img_config">
 				', $txt['theme_options'], '
 			</h2>
 			<div class="content">
@@ -508,46 +490,42 @@ function template_set_settings()
 				<dl class="settings">';
 		}
 		// A checkbox?
-		elseif ($setting['type'] === 'checkbox')
+		elseif ($setting['type'] == 'checkbox')
 		{
 			echo '
 					<dt id="dt_', $setting['id'], '">
 						<label for="', $setting['id'], '">', $setting['label'], '</label>';
 
 			if (isset($setting['description']))
-			{
 				echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-			}
 
 			echo '
 					</dt>
 					<dd id="dd_', $setting['id'], '">
-						<input type="hidden" name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" value="0" />
-						<input type="checkbox" name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="', $setting['id'], '"', empty($setting['value']) ? '' : ' checked="checked"', ' value="1" />
+						<input type="hidden" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" value="0" />
+						<input type="checkbox" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '"', !empty($setting['value']) ? ' checked="checked"' : '', ' value="1" />
 					</dd>';
 		}
 		// A textarea?
-		elseif ($setting['type'] === 'textarea')
+		elseif ($setting['type'] == 'textarea')
 		{
 			echo '
 					<dt id="dt_', $setting['id'], '">
 						<label for="', $setting['id'], '">', $setting['label'], '</label>';
 
 			if (isset($setting['description']))
-			{
 				echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-			}
 
 			echo '
 					</dt>
 					<dd id="dd_', $setting['id'], '">
-						<textarea name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="', $setting['id'], '"class="input_textarea">', $setting['value'], '</textarea>
+						<textarea name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '"class="input_textarea">', $setting['value'], '</textarea>
 					</dd>';
 		}
 		// A list with options?
-		elseif ($setting['type'] === 'list')
+		elseif ($setting['type'] == 'list')
 		{
 			echo '
 					<dt id="dt_', $setting['id'], '">
@@ -561,33 +539,26 @@ function template_set_settings()
 						<div class="smalltext">', $setting['description']['main'], '
 							<dl>';
 					foreach ($setting['description']['options'] as $option)
-					{
 						echo '
 								<dt><strong>', $txt[$option[0]], '</strong></dt>
 								<dd>', $txt[$option[1]], '</dd>';
-					}
-
 					echo '
 							</dl>
 						</div>';
 				}
 				else
-				{
 					echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-				}
 			}
 
 			echo '
 					</dt>
 					<dd id="dd_', $setting['id'], '">
-						<select name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="', $setting['id'], '">';
+						<select name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '">';
 
 			foreach ($setting['options'] as $value => $label)
-			{
 				echo '
 							<option value="', $value, '"', $value == $setting['value'] ? ' selected="selected"' : '', '>', $label, '</option>';
-			}
 
 			echo '
 						</select>
@@ -601,15 +572,13 @@ function template_set_settings()
 						<label for="', $setting['id'], '">', $setting['label'], '</label>';
 
 			if (isset($setting['description']))
-			{
 				echo '
 						<br /><span class="smalltext">', $setting['description'], '</span>';
-			}
 
 			echo '
 					</dt>
 					<dd id="dd_', $setting['id'], '">
-						<input type="text" name="', empty($setting['default']) ? '' : 'default_', 'options[', $setting['id'], ']" id="', $setting['id'], '" value="', $setting['value'], '"', $setting['type'] == 'number' ? ' size="5"' : (empty($setting['size']) ? ' size="40"' : ' size="' . $setting['size'] . '"'), ' class="input_text" />
+						<input type="text" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '" value="', $setting['value'], '"', $setting['type'] == 'number' ? ' size="5"' : (empty($setting['size']) ? ' size="40"' : ' size="' . $setting['size'] . '"'), ' class="input_text" />
 					</dd>';
 		}
 	}
@@ -655,19 +624,19 @@ function template_pick()
 
 	echo '
 	<div id="pick_theme">
-		<form action="', $scripturl, '?action=admin;area=theme;sa=pick;u=', $context['current_member'], ';', $context['session_var'], '=', $context['session_id'], '" method="post" accept-charset="UTF-8">';
+		<form action="', $scripturl, '?action=theme;sa=pick;u=', $context['current_member'], ';', $context['session_var'], '=', $context['session_id'], '" method="post" accept-charset="UTF-8">';
 
 	// Just go through each theme and show its information - thumbnail, etc.
 	foreach ($context['available_themes'] as $theme)
 	{
 		echo '
 			<h2 class="category_header">
-				', $theme['name'], '
+				<a href="', $scripturl, '?action=theme;sa=pick;u=', $context['current_member'], ';th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], !empty($theme['variants']) ? ';vrt=' . $theme['selected_variant'] : '', '">', $theme['name'], '</a>
 			</h2>
 			<div class="flow_hidden content">
 				<div class="floatright">
-					<a href="', $scripturl, '?action=admin;area=theme;sa=pick;u=', $context['current_member'], ';theme=', $theme['id'], ';variant=', $theme['selected_variant'], ';', $context['session_var'], '=', $context['session_id'], '" id="theme_thumb_preview_', $theme['id'], '" title="', $txt['theme_preview'], '">
-						<img class="avatar" src="', $theme['thumbnail_href'], '" id="theme_thumb_', $theme['id'], '" alt="" />
+					<a href="', $scripturl, '?action=theme;sa=pick;u=', $context['current_member'], ';theme=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], '" id="theme_thumb_preview_', $theme['id'], '" title="', $txt['theme_preview'], '">
+						<img src="', $theme['thumbnail_href'], '" id="theme_thumb_', $theme['id'], '" alt="" />
 					</a>
 				</div>
 				<p>', $theme['description'], '</p>';
@@ -697,16 +666,16 @@ function template_pick()
 					<em>', $theme['num_users'], ' ', ($theme['num_users'] == 1 ? $txt['theme_user'] : $txt['theme_users']), '</em>
 				</p>
 				<div class="separator"></div>
-				<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;sa=pick;u=', $context['current_member'], ';th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], empty($theme['variants']) ? '' : ';vrt=' . $theme['selected_variant'], '" id="theme_use_', $theme['id'], '">', $txt['theme_set'], '</a>
-				<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;sa=pick;u=', $context['current_member'], ';theme=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';variant=', $theme['selected_variant'], '" id="theme_preview_', $theme['id'], '">', $txt['theme_preview'], '</a>
+				<a class="linkbutton" href="', $scripturl, '?action=theme;sa=pick;u=', $context['current_member'], ';th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], !empty($theme['variants']) ? ';vrt=' . $theme['selected_variant'] : '', '" id="theme_use_', $theme['id'], '">', $txt['theme_set'], '</a>
+				<a class="linkbutton" href="', $scripturl, '?action=theme;sa=pick;u=', $context['current_member'], ';theme=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], '" id="theme_preview_', $theme['id'], '">', $txt['theme_preview'], '</a>
 			</div>';
 
 		if (!empty($theme['variants']))
 		{
 			echo '
 			<script>
-				let sBaseUseUrl', $theme['id'], ' = elk_prepareScriptUrl(elk_scripturl) + \'action=admin;area=theme;sa=pick;u=', $context['current_member'], ';th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], '\',
-					sBasePreviewUrl', $theme['id'], ' = elk_prepareScriptUrl(elk_scripturl) + \'action=admin;area=theme;sa=pick;u=', $context['current_member'], ';theme=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], '\',
+				var sBaseUseUrl', $theme['id'], ' = elk_prepareScriptUrl(elk_scripturl) + \'action=theme;sa=pick;u=', $context['current_member'], ';th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], '\',
+					sBasePreviewUrl', $theme['id'], ' = elk_prepareScriptUrl(elk_scripturl) + \'action=theme;sa=pick;u=', $context['current_member'], ';theme=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], '\',
 					oThumbnails', $theme['id'], ' = {';
 
 			// All the variant thumbnails.
@@ -750,12 +719,292 @@ function template_installed()
 	<div id="admincenter">
 		<h2 class="category_header">', $context['page_title'], '</h2>
 		<div class="content">
-			<p class="infobox">
+			<p>
 				<a href="', $scripturl, '?action=admin;area=theme;sa=list;th=', $context['installed_theme']['id'], ';', $context['session_var'], '=', $context['session_id'], '">', $context['installed_theme']['name'], '</a> ', $txt['theme_installed_message'], '
 			</p>
-			<p class="submitbutton">
-				<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;sa=admin;', $context['session_var'], '=', $context['session_id'], '">', $txt['back'], '</a>
+			<p>
+				<a href="', $scripturl, '?action=admin;area=theme;sa=admin;', $context['session_var'], '=', $context['session_id'], '">', $txt['back'], '</a>
 			</p>
 		</div>
+	</div>';
+}
+
+/**
+ * Interface to edit a list.
+ */
+function template_themelist()
+{
+	global $context, $scripturl, $txt;
+
+	echo '
+	<div id="admincenter">
+		<h2 class="category_header">', $txt['themeadmin_edit_title'], '</h2>
+		<div class="information">
+			', $txt['themeadmin_modify_styles'], '
+		</div>
+		<div id="admin_form_wrapper">';
+
+	foreach ($context['themes'] as $theme)
+	{
+		echo '
+		<div>
+			<h2 class="category_header">
+				<a href="', $scripturl, '?action=admin;area=theme;th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';sa=browse">', $theme['name'], '</a>', !empty($theme['version']) ? '
+				<em>(' . $theme['version'] . ')</em>' : '', '
+			</h2>
+			<ul class="basic_options content">
+				<li>
+					<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';sa=browse">', $txt['themeadmin_edit_browse'], '</a>
+				</li>', $theme['can_edit_style'] ? '
+				<li>
+					<a class="linkbutton" href="' . $scripturl . '?action=admin;area=theme;th=' . $theme['id'] . ';' . $context['session_var'] . '=' . $context['session_id'] . ';sa=browse;directory=css">' . $txt['themeadmin_edit_style'] . '</a>
+				</li>' : '', '
+				<li>
+					<a class="linkbutton" href="', $scripturl, '?action=admin;area=theme;th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';sa=copy">', $txt['themeadmin_edit_copy_template'], '</a>
+				</li>
+			</ul>
+		</div>';
+	}
+
+	echo '
+		</div>
+	</div>';
+}
+
+/**
+ * Interface to copy a template.
+ */
+function template_copy_template()
+{
+	global $context, $scripturl, $txt;
+
+	echo '
+	<div id="admincenter">
+		<h2 class="category_header">', $txt['themeadmin_edit_filename'], '</h2>
+		<div class="information">
+			', $txt['themeadmin_edit_copy_warning'], '
+		</div>
+		<ul id="admin_form_wrapper" class="content theme_options">';
+
+	foreach ($context['available_templates'] as $template)
+	{
+		echo '
+			<li class="flow_hidden">
+				<span class="floatleft">', $template['filename'], $template['already_exists'] ? ' <span class="error">(' . $txt['themeadmin_edit_exists'] . ')</span>' : '', '</span>
+				<span class="floatright">';
+
+		if ($template['can_copy'])
+			echo '<a href="', $scripturl, '?action=admin;area=theme;th=', $context['theme_id'], ';', $context['session_var'], '=', $context['session_id'], ';sa=copy;template=', $template['value'], '" onclick="return confirm(\'', $template['already_exists'] ? $txt['themeadmin_edit_overwrite_confirm'] : $txt['themeadmin_edit_copy_confirm'], '\');">', $txt['themeadmin_edit_do_copy'], '</a>';
+		else
+			echo $txt['themeadmin_edit_no_copy'];
+
+		echo '
+				</span>
+			</li>';
+	}
+
+	echo '
+		</ul>
+	</div>';
+}
+
+/**
+ * Interface to browse the files of a theme in admin panel.
+ */
+function template_browse()
+{
+	global $context, $txt;
+
+	echo '
+	<div id="admincenter">
+		<div id="admin_form_wrapper">
+		<table class="table_grid">
+			<thead>
+				<tr class="table_head">
+					<th scope="col" class="lefttext grid50">', $txt['themeadmin_edit_filename'], '</th>
+					<th scope="col" class="grid33">', $txt['themeadmin_edit_modified'], '</th>
+					<th scope="col" class="grid17">', $txt['themeadmin_edit_size'], '</th>
+				</tr>
+			</thead>
+			<tbody>';
+
+	foreach ($context['theme_files'] as $file)
+	{
+		echo '
+				<tr>
+					<td>';
+
+		if ($file['is_editable'])
+			echo '
+						<a href="', $file['href'], '"', $file['is_template'] ? ' style="font-weight: bold;"' : '', '>', $file['filename'], '</a>';
+		elseif ($file['is_directory'])
+			echo '
+						<a href="', $file['href'], '" class="is_directory">', $file['filename'], '</a>', ($file['is_writable']) ? '' : ' (' . $txt['theme_edit_not_writable'] . ')';
+		else
+			echo
+			$file['filename'];
+
+		echo '
+					</td>
+					<td>', !empty($file['last_modified']) ? $file['last_modified'] : '', '</td>
+					<td>', $file['size'], '</td>
+				</tr>';
+	}
+
+	echo '
+			</tbody>
+		</table>
+		</div>
+	</div>';
+}
+
+/**
+ * Allows to edit a stylesheet.
+ */
+function template_edit_style()
+{
+	global $context, $scripturl, $txt;
+
+	if ($context['session_error'])
+		echo '
+	<div class="errorbox">
+		', $txt['error_session_timeout'], '
+	</div>';
+
+	// From now on no one can complain that editing css is difficult. If you disagree, go to www.w3schools.com.
+	echo '
+	<div id="admincenter">
+		<script>
+			navigatePreview(elk_scripturl);
+		</script>
+		<iframe id="css_preview_box" name="css_preview_box" src="about:blank" frameborder="0"></iframe>';
+
+	// Just show a big box.... gray out the Save button if it's not saveable... (ie. not 777.)
+	echo '
+		<form action="', $scripturl, '?action=admin;area=theme;th=', $context['theme_id'], ';sa=edit" method="post" accept-charset="UTF-8" name="stylesheetForm" id="stylesheetForm">
+			<h2 class="category_header">', $txt['theme_edit'], ' - ', $context['edit_filename'], '</h2>
+			<div class="content">';
+
+	if (!$context['allow_save'])
+		echo '
+					', $txt['theme_edit_no_save'], ': ', $context['allow_save_filename'], '<br />';
+
+	echo '
+				<textarea name="entire_file" cols="80" rows="20" class="edit_file" onkeyup="setPreviewTimeout();" onchange="refreshPreview(true);">', $context['entire_file'], '</textarea><br />
+				<div class="submitbutton">
+					<input type="button" value="', $txt['themeadmin_edit_preview'], '" onclick="refreshPreview(false);" />
+					<input type="submit" name="save" value="', $txt['theme_edit_save'], '"', $context['allow_save'] ? '' : ' disabled="disabled"', ' />
+					<input type="hidden" name="filename" value="', $context['edit_filename'], '" />
+					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />';
+
+	// Hopefully our token exists.
+	if (isset($context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token']))
+		echo '
+					<input type="hidden" name="', $context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token_var'], '" value="', $context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token'], '" />';
+
+	echo '		</div>
+			</div>
+		</form>
+	</div>';
+}
+
+/**
+ * Allow to edit the template.
+ */
+function template_edit_template()
+{
+	global $context, $scripturl, $txt;
+
+	if ($context['session_error'])
+		echo '
+	<div class="errorbox">
+		', $txt['error_session_timeout'], '
+	</div>';
+
+	if (isset($context['parse_error']))
+		foreach ($context['parse_error'] as $error)
+			echo '
+	<div class="errorbox">
+		', $txt['themeadmin_edit_error'], '
+			<div><span class="tt">', $error, '</span></div>
+	</div>';
+
+	// Just show a big box.... gray out the Save button if it's not saveable... (ie. not 777.)
+	echo '
+	<div id="admincenter">
+		<form action="', $scripturl, '?action=admin;area=theme;th=', $context['theme_id'], ';sa=edit" method="post" accept-charset="UTF-8">
+			<h2 class="category_header">', $txt['theme_edit'], ' - ', $context['edit_filename'], '</h2>
+			<div class="content">';
+
+	if (!$context['allow_save'])
+		echo '
+				', $txt['theme_edit_no_save'], ': ', $context['allow_save_filename'], '<br />';
+
+	foreach ($context['file_parts'] as $part)
+		echo '
+				<label for="on_line', $part['line'], '">', $txt['themeadmin_edit_on_line'], ' ', $part['line'], '</label><br />
+				<div class="centertext">
+					<textarea id="on_line', $part['line'], '" name="entire_file[]" cols="80" rows="', $part['lines'] > 14 ? '14' : $part['lines'], '" class="edit_file">', $part['data'], '</textarea>
+				</div>';
+
+	echo '
+				<div class="submitbutton">
+					<input type="submit" name="save" value="', $txt['theme_edit_save'], '"', $context['allow_save'] ? '' : ' disabled="disabled"', ' />
+					<input type="hidden" name="filename" value="', $context['edit_filename'], '" />
+					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />';
+
+	// You better have one of these to do that
+	if (isset($context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token']))
+		echo '
+					<input type="hidden" name="', $context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token_var'], '" value="', $context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token'], '" />';
+
+	echo '
+				</div>
+			</div>
+		</form>
+	</div>';
+}
+
+/**
+ * Interface to edit a file.
+ */
+function template_edit_file()
+{
+	global $context, $scripturl, $txt;
+
+	if ($context['session_error'])
+		echo '
+	<div class="errorbox">
+		', $txt['error_session_timeout'], '
+	</div>';
+
+	// Is this file writeable?
+	if (!$context['allow_save'])
+		echo '
+	<div class="errorbox">
+		', $txt['theme_edit_no_save'], ': ', $context['allow_save_filename'], '
+	</div>';
+
+	// Just show a big box.... gray out the Save button if it's not save-able... (ie. not 777.)
+	echo '
+	<div id="admincenter">
+		<form action="', $scripturl, '?action=admin;area=theme;th=', $context['theme_id'], ';sa=edit" method="post" accept-charset="UTF-8">
+			<h2 class="category_header">', $txt['theme_edit'], ' - ', $context['edit_filename'], '</h2>
+			<div class="content">
+				<textarea name="entire_file" id="entire_file" cols="80" rows="20" class="edit_file">', $context['entire_file'], '</textarea><br />
+				<div class="submitbutton">
+					<input type="submit" name="save" value="', $txt['theme_edit_save'], '"', $context['allow_save'] ? '' : ' disabled="disabled"', ' />
+					<input type="hidden" name="filename" value="', $context['edit_filename'], '" />
+					<input type="hidden" name="', $context['session_var'], '" value="', $context['session_id'], '" />';
+
+	// Hopefully it exists.
+	if (isset($context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token']))
+		echo '
+					<input type="hidden" name="', $context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token_var'], '" value="', $context['admin-te-' . md5($context['theme_id'] . '-' . $context['edit_filename']) . '_token'], '" />';
+
+	echo '
+				</div>
+			</div>
+		</form>
 	</div>';
 }

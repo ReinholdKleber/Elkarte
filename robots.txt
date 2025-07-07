@@ -1,0 +1,25 @@
+# alle nicht genannten Bots sperren
+User-agent: *
+
+Disallow: admin.php
+Disallow: logs/
+Disallow: *action
+Disallow: *PHPSESSID
+Disallow: *;
+
+Allow: /$
+Allow: /*board*.html$
+Allow: /*topic*.html$
+Allow: /*.xml
+Allow: *.css$
+Allow: *.js$
+Allow: *.png$
+Allow: *.jpg$
+Allow: *.gif$
+Allow: sitemap.xml
+
+Sitemap: https://www.davidbowieforum.de/sitemap.xml
+
+
+
+

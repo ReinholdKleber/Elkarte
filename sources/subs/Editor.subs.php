@@ -4,29 +4,25 @@
  * This file contains functions specific to the editing box and is
  * generally used for WYSIWYG type functionality.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
-
-use ElkArte\Cache\Cache;
-use ElkArte\Languages\Txt;
 
 /**
  * Creates a box that can be used for richedit stuff like BBC, Smileys etc.
  *
- * @param array $editorOptions associative array of options => value
+ * @param mixed[] $editorOptions associative array of options => value
  *  Must contain:
  *   - id => unique id for the css
  *   - value => text for the editor or blank
- *   - smiley_container => ID for where the smileys will be placed
- *   - bbc_container => ID for where the toolbar will be placed
  * Optionally:
  *   - height => height of the initial box
  *   - width => width of the box (100%)
@@ -37,519 +33,404 @@ use ElkArte\Languages\Txt;
  *     ),
  *   - preview_type => 2 how to act on preview click, see template_control_richedit_buttons
  *
- * @event integrate_editor_plugins
- * @uses GenericControls template
  * @uses Post language
+ * @uses GenericControls template
+ * @throws Elk_Exception
  */
 function create_control_richedit($editorOptions)
 {
-	global $txt, $options, $context, $settings, $scripturl;
+	global $txt, $modSettings, $options, $context, $settings, $scripturl;
+	static $bbc_tags;
+
+	$db = database();
 
 	// Load the Post language file... for the moment at least.
-	Txt::load('Post');
+	loadLanguage('Post');
 
 	// Every control must have a ID!
 	assert(isset($editorOptions['id']));
 	assert(isset($editorOptions['value']));
 
-	// Is this the first richedit - if so we need to ensure things are initialised and that we load all needed files
+	// Is this the first richedit - if so we need to ensure things are initialised and that we load all of the needed files
 	if (empty($context['controls']['richedit']))
 	{
 		// Store the name / ID we are creating for template compatibility.
 		$context['post_box_name'] = $editorOptions['id'];
-		$context['smiley_box_name'] = $editorOptions['smiley_container'] ?? null;
-		$context['bbc_box_name'] = $editorOptions['bbc_container'] ?? null;
 
-		// Don't show the smileys if they are off or not wanted.
-		$editorOptions['disable_smiley_box'] = !empty($editorOptions['disable_smiley_box'])
-			|| $GLOBALS['context']['smiley_set'] === 'none'
-			|| !empty($GLOBALS['options']['show_no_smileys'])
-			|| empty($editorOptions['smiley_container']);
+		// Some general stuff.
+		$settings['smileys_url'] = $context['user']['smiley_path'];
+
+		// @deprecated since 1.1
+		if (!isset($context['drafts_autosave_frequency']) && !empty($context['drafts_autosave']) && !empty($options['drafts_autosave_enabled']))
+			$context['drafts_autosave_frequency'] = empty($modSettings['drafts_autosave_frequency']) ? 30000 : $modSettings['drafts_autosave_frequency'] * 1000;
 
 		// This really has some WYSIWYG stuff.
-		theme()->getTemplates()->load('GenericControls');
+		loadTemplate('GenericControls');
 		loadCSSFile('jquery.sceditor.css');
 		if (!empty($context['theme_variant']) && file_exists($settings['theme_dir'] . '/css/' . $context['theme_variant'] . '/jquery.sceditor.elk' . $context['theme_variant'] . '.css'))
-		{
 			loadCSSFile($context['theme_variant'] . '/jquery.sceditor.elk' . $context['theme_variant'] . '.css');
-		}
 
 		// JS makes the editor go round
-		loadJavascriptFile([
-			'editor/jquery.sceditor.bbcode.min.js',
-			'editor/jquery.sceditor.elkarte.js',
-			'post.js',
-			'editor/dropAttachments.js',
-			'editor/ilaAttachments.js',
-			'editor/chunkUpload.js'
-		]);
-
-		theme()->addJavascriptVar([
+		loadJavascriptFile(array('jquery.sceditor.bbcode.min.js', 'jquery.sceditor.elkarte.js', 'post.js', 'splittag.plugin.js', 'undo.plugin.min.js', 'dropAttachments.js'));
+		addJavascriptVar(array(
 			'post_box_name' => $editorOptions['id'],
-			'elk_smileys_url' => $context['smiley_path'],
-			'elk_emoji_url' => $context['emoji_path'],
+			'elk_smileys_url' => $settings['smileys_url'],
 			'bbc_quote_from' => $txt['quote_from'],
 			'bbc_quote' => $txt['quote'],
 			'bbc_search_on' => $txt['search_on'],
-			'ila_filename' => $txt['file'] . ' ' . $txt['name']], true
+			'ila_filename' => $txt['file'] . ' ' . $txt['name']), true
 		);
-
 		// Editor language file
 		if (!empty($txt['lang_locale']))
-		{
 			loadJavascriptFile($scripturl . '?action=jslocale;sa=sceditor', array('defer' => true), 'sceditor_language');
-		}
+
+		// Mentions?
+		if (!empty($context['mentions_enabled']))
+			loadJavascriptFile(array('jquery.atwho.min.js', 'jquery.caret.min.js', 'mentioning.plugin.js'));
 
 		// Our not so concise shortcut line
-		$context['shortcuts_text'] = $context['shortcuts_text'] ?? $txt['shortcuts'];
+		if (!isset($context['shortcuts_text']))
+			$context['shortcuts_text'] = $txt['shortcuts'];
+
+		// Spellcheck?
+		$context['show_spellchecking'] = !empty($modSettings['enableSpellChecking']) && function_exists('pspell_new');
+		if ($context['show_spellchecking'])
+		{
+			// Some hidden information is needed in order to make spell check work.
+			if (!isset($_REQUEST['xml']))
+				$context['insert_after_template'] .= '
+		<form name="spell_form" id="spell_form" method="post" accept-charset="UTF-8" target="spellWindow" action="' . $scripturl . '?action=spellcheck">
+			<input type="hidden" id="spellstring" name="spellstring" value="" />
+			<input type="hidden" id="fulleditor" name="fulleditor" value="" />
+		</form>';
+			loadJavascriptFile('spellcheck.js', array('defer' => true));
+		}
 	}
 
 	// Start off the editor...
-	$context['controls']['richedit'][$editorOptions['id']] = [
+	$context['controls']['richedit'][$editorOptions['id']] = array(
 		'id' => $editorOptions['id'],
 		'value' => $editorOptions['value'],
 		'rich_active' => !empty($options['wysiwyg_default']) || !empty($editorOptions['force_rich']) || !empty($_REQUEST[$editorOptions['id'] . '_mode']),
-		'disable_smiley_box' => $editorOptions['disable_smiley_box'],
-		'width' => $editorOptions['width'] ?? '100%',
-		'height' => $editorOptions['height'] ?? '250px',
-		'form' => $editorOptions['form'] ?? 'postmodify',
+		'disable_smiley_box' => !empty($editorOptions['disable_smiley_box']),
+		'columns' => isset($editorOptions['columns']) ? $editorOptions['columns'] : 60,
+		'rows' => isset($editorOptions['rows']) ? $editorOptions['rows'] : 18,
+		'width' => isset($editorOptions['width']) ? $editorOptions['width'] : '100%',
+		'height' => isset($editorOptions['height']) ? $editorOptions['height'] : '250px',
+		'form' => isset($editorOptions['form']) ? $editorOptions['form'] : 'postmodify',
+		'bbc_level' => !empty($editorOptions['bbc_level']) ? $editorOptions['bbc_level'] : 'full',
 		'preview_type' => isset($editorOptions['preview_type']) ? (int) $editorOptions['preview_type'] : 1,
-		'labels' => !empty($editorOptions['labels']) ? $editorOptions['labels'] : [],
+		'labels' => !empty($editorOptions['labels']) ? $editorOptions['labels'] : array(),
 		'locale' => !empty($txt['lang_locale']) ? $txt['lang_locale'] : 'en_US',
-		'plugin_addons' => !empty($editorOptions['plugin_addons']) ? $editorOptions['plugin_addons'] : [],
-		'plugin_options' => !empty($editorOptions['plugin_options']) ? $editorOptions['plugin_options'] : [],
-		'buttons' => !empty($editorOptions['buttons']) ? $editorOptions['buttons'] : [],
-		'hidden_fields' => !empty($editorOptions['hidden_fields']) ? $editorOptions['hidden_fields'] : [],
-	];
+		'plugin_addons' => !empty($editorOptions['plugin_addons']) ? $editorOptions['plugin_addons'] : array(),
+		'plugin_options' => !empty($editorOptions['plugin_options']) ? $editorOptions['plugin_options'] : array(),
+		'buttons' => !empty($editorOptions['buttons']) ? $editorOptions['buttons'] : array(),
+		'hidden_fields' => !empty($editorOptions['hidden_fields']) ? $editorOptions['hidden_fields'] : array(),
+	);
 
 	// Allow addons an easy way to add plugins, initialization objects, etc to the editor control
 	call_integration_hook('integrate_editor_plugins', array($editorOptions['id']));
 
 	// Switch between default images and back... mostly in case you don't have an PersonalMessage template, but do have a Post template.
-	$use_defaults = isset($settings['use_default_images'], $settings['default_template']) && $settings['use_default_images'] === 'defaults';
-	if ($use_defaults)
+	if (isset($settings['use_default_images']) && $settings['use_default_images'] == 'defaults' && isset($settings['default_template']))
 	{
-		$temp = [];
-		$temp[] = $settings['theme_url'];
-		$temp[] = $settings['images_url'];
-		$temp[] = $settings['theme_dir'];
-
+		$temp1 = $settings['theme_url'];
 		$settings['theme_url'] = $settings['default_theme_url'];
+
+		$temp2 = $settings['images_url'];
 		$settings['images_url'] = $settings['default_images_url'];
+
+		$temp3 = $settings['theme_dir'];
 		$settings['theme_dir'] = $settings['default_theme_dir'];
 	}
 
-	// Setup the toolbar, smileys, plugins
-	$context['bbc_toolbar'] = loadEditorToolbar();
-	$context['editor_bbc_toolbar'] = buildBBCToolbar($context['bbc_box_name']);
-	$context['smileys'] = empty($editorOptions['disable_smiley_box']) ? loadEditorSmileys($context['controls']['richedit'][$editorOptions['id']]) : '';
-	$context['editor_smileys_toolbar'] = buildSmileyToolbar(empty($editorOptions['disable_smiley_box']));
-	$context['plugins'] = loadEditorPlugins($context['controls']['richedit'][$editorOptions['id']]);
-	$context['plugin_options'] = getPluginOptions($context['controls']['richedit'][$editorOptions['id']], $editorOptions['id']);
-
-	// Switch the URLs back... now we're back to whatever the main sub template is (like folder in PersonalMessage.)
-	if ($use_defaults)
+	if (empty($bbc_tags))
 	{
-		list($settings['theme_url'], $settings['images_url'], $settings['theme_dir']) = $temp;
-	}
+		// The below array is used to show a command button in the editor, the execution
+		// and display details of any added buttons must be defined in the javascript files
+		// see jquery.sceditor.elkarte.js under the $.sceditor.plugins.bbcode.bbcode area
+		// for examples of how to use the .set command to add codes.  Include your new
+		// JS with addInlineJavascript() or loadJavascriptFile()
+		$bbc_tags['row1'] = array(
+			array('bold', 'italic', 'underline', 'strike', 'superscript', 'subscript'),
+			array('left', 'center', 'right', 'pre', 'tt'),
+			array('font', 'size', 'color'),
+		);
+		$bbc_tags['row2'] = array(
+			array('quote', 'code', 'table'),
+			array('bulletlist', 'orderedlist', 'horizontalrule'),
+			array('spoiler', 'footnote', 'splittag'),
+			array('image', 'link', 'email'),
+			array('undo', 'redo'),
+		);
 
-	// Provide some dynamic error checking (no subject, no body, no service!)
-	if (!empty($editorOptions['live_errors']))
-	{
-		Txt::load('Errors');
-		theme()->addInlineJavascript('
-		
-	error_txts[\'no_subject\'] = ' . JavaScriptEscape($txt['error_no_subject']) . ';
-	error_txts[\'no_message\'] = ' . JavaScriptEscape($txt['error_no_message']) . ';
-		', true);
-	}
-}
+		// Allow mods to add BBC buttons to the toolbar, actions are defined in the JS
+		call_integration_hook('integrate_bbc_buttons', array(&$bbc_tags));
 
-/**
- *  Defines what editor plugins to load
- *
- *  What it does:
- *  - loads the JS needed by core plugins.
- *  - loads the CSS needed by core plugins
- *  - Will merge in plugins added by addons.
- *  - The editor will load and init the plugins
- *
- * @param array $editor_context The editor context containing the plugin addons.
- * @return array The list of loaded plugins.
- */
-function loadEditorPlugins($editor_context)
-{
-	global $modSettings;
+		// Show the wysiwyg format and toggle buttons?
+		$bbc_tags['row2'][] = array('removeformat', 'source');
 
-	$plugins = [];
-	$neededJS = [];
-	$neededCSS = [];
+		// Generate a list of buttons that shouldn't be shown
+		$disabled_tags = array();
+		if (!empty($modSettings['disabledBBC']))
+			$disabled_tags = explode(',', $modSettings['disabledBBC']);
 
-	$plugins[] = 'initialLoad';
-	$neededJS[] = 'editor/initialLoad.plugin.js';
+		// Map codes to tags
+		$translate_tags_to_code = array('b' => 'bold', 'i' => 'italic', 'u' => 'underline', 's' => 'strike', 'img' => 'image', 'url' => 'link', 'sup' => 'superscript', 'sub' => 'subscript', 'hr' => 'horizontalrule');
 
-	if (!empty($modSettings['enableSplitTag']))
-	{
-		$plugins[] = 'splittag';
-		$neededJS[] = 'editor/splittag.plugin.js';
-	}
-
-	if (!empty($modSettings['enableUndoRedo']))
-	{
-		$plugins[] = 'undo';
-		$neededJS[] = 'editor/undo.plugin.min.js';
-	}
-
-	if (!empty($modSettings['mentions_enabled']))
-	{
-		$plugins[] = 'mention';
-		$neededJS = array_merge($neededJS, ['editor/jquery.atwho.min.js', 'editor/jquery.caret.min.js', 'editor/mentioning.plugin.js']);
-	}
-
-	if (!empty($modSettings['enableGiphy']))
-	{
-		$plugins[] = 'giphy';
-		$neededJS[] = 'editor/giphy.plugin.js';
-		$neededCSS[] = 'sceditor.giphy.css';
-	}
-
-	if (!empty($neededJS))
-	{
-		loadJavascriptFile($neededJS, ['defer' => true]);
-	}
-
-	if (!empty($neededCSS))
-	{
-		loadCSSFile($neededCSS);
-	}
-
-	// Merge with other plugins added by core features or addons which have loaded JS/CSS as needed
-	if (!empty($editor_context['plugin_addons']))
-	{
-		if (!is_array($editor_context['plugin_addons']))
+		// Remove the toolbar buttons for any bbc tags that have been turned off in the ACP
+		foreach ($disabled_tags as $tag)
 		{
-			$editor_context['plugin_addons'] = [$editor_context['plugin_addons']];
+			// list is special, its prevents two tags
+			if ($tag === 'list')
+			{
+				$context['disabled_tags']['bulletlist'] = true;
+				$context['disabled_tags']['orderedlist'] = true;
+			}
+			elseif (isset($translate_tags_to_code[$tag]))
+				$context['disabled_tags'][$translate_tags_to_code[$tag]] = true;
+
+			// Tag is the same as the code, like font, color, size etc
+			$context['disabled_tags'][trim($tag)] = true;
 		}
 
-		$plugins = array_filter(array_merge($plugins, $editor_context['plugin_addons']));
-	}
-
-	return $plugins;
-}
-
-/**
- * Loads any built in plugin options and merges in any addon defined ones.
- *
- * @param array $editor_context
- * @param string $editor_id
- * @return array
- */
-function getPluginOptions($editor_context, $editor_id)
-{
-	global $modSettings;
-
-	$plugin_options = [];
-
-	if (!empty($modSettings['mentions_enabled']))
-	{
-		$plugin_options[] = '
-			mentionOptions: {
-				editor_id: \'' . $editor_id . '\',
-				cache: {
-					mentions: [],
-					queries: [],
-					names: []
-				}
-			}';
-	}
-
-	// Allow addons to insert additional editor objects
-	if (!empty($editor_context['plugin_options']) && is_array($editor_context['plugin_options']))
-	{
-		$plugin_options = array_merge($plugin_options, $editor_context['plugin_options']);
-	}
-
-	return $plugin_options;
-}
-
-/**
- * Loads the editor toolbar with just the enabled commands
- *
- * Each row will be a comma seperated list of commands that the editor knows (or should)
- * bold,italic,quote,.....
- *
- * @return array
- */
-function loadEditorToolbar()
-{
-	$bbc_tags = loadToolbarDefaults();
-	$disabledToolbar = getDisabledBBC();
-
-	// Build our toolbar, taking into account any bbc codes from integration
-	$bbcToolbar = [];
-	foreach ($bbc_tags as $row => $tagRow)
-	{
-		$bbcToolbar[$row] = $bbcToolbar[$row] ?? [];
-		$tagsRow = [];
-
-		// For each row of buttons defined, lets build our tags
-		foreach ($tagRow as $tags)
+		// Build our toolbar, taking in to account any bbc codes from integration
+		$context['bbc_toolbar'] = array();
+		foreach ($bbc_tags as $row => $tagRow)
 		{
-			foreach ($tags as $tag)
+			if (!isset($context['bbc_toolbar'][$row]))
+				$context['bbc_toolbar'][$row] = array();
+
+			$tagsRow = array();
+
+			// For each row of buttons defined, lets build our tags
+			foreach ($tagRow as $tags)
 			{
-				// Just add this code in the existing grouping
-				if (!isset($disabledToolbar[$tag]))
+				foreach ($tags as $tag)
 				{
-					$tagsRow[] = $tag;
+					// Just add this code in the existing grouping
+					if (!isset($context['disabled_tags'][$tag]))
+						$tagsRow[] = $tag;
 				}
+
+				// If the row is not empty, and the last added tag is not a space, add a space.
+				if (!empty($tagsRow) && $tagsRow[count($tagsRow) - 1] !== 'space')
+					$tagsRow[] = 'space';
 			}
 
-			// If the row is not empty, and the last added tag is not a space, add a space.
-			if (!empty($tagsRow) && $tagsRow[count($tagsRow) - 1] !== 'space')
-			{
-				$tagsRow[] = 'space';
-			}
-		}
-
-		// Build that beautiful button row
-		if (!empty($tagsRow))
-		{
-			$bbcToolbar[$row][] = implode(',', $tagsRow);
+			// Build that beautiful button row
+			if (!empty($tagsRow))
+				$context['bbc_toolbar'][$row][] = implode(',', $tagsRow);
 		}
 	}
-
-	return $bbcToolbar;
-}
-
-/**
- * Loads disabled BBC tags from the DB as defined in the ACP.  It
- * will then translate BBC to editor commands (b => bold) such that
- * disabled BBC will also disable the associated editor command button.
- *
- * @return array
- */
-function getDisabledBBC()
-{
-	global $modSettings;
-
-	// Generate a list of buttons that shouldn't be shown
-	$disabled_tags = [];
-	$disabledToolbar = [];
-
-	if (!empty($modSettings['disabledBBC']))
-	{
-		$disabled_tags = explode(',', $modSettings['disabledBBC']);
-	}
-
-	// Map bbc codes to editor toolbar tags
-	$translate_tags_to_code = ['b' => 'bold', 'i' => 'italic', 'u' => 'underline', 's' => 'strike',
-							   'img' => 'image', 'url' => 'link', 'sup' => 'superscript', 'sub' => 'subscript', 'hr' => 'horizontalrule'];
-
-	// Remove the toolbar buttons for any bbc tags that have been turned off in the ACP
-	foreach ($disabled_tags as $tag)
-	{
-		// list is special, its prevents two tags
-		if ($tag === 'list')
-		{
-			$disabledToolbar['bulletlist'] = true;
-			$disabledToolbar['orderedlist'] = true;
-		}
-		elseif (isset($translate_tags_to_code[$tag]))
-		{
-			$disabledToolbar[$translate_tags_to_code[$tag]] = true;
-		}
-
-		// Tag is the same as the code, like font, color, size etc
-		$disabledToolbar[trim($tag)] = true;
-	}
-
-	return $disabledToolbar;
-}
-
-/**
- * Loads the toolbar default buttons which defines what editor buttons might show
- *
- * @event integrate_bbc_buttons
- * @return array|mixed
- */
-function loadToolbarDefaults()
-{
-	$bbc_tags = [];
-
-	// The below array is used to show a command button in the editor, the execution
-	// and display details of any added buttons must be defined in the javascript files
-	// see jquery.sceditor.elkarte.js under the sceditor.formats.bbcode area
-	// for examples of how to use the .set command to add codes.  Include your new
-	// JS with addInlineJavascript() or loadJavascriptFile() in your addon
-	$bbc_tags['row1'] = [
-		['bold', 'italic', 'underline', 'strike'],
-		['left', 'center', 'right', 'pre'],
-		['image', 'link', 'giphy'],
-		['bulletlist', 'orderedlist'],
-		['source', 'expand'],
-	];
-
-	$bbc_tags['row2'] = [
-		['tt', 'superscript', 'subscript'],
-		['spoiler', 'footnote', 'removeformat'],
-		['quote', 'code', 'table', 'horizontalrule', 'email'],
-		['font', 'size', 'color'],
-		['splittag', 'undo', 'redo'],
-	];
-
-	// Allow mods to add BBC buttons to the toolbar, actions are defined in the JS
-	call_integration_hook('integrate_bbc_buttons', array(&$bbc_tags));
-
-	return $bbc_tags;
-}
-
-/**
- * Loads the smileys for use in the required locations (postform or popup)
- *
- * What it does:
- * - Will load the default smileys or custom smileys as defined in ACP
- * - Caches the DB call for 10 mins
- * - Sorts smileys to proper array positions removing hidden ones
- *
- * @return array|array[]|mixed
- */
-function loadEditorSmileys($editorOptions)
-{
-	global $context, $modSettings;
-
-	$smileys = [
-		'postform' => [],
-		'popup' => [],
-	];
 
 	// Initialize smiley array... if not loaded before.
 	if (empty($context['smileys']) && empty($editorOptions['disable_smiley_box']))
 	{
-		$temp = [];
-		if (!Cache::instance()->getVar($temp, 'posting_smileys', 600))
+		$context['smileys'] = array(
+			'postform' => array(),
+			'popup' => array(),
+		);
+
+		// Load smileys - don't bother to run a query if we're not using the database's ones anyhow.
+		if (empty($modSettings['smiley_enable']) && $context['smiley_enabled'])
 		{
-			require_once(SUBSDIR . '/Smileys.subs.php');
-			$smileys = getEditorSmileys();
-			foreach ($smileys as $section => $smileyRows)
+			$context['smileys']['postform'][] = array(
+				'smileys' => array(
+					array(
+						'code' => ':)',
+						'filename' => 'smiley.gif',
+						'description' => $txt['icon_smiley'],
+					),
+					array(
+						'code' => ';)',
+						'filename' => 'wink.gif',
+						'description' => $txt['icon_wink'],
+					),
+					array(
+						'code' => ':D',
+						'filename' => 'cheesy.gif',
+						'description' => $txt['icon_cheesy'],
+					),
+					array(
+						'code' => ';D',
+						'filename' => 'grin.gif',
+						'description' => $txt['icon_grin']
+					),
+					array(
+						'code' => '>:(',
+						'filename' => 'angry.gif',
+						'description' => $txt['icon_angry'],
+					),
+					array(
+						'code' => ':))',
+						'filename' => 'laugh.gif',
+						'description' => $txt['icon_laugh'],
+					),
+					array(
+						'code' => ':(',
+						'filename' => 'sad.gif',
+						'description' => $txt['icon_sad'],
+					),
+					array(
+						'code' => ':o',
+						'filename' => 'shocked.gif',
+						'description' => $txt['icon_shocked'],
+					),
+					array(
+						'code' => '8)',
+						'filename' => 'cool.gif',
+						'description' => $txt['icon_cool'],
+					),
+					array(
+						'code' => '???',
+						'filename' => 'huh.gif',
+						'description' => $txt['icon_huh'],
+					),
+					array(
+						'code' => '::)',
+						'filename' => 'rolleyes.gif',
+						'description' => $txt['icon_rolleyes'],
+					),
+					array(
+						'code' => ':P',
+						'filename' => 'tongue.gif',
+						'description' => $txt['icon_tongue'],
+					),
+					array(
+						'code' => ':-[',
+						'filename' => 'embarrassed.gif',
+						'description' => $txt['icon_embarrassed'],
+					),
+					array(
+						'code' => ':-X',
+						'filename' => 'lipsrsealed.gif',
+						'description' => $txt['icon_lips'],
+					),
+					array(
+						'code' => ':-\\',
+						'filename' => 'undecided.gif',
+						'description' => $txt['icon_undecided'],
+					),
+					array(
+						'code' => ':-*',
+						'filename' => 'kiss.gif',
+						'description' => $txt['icon_kiss'],
+					),
+					array(
+						'code' => 'O:)',
+						'filename' => 'angel.gif',
+						'description' => $txt['icon_angel'],
+					),
+					array(
+						'code' => ':\'(',
+						'filename' => 'cry.gif',
+						'description' => $txt['icon_cry'],
+						'isLast' => true,
+					),
+				),
+				'isLast' => true,
+			);
+		}
+		elseif ($context['smiley_enabled'])
+		{
+			$temp = array();
+			if (!Cache::instance()->getVar($temp, 'posting_smileys', 480))
 			{
-				$last_row = null;
-				foreach ($smileyRows as $rowIndex => $smileRow)
+				$db->fetchQueryCallback('
+					SELECT code, filename, description, smiley_row, hidden
+					FROM {db_prefix}smileys
+					WHERE hidden IN (0, 2)
+					ORDER BY smiley_row, smiley_order',
+					array(
+					),
+					function ($row)
+					{
+						global $context;
+
+						$row['filename'] = htmlspecialchars($row['filename'], ENT_COMPAT, 'UTF-8');
+						$row['description'] = htmlspecialchars($row['description'], ENT_COMPAT, 'UTF-8');
+
+						$context['smileys'][empty($row['hidden']) ? 'postform' : 'popup'][$row['smiley_row']]['smileys'][] = $row;
+					}
+				);
+
+				foreach ($context['smileys'] as $section => $smileyRows)
 				{
-					$smileys[$section][$rowIndex]['smileys'][count($smileRow['smileys']) - 1]['isLast'] = true;
-					$last_row = $rowIndex;
+					$last_row = null;
+					foreach ($smileyRows as $rowIndex => $smileys)
+					{
+						$context['smileys'][$section][$rowIndex]['smileys'][count($smileys['smileys']) - 1]['isLast'] = true;
+						$last_row = $rowIndex;
+					}
+
+					if ($last_row !== null)
+						$context['smileys'][$section][$last_row]['isLast'] = true;
 				}
 
-				if ($last_row !== null)
-				{
-					$smileys[$section][$last_row]['isLast'] = true;
-				}
+				Cache::instance()->put('posting_smileys', $context['smileys'], 480);
 			}
+			else
+				$context['smileys'] = $temp;
 
-			Cache::instance()->put('posting_smileys', $smileys, 600);
+			// The smiley popup may take advantage of Jquery UI ....
+			if (!empty($context['smileys']['popup']))
+				$modSettings['jquery_include_ui'] = true;
 		}
-		else
-		{
-			$smileys = $temp;
-		}
-
-		// The smiley popup may take advantage of Jquery UI ....
-		if (!empty($smileys['popup']))
-		{
-			$modSettings['jquery_include_ui'] = true;
-		}
-
-		return $smileys;
 	}
 
-	return empty($context['smileys']) ? $smileys : $context['smileys'];
-}
+	// Set a flag so the sub template knows what to do...
+	// @deprecated since 1.1 - the option was removed, let's keep the variable just to avoid potential undefined indexes.
+	$context['show_bbc'] = true;
 
-function buildSmileyToolbar($useSmileys)
-{
-	global $context;
-
-	if (!$useSmileys)
+	// Switch the URLs back... now we're back to whatever the main sub template is.  (like folder in PersonalMessage.)
+	if (isset($settings['use_default_images']) && $settings['use_default_images'] == 'defaults' && isset($settings['default_template']))
 	{
-		return ', emoticons: {}';
+		$settings['theme_url'] = $temp1;
+		$settings['images_url'] = $temp2;
+		$settings['theme_dir'] = $temp3;
 	}
 
-	$emoticons = ',
-		emoticons: {';
-
-	$countLocations = count($context['smileys']);
-	foreach ($context['smileys'] as $location => $smileyRows)
+	if (!empty($editorOptions['live_errors']))
 	{
-		$countLocations--;
-		if ($location === 'postform')
-		{
-			$emoticons .= '
-				dropdown: {';
-		}
+		loadLanguage('Errors');
 
-		if ($location === 'popup')
-		{
-			$emoticons .= '
-				popup: {';
-		}
+		addInlineJavascript('
+	error_txts[\'no_subject\'] = ' . JavaScriptEscape($txt['error_no_subject']) . ';
+	error_txts[\'no_message\'] = ' . JavaScriptEscape($txt['error_no_message']) . ';
 
-		$numRows = count($smileyRows);
-
-		// This is needed because otherwise the editor will remove all the duplicate (empty)
-		// keys and leave only 1 additional line
-		$emptyPlaceholder = 0;
-		foreach ($smileyRows as $smileyRow)
-		{
-			foreach ($smileyRow['smileys'] as $smiley)
-			{
-				$emoticons .= '
-					' . JavaScriptEscape($smiley['code']) . ': {url: ' . (JavaScriptEscape((isset($smiley['emoji']) ? $context['emoji_path'] : $context['smiley_path']) . $smiley['filename'])) . ', tooltip: ' . JavaScriptEscape($smiley['description']) . '}' . (empty($smiley['isLast']) ? ',' : '');
+	var subject_err = new errorbox_handler({
+		self: \'subject_err\',
+		error_box_id: \'post_error\',
+		error_checks: [{
+			code: \'no_subject\',
+			efunction: function(box_value) {
+				if (box_value.length === 0)
+					return true;
+				else
+					return false;
 			}
+		}],
+		check_id: "post_subject"
+	});
 
-			if (empty($smileyRow['isLast']) && $numRows !== 1)
-			{
-				$emoticons .= ",'-" . $emptyPlaceholder++ . "': '',";
+	var body_err_' . $editorOptions['id'] . ' = new errorbox_handler({
+		self: \'body_err_' . $editorOptions['id'] . '\',
+		error_box_id: \'post_error\',
+		error_checks: [{
+			code: \'no_message\',
+			efunction: function(box_value) {
+				if (box_value.length === 0)
+					return true;
+				else
+					return false;
 			}
-		}
-
-		$emoticons .= '
-			}' . ($countLocations !== 0 ? ',' : '');
+		}],
+		editor_id: \'' . $editorOptions['id'] . '\',
+		editor: ' . JavaScriptEscape('
+		(function () {
+			return $editor_data[\'' . $editorOptions['id'] . '\'].val();
+		});') . '
+	});', true);
 	}
-
-	return $emoticons . '
-	}';
-}
-
-/**
- *  Builds the BBC toolbar configuration for the editor.
- *
- *  What it does:
- *  - If the $bbcContainer parameter is null, it returns the configuration for the source mode toolbar.
- *  - Otherwise, it builds the toolbar configuration based on the buttons in the $context['bbc_toolbar'] array.
- *
- * @param mixed|null $bbcContainer The container of the editor. Null for source mode, otherwise the container element.
- * @return string The configuration for the BBC toolbar.
- */
-function buildBBCToolbar($bbcContainer)
-{
-	global $context;
-
-	if ($bbcContainer === null)
-	{
-		return ', 
-			toolbar: "source"';
-	}
-
-	// Show all the editor command buttons
-	$toolbar = ',
-		toolbar: "';
-
-	// Create the tooltag rows to display the buttons in the editor
-	foreach ($context['bbc_toolbar'] as $buttonRow)
-	{
-		$toolbar .= $buttonRow[0] . '|';
-	}
-
-	$toolbar .= '"';
-
-	return $toolbar;
 }

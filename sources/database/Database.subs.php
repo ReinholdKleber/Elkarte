@@ -4,152 +4,82 @@
  * This file has all the main functions in it that set up the database connection
  * and initializes the appropriate adapters.
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
 /**
  * Initialize database classes and connection.
  *
- * @param string $db_server server name
- * @param string $db_name database name like forum
- * @param string $db_user userid to attempt db connection
- * @param string $db_passwd password of user to attempt db connection
- * @param string $db_prefix prefix of the database, like elkarte_
+ * @param string $db_server
+ * @param string $db_name
+ * @param string $db_user
+ * @param string $db_passwd
+ * @param string $db_prefix
  * @param mixed[] $db_options
  * @param string $db_type
- *
- * @return \ElkArte\Database\QueryInterface
+ * @return resource
  */
 function elk_db_initiate($db_server, $db_name, $db_user, $db_passwd, $db_prefix, $db_options = array(), $db_type = 'mysql')
 {
-	return database(false);
+	require_once(SOURCEDIR . '/database/Db.php');
+	require_once(SOURCEDIR . '/database/Db-abstract.class.php');
+	require_once(SOURCEDIR . '/database/Db-' . $db_type . '.class.php');
+
+	return call_user_func_array(array('Database_' . DB_TYPE, 'initiate'), array($db_server, $db_name, $db_user, $db_passwd, $db_prefix, $db_options));
+}
+
+/**
+ * Extend the database functionality.
+ */
+function db_extend()
+{
+	// @todo this can be removed.
 }
 
 /**
  * Retrieve existing instance of the active database class.
  *
- * @param bool $fatal - Stop the execution or throw an \Exception
- * @param bool $force - Force the re-creation of the database instance.
- *                      If set to true, from that moment onwards the old
- *                      instance will be lost and only the new one returned
- *
- * @return \ElkArte\Database\QueryInterface
- * @throws \Exception if fatal is false
+ * @return Database
  */
-function database($fatal = true, $force = false)
+function database()
 {
-	static $db = null;
-
-	if ($db === null || $force === true)
-	{
-		global $db_persist, $db_server, $db_user, $db_passwd, $db_port;
-		global $db_type, $db_name, $db_prefix, $mysql_set_mode;
-
-		$db_options = [
-			'persist' => $db_persist,
-			'select_db' => true,
-			'port' => $db_port,
-			'mysql_set_mode' => (bool) ($mysql_set_mode ?? false)
-		];
-		$type = strtolower($db_type);
-		$type = $type === 'mysql' ? 'mysqli' : $type;
-
-		/** @var \ElkArte\Database\Mysqli\Connection $class */
-		$class = '\\ElkArte\\Database\\' . ucfirst($type) . '\\Connection';
-		try
-		{
-			$db = $class::initiate($db_server, $db_name, $db_user, $db_passwd, $db_prefix, $db_options);
-		}
-		catch (\Exception $e)
-		{
-			if ($fatal === true)
-			{
-				\ElkArte\Errors\Errors::instance()->display_db_error($e->getMessage());
-			}
-			else
-			{
-				throw $e;
-			}
-		}
-	}
-
-	return $db;
+	return call_user_func(array('Database_' . DB_TYPE, 'db'));
 }
 
 /**
- * This function retrieves an existing instance of \ElkArte\AbstractTable
+ * This function retrieves an existing instance of DbTable
  * and returns it.
  *
- * @param object|null $db - A database object (e.g. \ElkArte\Mysqli\Query)
- * @param bool $fatal - Stop the execution or throw an \Exception
- *
- * @return \ElkArte\Database\AbstractTable
+ * @param object|null $db - A database object (e.g. Database_MySQL or Database_PostgreSQL)
+ * @return DbTable
  */
-function db_table($db = null, $fatal = false)
+function db_table($db = null)
 {
-	global $db_prefix, $db_type;
-	static $db_table = null;
+	if ($db === null)
+		$db = database();
 
-	if ($db_table === null)
-	{
-		if ($db === null)
-		{
-			$db = database();
-		}
-		$db_type = strtolower($db_type);
-		$db_type = $db_type === 'mysql' ? 'mysqli' : $db_type;
-		$class = '\\ElkArte\\Database\\' . ucfirst($db_type) . '\\Table';
-		try
-		{
-			$db_table = new $class($db, $db_prefix);
-		}
-		catch (\Exception $e)
-		{
-			if ($fatal === true)
-			{
-				\ElkArte\Errors\Errors::instance()->display_db_error($e->getMessage());
-			}
-			else
-			{
-				throw $e;
-			}
-		}
-	}
+	require_once(SOURCEDIR . '/database/DbTable.class.php');
+	require_once(SOURCEDIR . '/database/DbTable-' . strtolower(DB_TYPE) . '.php');
 
-	return $db_table;
+	return call_user_func(array('DbTable_' . DB_TYPE, 'db_table'), $db);
 }
 
 /**
- * This function returns an instance of \ElkArte\AbstractSearch,
+ * This function returns an instance of DbSearch,
  * specifically designed for database utilities related to search.
  *
- * @return \ElkArte\Database\AbstractSearch
+ * @return DbSearch
+ *
  */
 function db_search()
 {
-	global $db_type;
-	static $db_search = null;
+	require_once(SOURCEDIR . '/database/DbSearch.php');
+	require_once(SOURCEDIR . '/database/DbSearch-' . strtolower(DB_TYPE) . '.php');
 
-	if ($db_search === null)
-	{
-		$db = database();
-		$db_type = strtolower($db_type);
-		$db_type = $db_type === 'mysql' ? 'mysqli' : $db_type;
-		$class = '\\ElkArte\\Database\\' . ucfirst($db_type) . '\\Search';
-		try
-		{
-			$db_search = new $class($db);
-		}
-		catch (\Exception $e)
-		{
-			\ElkArte\Errors\Errors::instance()->display_db_error($e->getMessage());
-		}
-	}
-
-	return $db_search;
+	return call_user_func(array('DbSearch_' . DB_TYPE, 'db_search'));
 }

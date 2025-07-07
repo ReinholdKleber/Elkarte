@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -17,7 +18,7 @@
  */
 function template_Search_init()
 {
-	theme()->getTemplates()->load('GenericBoards');
+	loadTemplate('GenericBoards');
 }
 
 /**
@@ -29,16 +30,14 @@ function template_searchform()
 
 	echo '
 				<form id="searchform" action="', $scripturl, '?action=search;sa=results" method="post" accept-charset="UTF-8" name="searchform">
-					<h2 class="category_header', empty($settings['use_buttons']) ? '' : ' hdicon i-search', '">
+					<h2 class="category_header', !empty($settings['use_buttons']) ? ' hdicon cat_img_search' : '', '">
 						', $txt['set_parameters'], '
 					</h2>';
 
 	// Any search errors to inform the user about
 	if (!empty($context['search_errors']))
-	{
 		echo '
 					<p class="errorbox">', implode('<br />', $context['search_errors']['messages']), '</p>';
-	}
 
 	// Start off showing our basic search form
 	echo '
@@ -52,20 +51,8 @@ function template_searchform()
 						</div>';
 
 	if (empty($modSettings['search_simple_fulltext']))
-	{
 		echo '
 						<p class="smalltext">', $txt['search_example'], '</p>';
-	}
-
-	// If $context['search_params']['topic'] is set, that means we're searching just one topic.
-	if (!empty($context['search_params']['topic']))
-	{
-		echo '
-						<span class="alert">
-							&#10148;', $txt['search_specific_topic'], ' &quot;', $context['search_topic']['link'], '&quot;.
-						</span>
-						<input type="hidden" name="topic" value="', $context['search_topic']['id'], '" />';
-	}
 
 	// Does the search require a visual verification screen to annoy them?
 	if (!empty($context['require_verification']))
@@ -77,17 +64,17 @@ function template_searchform()
 						</div>');
 	}
 
-	// All the advanced options, this div is collapsed by JS when available
+	// All of the advanced options, this div is collapsed by the JS when available
 	echo '
 						<div id="advanced_search">
 							<dl id="search_options">
-								<dt class="righttext">
-									<label for="searchtype">', $txt['search_match'], ':</label>
+								<dt class="righttext"><label for="searchtype">
+									', $txt['search_match'], ':</label>
 								</dt>
 								<dd>
 									<select name="searchtype" id="searchtype">
 										<option value="1"', empty($context['search_params']['searchtype']) ? ' selected="selected"' : '', '>', $txt['all_words'], '</option>
-										<option value="2"', empty($context['search_params']['searchtype']) ? '' : ' selected="selected"', '>', $txt['any_words'], '</option>
+										<option value="2"', !empty($context['search_params']['searchtype']) ? ' selected="selected"' : '', '>', $txt['any_words'], '</option>
 									</select>
 								</dd>
 								<dt class="righttext">
@@ -112,19 +99,19 @@ function template_searchform()
 									', $txt['search_options'], ':
 								</dt>
 								<dd class="options">
-									<input type="checkbox" name="show_complete" id="show_complete" value="1"', empty($context['search_params']['show_complete']) ? '' : ' checked="checked"', ' />
+									<input type="checkbox" name="show_complete" id="show_complete" value="1"', !empty($context['search_params']['show_complete']) ? ' checked="checked"' : '', ' />
 									<label for="show_complete">', $txt['search_show_complete_messages'], '</label><br />
-									<input type="checkbox" name="subject_only" id="subject_only" value="1"', empty($context['search_params']['subject_only']) ? '' : ' checked="checked"', ' />
+									<input type="checkbox" name="subject_only" id="subject_only" value="1"', !empty($context['search_params']['subject_only']) ? ' checked="checked"' : '', ' />
 									<label for="subject_only">', $txt['search_subject_only'], '</label>
 								</dd>
 								<dt class="righttext between">
-									', $txt['date'], ' ', $txt['search_between'], ': 
+									', $txt['search_post_age'], ':
 								</dt>
 								<dd>
-									<label for="minage" hidden>', $txt['search_between'], '</label>&nbsp;
-									<input type="date" name="minage" id="minage" value="', $context['search_params']['minage'], '" class="input_text" />&nbsp;
+									<label for="minage">', $txt['search_between'], '</label>&nbsp;
+									<input type="text" name="minage" id="minage" value="', $context['search_params']['minage'], '" size="5" maxlength="4" class="input_text" />&nbsp;
 									<label for="maxage">', $txt['search_and'], '&nbsp;</label>
-									<input type="date" name="maxage" id="maxage" value="', $context['search_params']['maxage'], '" class="input_text" />
+									<input type="text" name="maxage" id="maxage" value="', $context['search_params']['maxage'], '" size="5" maxlength="4" class="input_text" /> ', $txt['days_word'], '
 								</dd>
 							</dl>
 						</div>
@@ -133,6 +120,12 @@ function template_searchform()
 	// Set the initial search style for the form
 	echo '
 						<input id="advanced" type="hidden" name="advanced" value="1" />';
+
+	// If $context['search_params']['topic'] is set, that means we're searching just one topic.
+	if (!empty($context['search_params']['topic']))
+		echo '
+						<p>', $txt['search_specific_topic'], ' &quot;', $context['search_topic']['link'], '&quot;.</p>
+						<input type="hidden" name="topic" value="', $context['search_topic']['id'], '" />';
 
 	echo '
 					</fieldset>';
@@ -153,21 +146,18 @@ function template_searchform()
 				</form>';
 
 	// And now all the JS to make this work
-	theme()->addInlineJavascript('
+	addInlineJavascript('
 		createEventListener(window);
 		window.addEventListener("load", initSearch, false);
 
-		isFunctionLoaded("elk_AutoSuggest").then((available) => { 
-			if (available) {
-				new elk_AutoSuggest({
-					sSessionId: elk_session_id,
-					sSessionVar: elk_session_var,
-					sControlId: \'userspec\',
-					sSearchType: \'member\',
-					bItemList: false
-				});
-			}
-		});		
+		var oAddMemberSuggest = new smc_AutoSuggest({
+			sSelf: \'oAddMemberSuggest\',
+			sSessionId: elk_session_id,
+			sSessionVar: elk_session_var,
+			sControlId: \'userspec\',
+			sSearchType: \'member\',
+			bItemList: false
+		});
 
 		// Set the search style
 		document.getElementById(\'advanced\').value = "' . (empty($context['minmax_preferences']['asearch']) ? '1' : '0') . '";
@@ -207,19 +197,17 @@ function template_searchform()
  */
 function template_results()
 {
-	global $context, $options, $txt, $scripturl, $message;
+	global $context, $settings, $options, $txt, $scripturl, $message;
 
 	// Let them know if we ignored a word in the search
 	if (!empty($context['search_ignored']))
-	{
 		echo '
 		<div id="search_results">
 			<h2 class="category_header">
 				', $txt['generic_warning'], '
 			</h2>
-			<p class="warningbox">', $txt['search_warning_ignored_word' . (count($context['search_ignored']) === 1 ? '' : 's')], ': ', implode(', ', $context['search_ignored']), '</p>
+			<p class="warningbox">', $txt['search_warning_ignored_word' . (count($context['search_ignored']) == 1 ? '' : 's')], ': ', implode(', ', $context['search_ignored']), '</p>
 		</div>';
-	}
 
 	// Or perhaps they made a spelling error, lets give them a hint
 	if (!empty($context['did_you_mean']) || empty($context['topics']))
@@ -231,10 +219,8 @@ function template_results()
 
 		// Did they make any typos or mistakes, perhaps?
 		if (isset($context['did_you_mean']))
-		{
 			echo '
 					<p>', $txt['search_did_you_mean'], ' <a href="', $scripturl, '?action=search;sa=results;params=', $context['did_you_mean_params'], '">', $context['did_you_mean'], '</a>.</p>';
-		}
 
 		echo '
 					<form action="', $scripturl, '?action=search;sa=results" method="post" accept-charset="UTF-8">
@@ -254,19 +240,15 @@ function template_results()
 							<input type="hidden" name="subject_only" value="', $context['search_params']['subject_only'], '" />
 							<input type="hidden" name="minage" value="', $context['search_params']['minage'], '" />
 							<input type="hidden" name="maxage" value="', $context['search_params']['maxage'], '" />
-							<input type="hidden" name="sort" value="', $context['search_params']['sort'], '" />';
+							<input type="hidden" name="sort" value="', $context['search_params']['sort'], '" />
+						</div>';
 
 		if (!empty($context['search_params']['brd']))
-		{
 			foreach ($context['search_params']['brd'] as $board_id)
-			{
 				echo '
-							<input type="hidden" name="brd[', $board_id, ']" value="', $board_id, '" />';
-			}
-		}
+						<input type="hidden" name="brd[', $board_id, ']" value="', $board_id, '" />';
 
 		echo '
-						</div>
 					</form>
 				</div>
 			</div>
@@ -274,21 +256,17 @@ function template_results()
 	}
 
 	// Quick moderation set to checkboxes? Oh, how fun :/.
-	if (!empty($options['display_quick_mod']))
-	{
+	if (!empty($options['display_quick_mod']) && $options['display_quick_mod'] == 1)
 		echo '
-			<form id="quickModForm" class="search_results_posts', $context['compact'] ? ' compact_view' : '', '" action="', $scripturl, '?action=quickmod" method="post" accept-charset="UTF-8" name="quickModForm">';
-	}
+			<form id="topicForm" class="search_results_posts', $context['compact'] ? ' compact_view' : '', '" action="', $scripturl, '?action=quickmod" method="post" accept-charset="UTF-8" name="topicForm">';
 
 	echo '
-				<h2 class="category_header hdicon i-search">
+				<h2 class="category_header hdicon cat_img_search">
 					<span class="floatright">';
 
-	if (!empty($options['display_quick_mod']))
-	{
+	if (!empty($options['display_quick_mod']) && $options['display_quick_mod'] == 1)
 		echo '
-						<input id="select_all" type="checkbox" onclick="invertAll(this, this.form, \'topics[]\');" />';
-	}
+						<input type="checkbox" onclick="invertAll(this, this.form, \'topics[]\');" />';
 
 	echo '
 					</span>
@@ -297,94 +275,92 @@ function template_results()
 
 	// Was anything even found?
 	if (!empty($context['topics']))
-	{
 		template_pagesection();
-	}
 	else
-	{
 		echo '
 				<div class="well">', $txt['find_no_results'], '</div>';
-	}
 
 	if ($context['compact'])
-	{
 		echo '
-				<ul class="compact_view search_results_posts">';
-	}
+				<ul class="topic_listing compact_view search_results_posts">';
 	else
-	{
 		echo '
-				<ul class="forumposts search_results_posts">';
-	}
-
-	// Quick mod counters
-	$context['allow_qm'] = [];
+				<ul class="forumposts topic_listing search_results_posts">';
 
 	// While we have results to show ...
 	$controller = $context['get_topics'][0];
-	while (($topic = $controller->{$context['get_topics'][1]}()))
+	while ($topic = $controller->{$context['get_topics'][1]}())
 	{
-		$context['allow_qm']['can_remove'][] = isset($topic['quick_mod']['remove']) ? $topic['id'] : null;
-		$context['allow_qm']['can_move'][] = isset($topic['quick_mod']['move']) ? $topic['id'] : null;
-		$context['allow_qm']['can_lock'][] = isset($topic['quick_mod']['lock']) ? $topic['id'] : null;
-		$context['allow_qm']['can_sticky'][] = isset($topic['quick_mod']['sticky']) ? $topic['id'] : null;
-
 		if ($context['compact'])
 		{
 			// We start with locked and sticky topics.
 			if ($topic['is_sticky'] && $topic['is_locked'])
-			{
 				$color_class = 'locked_row sticky_row';
-			}
 			// Sticky topics should get a different color, too.
 			elseif ($topic['is_sticky'])
-			{
 				$color_class = 'sticky_row';
-			}
 			// Locked topics get special treatment as well.
 			elseif ($topic['is_locked'])
-			{
 				$color_class = 'locked_row';
-			}
 			// Last, but not least: regular topics.
 			else
-			{
 				$color_class = 'basic_row';
-			}
 		}
 		else
-		{
 			$color_class = 'basic_row';
-		}
 
 		foreach ($topic['matches'] as $message)
 		{
 			echo '
 					<li class="', $color_class, '">
 						<div class="topic_details">
-							<div class="counter">', $message['counter'] + 1, '</div>
-							<h5>', $topic['board']['link'], ' / <a href="', getUrl('topic', ['topic' => $topic['id'], 'subject' => $topic['subject'], 'start' => 'msg' . $message['id']]), '#msg', $message['id'], '">', $message['subject_highlighted'], '</a></h5>
-							<span class="smalltext">', $txt['by'], ' <strong>', $message['member']['link'], '</strong> ', $txt['on'], ' <em>', $message['time'], '</em></span>
+							<div class="counter">', $message['counter'], '</div>
+							<h5>', $topic['board']['link'], ' / <a href="', $scripturl, '?topic=', $topic['id'], '.msg', $message['id'], '#msg', $message['id'], '">', $message['subject_highlighted'], '</a></h5>
+							<span class="smalltext">&#171;&nbsp;', $txt['by'], '&nbsp;<strong>', $message['member']['link'], '</strong> ', $txt['on'], '&nbsp;<em>', $message['time'], '</em>&nbsp;&#187;</span>';
+			echo '
 						</div>';
 
-			if (!$context['compact'] || $message['body_highlighted'] !== '')
-			{
+			if (!$context['compact'] || $message['body_highlighted'] != '')
 				echo '
 						<div class="topic_body">', $message['body_highlighted'], '</div>';
-			}
 
-			// Quote, Reply, etc ... only when not viewing compact
 			if (!empty($topic['buttons']))
-			{
-				template_button_strip($topic['buttons'], 'quickbuttons no_js', ['no-class' => true]);
-			}
+				template_quickbutton_strip($topic['buttons'], $topic['tests']);
 
-			// Show QM checkbox, by the count indicator, only if compact view is on
-			if (!empty($options['display_quick_mod']) && $context['compact'])
+			if (!empty($options['display_quick_mod']))
 			{
 				echo '
-						<p class="topic_moderation">
-							<input type="checkbox" class="inline_mod_check" name="topics[]" value="', $topic['id'], '" />
+						<p class="topic_moderation">';
+
+				if ($options['display_quick_mod'] == 1)
+				{
+					echo '
+							<input type="checkbox" name="topics[]" value="', $topic['id'], '" />';
+				}
+				else
+				{
+					if ($topic['quick_mod']['remove'])
+						echo '
+							<a href="', $scripturl, '?action=quickmod;actions%5B', $topic['id'], '%5D=remove;', $context['session_var'], '=', $context['session_id'], '" onclick="return confirm(\'', $txt['quickmod_confirm'], '\');"><img src="', $settings['images_url'], '/icons/quick_remove.png" style="width: 16px;" alt="', $txt['remove_topic'], '" title="', $txt['remove_topic'], '" /></a>';
+
+					if ($topic['quick_mod']['lock'])
+						echo '
+							<a href="', $scripturl, '?action=quickmod;actions%5B', $topic['id'], '%5D=lock;', $context['session_var'], '=', $context['session_id'], '" onclick="return confirm(\'', $txt['quickmod_confirm'], '\');"><img src="', $settings['images_url'], '/icons/quick_lock.png" style="width: 16px;" alt="', $txt[$topic['is_locked'] ? 'set_unlock' : 'set_lock'], '" title="', $txt[$topic['is_locked'] ? 'set_unlock' : 'set_lock'], '" /></a>';
+
+					if ($topic['quick_mod']['lock'] || $topic['quick_mod']['remove'])
+						echo '
+							<br />';
+
+					if ($topic['quick_mod']['sticky'])
+						echo '
+							<a href="', $scripturl, '?action=quickmod;actions%5B', $topic['id'], '%5D=sticky;', $context['session_var'], '=', $context['session_id'], '" onclick="return confirm(\'', $txt['quickmod_confirm'], '\');"><img src="', $settings['images_url'], '/icons/quick_sticky.png" style="width: 16px;" alt="', $txt[$topic['is_sticky'] ? 'set_nonsticky' : 'set_sticky'], '" title="', $txt[$topic['is_sticky'] ? 'set_nonsticky' : 'set_sticky'], '" /></a>';
+
+					if ($topic['quick_mod']['move'])
+						echo '
+							<a href="', $scripturl, '?action=movetopic;topic=', $topic['id'], '.0"><img src="', $settings['images_url'], '/icons/quick_move.png" style="width: 16px;" alt="', $txt['move_topic'], '" title="', $txt['move_topic'], '" /></a>';
+				}
+
+				echo '
 						</p>';
 			}
 
@@ -396,87 +372,70 @@ function template_results()
 	echo '
 				</ul>';
 
+	// If we have results show a page index
+	if (!empty($context['topics']))
+		template_pagesection();
+
 	// Quick moderation enabled, then show an action area
-	if (!empty($context['topics']) && !empty($options['display_quick_mod']))
+	if (!empty($context['topics']) && !empty($options['display_quick_mod']) && $options['display_quick_mod'] == 1)
 	{
 		echo '
-				<div id="moderationbuttons">';
+				<div class="pagesection floatright">
+					<select class="qaction" name="qaction"', $context['can_move'] ? ' onchange="this.form.move_to.disabled = (this.options[this.selectedIndex].value != \'move\');"' : '', '>
+						<option value="">&nbsp;</option>';
 
-		template_button_strip($context['mod_buttons'], '', ['id' => 'moderationbuttons_strip']);
+		foreach ($context['qmod_actions'] as $qmod_action)
+			if ($context['can_' . $qmod_action])
+				echo '
+						<option value="' . $qmod_action . '">&#10148;&nbsp;', $txt['quick_mod_' . $qmod_action] . '</option>';
+
+		echo '
+					</select>';
 
 		// Show a list of boards they can move the topic to.
 		if ($context['can_move'])
-		{
 			echo '
 					<span id="quick_mod_jump_to">&nbsp;</span>';
-		}
 
 		echo '
-					<input type="hidden" name="qaction" id="qaction" value="na" />
 					<input type="hidden" name="redirect_url" value="', $scripturl . '?action=search;sa=results;params=' . $context['params'], '" />
+					<input type="submit" value="', $txt['quick_mod_go'], '" onclick="return document.forms.topicForm.qaction.value != \'\' &amp;&amp; confirm(\'', $txt['quickmod_confirm'], '\');" />
 					<input type="hidden" name="' . $context['session_var'] . '" value="' . $context['session_id'] . '" />
 				</div>
 			</form>';
+	}
 
-		// Show the move to box?
-		if ($context['can_move'])
-		{
-			theme()->addInlineJavascript('
-			aJumpTo[aJumpTo.length] = new JumpTo({
-				sContainerId: "quick_mod_jump_to",
-				sClassName: "qaction",
-				sJumpToTemplate: "%dropdown_list%",
-				sCurBoardName: "' . $context['jump_to']['board_name'] . '",
-				sBoardChildLevelIndicator: "&#8195;",
-				sBoardPrefix: "&#10148;&nbsp;",
-				sCatClass: "jump_to_header",
-				sCatPrefix: "",
-				bNoRedirect: true,
-				bDisabled: false,
-				sCustomName: "move_to"
-			});', true);
-		}
+	// Show a jump to box for easy navigation.
+	echo '
+			<div class="floatright" id="search_jump_to">&nbsp;</div>';
 
-		theme()->addInlineJavascript('
-		let oInTopicListModeration = new InTopicListModeration({
-			aQmActions: ["remove", "lock", "sticky", "move", "markread"],
-			sButtonStrip: "moderationbuttons",
-			sButtonStripDisplay: "moderationbuttons_strip",
-			bUseImageButton: false,
-			sFormId: "quickModForm",
-			
-			bCanRemove: ' . (empty($context['can_remove']) ? 'false' : 'true') . ',
-			aActionRemove: [' . implode(',', array_filter(array_unique($context['allow_qm']['can_remove']))) . '],
-			sRemoveButtonLabel: "' . $txt['remove_topic'] . '",
-			sRemoveButtonImage: "i-delete",
-			sRemoveButtonConfirm: "' . $txt['quickmod_confirm'] . '",
-			
-			bCanMove: ' . (empty($context['can_move']) ? 'false' : 'true') . ',
-			aActionMove: [' . implode(',', array_filter(array_unique($context['allow_qm']['can_move']))) . '],
-			sMoveButtonLabel: "' . $txt['move_topic'] . '",
-			sMoveButtonImage: "i-move",
-			sMoveButtonConfirm: "' . $txt['quickmod_confirm'] . '",
-
-			bCanLock: ' . ($context['can_lock'] ? 'true' : 'false') . ',
-			aActionLock: [' . implode(',', array_filter(array_unique($context['allow_qm']['can_lock']))) . '],
-			sLockButtonLabel: "' . $txt['set_lock'] . '",
-			sLockButtonImage: "i-lock",
-			
-			bCanSticky: ' . ($context['can_sticky'] ? 'true' : 'false') . ',
-			aActionSticky: [' . implode(',', array_filter(array_unique($context['allow_qm']['can_sticky']))) . '],
-			sStickyButtonLabel: "' . $txt['set_sticky'] . '",
-			sStickyButtonImage: "i-pin",
-			
-			bCanMarkread: ' . ($context['can_markread'] ? 'true' : 'false') . ',
-			sMarkreadButtonLabel: "' . $txt['mark_read_short'] . '",
-			sMarkreadButtonImage: "i-view",
-			sMarkreadButtonConfirm: "' . $txt['mark_these_as_read_confirm'] . '",				
+	if (!empty($options['display_quick_mod']) && $options['display_quick_mod'] == 1 && !empty($context['topics']) && $context['can_move'])
+		addInlineJavascript('
+		aJumpTo[aJumpTo.length] = new JumpTo({
+			sContainerId: "quick_mod_jump_to",
+			sClassName: "qaction",
+			sJumpToTemplate: "%dropdown_list%",
+			sCurBoardName: "' . $context['jump_to']['board_name'] . '",
+			sBoardChildLevelIndicator: "&#8195;",
+			sBoardPrefix: "&#10148;&nbsp;",
+			sCatClass: "jump_to_header",
+			sCatPrefix: "",
+			bNoRedirect: true,
+			bDisabled: true,
+			sCustomName: "move_to"
 		});', true);
-	}
 
-	// If we have results show a page index
-	if (!empty($context['topics']))
-	{
-		template_pagesection();
-	}
+	addInlineJavascript('
+		aJumpTo[aJumpTo.length] = new JumpTo({
+			sContainerId: "search_jump_to",
+			sJumpToTemplate: "<label class=\"smalltext\" for=\"%select_id%\">' . $context['jump_to']['label'] . ':<" + "/label> %dropdown_list%",
+			iCurBoardId: 0,
+			iCurBoardChildLevel: 0,
+			sCurBoardName: "' . $context['jump_to']['board_name'] . '",
+			sBoardChildLevelIndicator: "&#8195;",
+			sBoardPrefix: "&#10148;&nbsp;",
+			sCatClass: "jump_to_header",
+			sCatPrefix: "",
+			sGoButtonLabel: "' . $txt['quick_mod_go'] . '"
+		});', true);
 }

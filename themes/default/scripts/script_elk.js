@@ -1,9 +1,9 @@
 /*!
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.9
  */
 
 /**
@@ -16,28 +16,25 @@
 
 /** global: notification_topic_notice, notification_board_notice, txt_mark_as_read_confirm, oRttime */
 /** global: $editor_data, elk_scripturl, elk_smiley_url, elk_session_var, elk_session_id, elk_images_url */
-
-/** global: XMLHttpRequest, ElkInfoBar */
+/** global: poll_add, poll_remove, poll_add, XMLHttpRequest, ElkInfoBar */
 
 /**
- * Sets code blocks such that resize vertical works as expected.  Done this way to avoid
+ * Sets code blocks such that resize vertical works as expect.  Done this way to avoid
  * page jumps to named anchors missing the target.
  */
-function elk_codefix ()
+function elk_codefix()
 {
-	let codeBlock = document.querySelectorAll('.bbc_code');
-	codeBlock.forEach((code) => {
-		let style = window.getComputedStyle(code, null),
-			height = parseInt(style.getPropertyValue('height'));
+	$('.bbc_code').each(function()
+	{
+		var $this = $(this);
 
-		if (code.scrollHeight > height)
-		{
-			code.style.maxHeight = 'none';
-			code.style.height = height + 'px';
+		// If it has a scroll bar, allow the user to resize it vertically
+		if ($this.get(0).scrollHeight > Math.round($this.innerHeight())) {
+			$this.css('height', $this.height());
+			$this.css('max-height', 'none');
 		}
-		else
-		{
-			code.style.resize = 'none';
+		else {
+			$this.css('resize', 'none');
 		}
 	});
 }
@@ -46,7 +43,7 @@ function elk_codefix ()
  * Removes the read more overlay from quote blocks that do not need them, and for
  * ones that do, hides so the read more input can expand it out.
  */
-function elk_quotefix ()
+function elk_quotefix()
 {
 	let quotes = document.querySelectorAll('.quote-read-more');
 
@@ -71,94 +68,68 @@ function elk_quotefix ()
 /**
  * Turn a regular url button in to an ajax request
  *
- * @param {HTMLLinkElement} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  * @param {string} confirmation_msg_variable var name of the text sting to display in the "are you sure" box
  * @param {function} onSuccessCallback optional, a callback executed on successfully execute the AJAX call
  */
-function toggleButtonAJAX (btn, confirmation_msg_variable = '', onSuccessCallback = null)
+function toggleButtonAJAX(btn, confirmation_msg_variable, onSuccessCallback)
 {
-	fetch(btn.href + ';api=xml', {
-		method: 'GET',
-		headers: {
-			'X-Requested-With': 'XMLHttpRequest',
-			'Accept': 'application/xml'
-		}
+	$.ajax({
+		type: 'GET',
+		url: btn.href + ';xml;api',
+		context: document.body,
+		beforeSend: ajax_indicator(true)
 	})
-		.then(response => response.text())
-		.then(body => {
-			if (body === '')
-			{
-				return;
-			}
+	.done(function(request) {
+		if (request === '')
+			return;
 
-			let parser = new DOMParser(),
-				doc = parser.parseFromString(body, 'application/xml'),
-				oElement = doc.getElementsByTagName('elk')[0];
+		var oElement = $(request).find('elk')[0];
 
-			// No errors
-			if (oElement.getElementsByTagName('error').length === 0)
-			{
-				let text = oElement.getElementsByTagName('text'),
-					url = oElement.getElementsByTagName('url'),
-					confirm_elem = oElement.getElementsByTagName('confirm'),
-					confirm_text;
+		// No errors
+		if (oElement.getElementsByTagName('error').length === 0)
+		{
+			var text = oElement.getElementsByTagName('text'),
+				url = oElement.getElementsByTagName('url'),
+				confirm_elem = oElement.getElementsByTagName('confirm');
 
-				// Update the page so button/link/confirm/etc. reflect the new on or off status
-				if (confirm_elem.length === 1)
-				{
-					confirm_text = confirm_elem[0].firstChild.nodeValue.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, '\'');
-				}
+			// Update the page so button/link/confirm/etc reflect the new on or off status
+			if (confirm_elem.length === 1)
+				var confirm_text = confirm_elem[0].firstChild.nodeValue.removeEntities();
 
-				let elems = document.getElementsByClassName(btn.className.replace(/(list|link)level\d/g, '').trim());
-				Array.prototype.forEach.call(elems, function(el) {
-					if (text.length === 1)
-					{
-						el.innerHTML = '<span>' + text[0].firstChild.nodeValue.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, '\'') + '</span>';
-					}
+			$('.' + btn.className.replace(/(list|link)level\d/g, '').trim()).each(function() {
+				// @todo: the span should be moved somewhere in themes.js?
+				if (text.length === 1)
+					$(this).html('<span>' + text[0].firstChild.nodeValue.removeEntities() + '</span>');
 
-					if (url.length === 1)
-					{
-						el.href = url[0].firstChild.nodeValue.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, '\'');
-					}
+				if (url.length === 1)
+					$(this).attr('href', url[0].firstChild.nodeValue.removeEntities());
 
-					// Replaces the confirmation var text with the new one from the response to allow swapping on/off
-					// @todo this appears to be the start of a confirmation dialog... needs finished.
-					if (confirm_text !== '')
-					{
-						window[confirmation_msg_variable] = confirm_text.replace(/[\\']/g, '\\$&');
-					}
-				});
-			}
-			else
-			{
-				// Error returned from the called function, show an alert
-				if (oElement.getElementsByTagName('text').length !== 0)
-				{
-					alert(oElement.getElementsByTagName('text')[0].firstChild.nodeValue.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, '\''));
-				}
+				// Replaces the confirmation var text with the new one from the response to allow swapping on/off
+				if (typeof (confirm_text) !== 'undefined')
+					eval(confirmation_msg_variable + '= \'' + confirm_text.replace(/[\\']/g, '\\$&') + '\'');
+			});
+		}
+		else
+		{
+			// Error returned from the called function, show an alert
+			if (oElement.getElementsByTagName('text').length !== 0)
+				alert(oElement.getElementsByTagName('text')[0].firstChild.nodeValue.removeEntities());
 
-				if (oElement.getElementsByTagName('url').length !== 0)
-				{
-					window.location.href = oElement.getElementsByTagName('url')[0].firstChild.nodeValue;
-				}
-			}
+			if (oElement.getElementsByTagName('url').length !== 0)
+				window.location.href = oElement.getElementsByTagName('url')[0].firstChild.nodeValue;
+		}
 
-			if (onSuccessCallback !== null)
-			{
-				onSuccessCallback(btn, body, oElement.getElementsByTagName('error'));
-			}
-		})
-		.catch(error => {
-			// ajax failure code
-			if ('console' in window && console.info)
-			{
-				console.info('Error:', error);
-			}
-		})
-		.finally(() => {
-			// turn off the indicator
-			ajax_indicator(false);
-		});
+		if (typeof (onSuccessCallback) !== 'undefined')
+			onSuccessCallback(btn, request, oElement.getElementsByTagName('error'));
+	})
+	.fail(function() {
+		// ajax failure code
+	})
+	.always(function() {
+		// turn off the indicator
+		ajax_indicator(false);
+	});
 
 	return false;
 }
@@ -170,71 +141,47 @@ function toggleButtonAJAX (btn, confirmation_msg_variable = '', onSuccessCallbac
  *
  * @todo it may be merged into the function if not used anywhere else
  *
- * @param {HTMLLinkElement|string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {HTMLElement|string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  * @param {string} container_id  css ID of the data container
  */
-function toggleHeaderAJAX (btn, container_id)
+function toggleHeaderAJAX(btn, container_id)
 {
-	let body_template = '<div class="board_row centertext">{body}</div>';
-
-	// Start the loading indicator
+	// Show ajax is in progress
 	ajax_indicator(true);
+	var body_template = '<div class="board_row centertext">{body}</div>';
 
-	fetch(btn.href + ';api=xml', {
-		method: 'GET',
-		headers: {
-			'X-Requested-With': 'XMLHttpRequest',
-			'Accept': 'application/xml'
-		}
-	})
-		.then(response => {
-			if (!response.ok)
-			{
-				// HTTP status was not OK. Throw error to reject the promise.
-				throw new Error('HTTP error ' + response.status);
-			}
-			return response.text();
+	$.ajax({
+		type: 'GET',
+		url: btn.href + ';xml;api',
+		context: document.body,
+		beforeSend: ajax_indicator(true)
 		})
-		.then(request => {
+		.done(function(request) {
 			if (request === '')
-			{
 				return;
-			}
 
-			let parser = new DOMParser(),
-				xmlDoc = parser.parseFromString(request, 'text/xml'),
-				oElement = xmlDoc.getElementsByTagName('elk')[0];
+			var oElement = $(request).find('elk')[0];
 
+			// No errors
 			if (oElement.getElementsByTagName('error').length === 0)
 			{
-				let text_elem = oElement.getElementsByTagName('text'),
+				var text_elem = oElement.getElementsByTagName('text'),
 					body_elem = oElement.getElementsByTagName('body');
 
-				document.querySelectorAll('#' + container_id + ' .pagesection').forEach(node => node.remove());
-				document.querySelectorAll('#' + container_id + ' .topic_listing').forEach(node => node.remove());
-				document.querySelectorAll('#' + container_id + ' .topic_sorting').forEach(node => node.remove());
-
+				$('#' + container_id + ' .pagesection').remove();
+				$('#' + container_id + ' .topic_listing').remove();
+				$('#' + container_id + ' .topic_sorting').remove();
 				if (text_elem.length === 1)
-				{
-					document.querySelector('#' + container_id + ' .category_header').innerHTML = text_elem[0].firstChild.nodeValue;
-				}
-
+					$('#' + container_id + ' #unread_header').html(text_elem[0].firstChild.nodeValue.removeEntities());
 				if (body_elem.length === 1)
-				{
-					let newElement = document.createRange().createContextualFragment(body_template.replace('{body}', body_elem[0].firstChild.nodeValue));
-					document.querySelector('.category_header').parentNode.insertBefore(newElement, document.querySelector('.category_header').nextSibling);
-				}
+					$(body_template.replace('{body}', body_elem[0].firstChild.nodeValue.removeEntities())).insertAfter('#unread_header');
 			}
 		})
-		.catch((error) => {
-			// Handle any error
-			if ('console' in window && console.info)
-			{
-				console.info('Error:', error);
-			}
+		.fail(function() {
+			// ajax failure code
 		})
-		.finally(() => {
-			// Stop the loading indicator
+		.always(function() {
+			// turn off the indicator
 			ajax_indicator(false);
 		});
 }
@@ -244,70 +191,58 @@ function toggleHeaderAJAX (btn, container_id)
  *
  * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  */
-function notifyButton (btn)
+function notifyButton(btn)
 {
 	if (typeof (notification_topic_notice) !== 'undefined' && !confirm(notification_topic_notice))
-	{
 		return false;
-	}
 
 	return toggleButtonAJAX(btn, 'notification_topic_notice', function(btn, request, errors) {
 		var toggle = 0;
 
 		if (errors.length > 0)
-		{
 			return;
-		}
 
 		// This is a "turn notifications on"
 		if (btn.href.indexOf('sa=on') !== -1)
-		{
 			toggle = 1;
-		}
 		else
-		{
 			toggle = 0;
-		}
 
-		document.querySelector('input[name=\'notify\']').value = toggle;
+		$("input[name='notify']").val(toggle);
 	});
 }
 
 /**
  * Ajaxify the "notify" button in MessageIndex
  *
- * @param {HTMLLinkElement} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  */
-function notifyboardButton (btn)
+function notifyboardButton(btn)
 {
 	if (typeof (notification_board_notice) !== 'undefined' && !confirm(notification_board_notice))
-	{
 		return false;
-	}
 
 	toggleButtonAJAX(btn, 'notification_board_notice');
-
 	return false;
 }
 
 /**
  * Ajaxify the "unwatch" button in Display
  *
- * @param {HTMLLinkElement} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  */
-function unwatchButton (btn)
+function unwatchButton(btn)
 {
 	toggleButtonAJAX(btn);
-
 	return false;
 }
 
 /**
  * Ajaxify the "mark read" button in MessageIndex
  *
- * @param {HTMLLinkElement} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  */
-function markboardreadButton (btn)
+function markboardreadButton(btn)
 {
 	if (!confirm(txt_mark_as_read_confirm))
 	{
@@ -317,10 +252,7 @@ function markboardreadButton (btn)
 	toggleButtonAJAX(btn);
 
 	// Remove all the "new" icons next to the topics subjects
-	let elements = document.querySelectorAll('.new_posts');
-	elements.forEach((element) => {
-		element.remove();
-	});
+	$('.new_posts').remove();
 
 	return false;
 }
@@ -328,9 +260,9 @@ function markboardreadButton (btn)
 /**
  * Ajaxify the "mark all messages as read" button in BoardIndex
  *
- * @param {HTMLLinkElement} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  */
-function markallreadButton (btn)
+function markallreadButton(btn)
 {
 	if (!confirm(txt_mark_as_read_confirm))
 	{
@@ -340,33 +272,24 @@ function markallreadButton (btn)
 	toggleButtonAJAX(btn);
 
 	// Remove all the "new" icons next to the topics subjects
-	let elems = document.querySelectorAll('.new_posts');
-	[].forEach.call(elems, function(el) {
-		el.classList.remove('new_posts');
-	});
+	$('.new_posts').remove();
 
 	// Turn the board icon class to off
-	elems = document.querySelectorAll('.board_icon .i-board-new');
-	[].forEach.call(elems, function(el) {
-		el.classList.remove('i-board-new');
-		el.classList.add('i-board-off');
+	$('.board_icon').each(function() {
+		$(this).removeClass('i-board-new i-board-sub').addClass('i-board-off');
 	});
 
-	elems = document.querySelectorAll('.board_icon .i-board-sub');
-	[].forEach.call(elems, function(el) {
-		el.classList.remove('i-board-sub');
-		el.classList.add('i-board-off');
-	});
+	$('.board_new_posts').removeClass('board_new_posts');
 
 	return false;
 }
 
 /**
- * Ajaxify the "mark all messages as read" button in Recent and Category View
+ * Ajaxify the "mark all messages as read" button in Recent
  *
- * @param {HTMLLinkElement} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
+ * @param {string} btn string representing this, generally the anchor link tag <a class="" href="" onclick="">
  */
-function markunreadButton (btn)
+function markunreadButton(btn)
 {
 	if (!confirm(txt_mark_as_read_confirm))
 	{
@@ -379,95 +302,288 @@ function markunreadButton (btn)
 }
 
 /**
- * Returns the mentions from a plugin.
+ * This function changes the relative time around the page real-timeish
  */
-function getMentionsFromPlugin (all_elk, boundaries_pattern)
+var relative_time_refresh = 0;
+function updateRelativeTime()
 {
-	let $editor = $editor_data[all_elk.selector],
-		cached_names = $editor.opts.mentionOptions.cache.names,
-		cached_queries = $editor.opts.mentionOptions.cache.queries,
+	// In any other case no more than one hour
+	relative_time_refresh = 3600000;
 
-		// Clean up the newlines and spacing to find the @mentions
-		body = $editor.val().replace(/[\u00a0\r\n]/g, ' '),
-		mentions = $($editor.opts.mentionOptions.cache.mentions);
+	$('time').each(function() {
+		var oRelativeTime = new relativeTime($(this).data('timestamp') * 1000, oRttime.referenceTime),
+			time_text = '';
 
-	return validateMentions(body, cached_names, cached_queries, mentions, boundaries_pattern);
-}
-
-/**
- * Retrieves mentions from plain text.
- */
-function getMentionsFromPlainText (all_elk, sForm, sInput, boundaries_pattern)
-{
-	let cached_names = all_elk.oMention.cached_names,
-		cached_queries = all_elk.oMention.cached_queries,
-		// Keep everything separated with spaces, not newlines or no breakable
-		body = document.forms[sForm][sInput].value.replace(/[\u00a0\r\n]/g, ' '),
-		mentions = $(all_elk.oMention.mentions);
-
-	return validateMentions(body, cached_names, cached_queries, mentions, boundaries_pattern);
-}
-
-/**
- * Validates mentions in a given body of text.
- */
-function validateMentions (body, cached_names, cached_queries, mentions, boundaries_pattern)
-{
-	body = ' ' + body + ' ';
-	removeInvalidMentions(mentions, body, boundaries_pattern);
-
-	cached_queries.forEach(query => {
-		cached_names[query].forEach(name => {
-			let pos = checkWordOccurrence(body, name.name);
-			if (pos !== -1)
-			{
-				mentions.append($('<input type="hidden" name="uid[]" />').val(name.id));
-			}
-		});
-	});
-}
-
-/**
- * Removes invalid mentions from a given list of mentions based on the provided body and boundaries pattern.
- */
-function removeInvalidMentions (mentions, body, boundaries_pattern)
-{
-	$(mentions).find('input').each(function(idx, elem) {
-		let name = $(elem).data('name'),
-			next_char,
-			prev_char,
-			index = body.indexOf(name);
-
-		if (typeof name !== 'undefined')
+		if (oRelativeTime.seconds())
 		{
-			if (index === -1)
+			$(this).text(oRttime.now);
+			relative_time_refresh = Math.min(relative_time_refresh, 10000);
+		}
+		else if (oRelativeTime.minutes())
+		{
+			time_text = oRelativeTime.deltaTime > 1 ? oRttime.minutes : oRttime.minute;
+			$(this).text(time_text.replace('%s', oRelativeTime.deltaTime));
+			relative_time_refresh = Math.min(relative_time_refresh, 60000);
+		}
+		else if (oRelativeTime.hours())
+		{
+			time_text = oRelativeTime.deltaTime > 1 ? oRttime.hours : oRttime.hour;
+			$(this).text(time_text.replace('%s', oRelativeTime.deltaTime));
+			relative_time_refresh = Math.min(relative_time_refresh, 3600000);
+		}
+		else if (oRelativeTime.days())
+		{
+			time_text = oRelativeTime.deltaTime > 1 ? oRttime.days : oRttime.day;
+			$(this).text(time_text.replace('%s', oRelativeTime.deltaTime));
+			relative_time_refresh = Math.min(relative_time_refresh, 3600000);
+		}
+		else if (oRelativeTime.weeks())
+		{
+			time_text = oRelativeTime.deltaTime > 1 ? oRttime.weeks : oRttime.week;
+			$(this).text(time_text.replace('%s', oRelativeTime.deltaTime));
+			relative_time_refresh = Math.min(relative_time_refresh, 3600000);
+		}
+		else if (oRelativeTime.months())
+		{
+			time_text = oRelativeTime.deltaTime > 1 ? oRttime.months : oRttime.month;
+			$(this).text(time_text.replace('%s', oRelativeTime.deltaTime));
+			relative_time_refresh = Math.min(relative_time_refresh, 3600000);
+		}
+		else if (oRelativeTime.years())
+		{
+			time_text = oRelativeTime.deltaTime > 1 ? oRttime.years : oRttime.year;
+			$(this).text(time_text.replace('%s', oRelativeTime.deltaTime));
+			relative_time_refresh = Math.min(relative_time_refresh, 3600000);
+		}
+	});
+	oRttime.referenceTime += relative_time_refresh;
+
+	setTimeout(function() {updateRelativeTime();}, relative_time_refresh);
+}
+
+/**
+ * Function/object to handle relative times
+ * sTo is optional, if omitted the relative time is
+ * calculated from sFrom up to "now"
+ *
+ * @param {int} sFrom
+ * @param {int} sTo
+ */
+function relativeTime(sFrom, sTo)
+{
+	if (typeof sTo === 'undefined')
+	{
+		this.dateTo = new Date();
+	}
+	else if (parseInt(sTo) == 'NaN')
+	{
+		var sToSplit = sTo.split(/\D/);
+		this.dateTo = new Date(sToSplit[0], --sToSplit[1], sToSplit[2], sToSplit[3], sToSplit[4]);
+	}
+	else
+		this.dateTo = new Date(sTo);
+
+	if (parseInt(sFrom) == 'NaN')
+	{
+		var sFromSplit = sFrom.split(/\D/);
+		this.dateFrom = new Date(sFromSplit[0], --sFromSplit[1], sFromSplit[2], sFromSplit[3], sFromSplit[4]);
+	}
+	else
+		this.dateFrom = new Date(sFrom);
+
+	this.time_text = '';
+	this.past_time = (this.dateTo - this.dateFrom) / 1000;
+	this.deltaTime = 0;
+}
+
+relativeTime.prototype.seconds = function()
+{
+	// Within the first 60 seconds it is just now.
+	if (this.past_time < 60)
+	{
+		this.deltaTime = this.past_time;
+		return true;
+	}
+
+	return false;
+};
+
+relativeTime.prototype.minutes = function()
+{
+	// Within the first hour?
+	if (this.past_time >= 60 && Math.round(this.past_time / 60) < 60)
+	{
+		this.deltaTime = Math.round(this.past_time / 60);
+		return true;
+	}
+
+	return false;
+};
+
+relativeTime.prototype.hours = function()
+{
+	// Some hours but less than a day?
+	if (Math.round(this.past_time / 60) >= 60 && Math.round(this.past_time / 3600) < 24)
+	{
+		this.deltaTime = Math.round(this.past_time / 3600);
+		return true;
+	}
+
+	return false;
+};
+
+relativeTime.prototype.days = function()
+{
+	// Some days ago but less than a week?
+	if (Math.round(this.past_time / 3600) >= 24 && Math.round(this.past_time / (24 * 3600)) < 7)
+	{
+		this.deltaTime = Math.round(this.past_time / (24 * 3600));
+		return true;
+	}
+
+	return false;
+};
+
+relativeTime.prototype.weeks = function()
+{
+	// Weeks ago but less than a month?
+	if (Math.round(this.past_time / (24 * 3600)) >= 7 && Math.round(this.past_time / (24 * 3600)) < 30)
+	{
+		this.deltaTime = Math.round(this.past_time / (24 * 3600) / 7);
+		return true;
+	}
+
+	return false;
+};
+
+relativeTime.prototype.months = function()
+{
+	// Months ago but less than a year?
+	if (Math.round(this.past_time / (24 * 3600)) >= 30 && Math.round(this.past_time / (30 * 24 * 3600)) < 12)
+	{
+		this.deltaTime = Math.round(this.past_time / (30 * 24 * 3600));
+		return true;
+	}
+
+	return false;
+};
+
+relativeTime.prototype.years = function()
+{
+	// Oha, we've passed at least a year?
+	if (Math.round(this.past_time / (30 * 24 * 3600)) >= 12)
+	{
+		this.deltaTime = this.dateTo.getFullYear() - this.dateFrom.getFullYear();
+		return true;
+	}
+
+	return false;
+};
+
+/**
+ * Used to tag mentioned names when they are entered inline but NOT selected from the dropdown list
+ * The name must have appeared in the dropdown and be found in that cache list
+ *
+ * @param {string} sForm the form that holds the container, only used for plain text QR
+ * @param {string} sInput the container that atWho is attached
+ */
+function revalidateMentions(sForm, sInput)
+{
+	var cached_names,
+		cached_queries,
+		body,
+		mentions,
+		pos = -1,
+		// Some random punctuation marks that may appear next to a name
+		boundaries_pattern = /[ \.,;!\?'-\\\/="]/i;
+
+	for (var i = 0, count = all_elk_mentions.length; i < count; i++)
+	{
+		// Make sure this mention object is for this selector, safety first
+		if (all_elk_mentions[i].selector === sInput || all_elk_mentions[i].selector === '#' + sInput)
+		{
+			// Was this invoked as the editor plugin?
+			if (all_elk_mentions[i].oOptions.isPlugin)
 			{
-				$(elem).remove();
+				var $editor = $editor_data[all_elk_mentions[i].selector];
+
+				cached_names = $editor.opts.mentionOptions.cache.names;
+				cached_queries = $editor.opts.mentionOptions.cache.queries;
+
+				// Clean up the newlines and spacing so we can find the @mentions
+				body = $editor.getText().replace(/[\u00a0\r\n]/g, ' ');
+				mentions = $($editor.opts.mentionOptions.cache.mentions);
 			}
+			// Or just our plain text quick reply box?
 			else
 			{
-				next_char = body.charAt(index + name.length);
-				prev_char = body.charAt(index - 1);
+				cached_names = all_elk_mentions[i].oMention.cached_names;
+				cached_queries = all_elk_mentions[i].oMention.cached_queries;
 
-				if (next_char !== '' && next_char.search(boundaries_pattern) !== 0)
+				// Keep everything separated with spaces, not newlines or no breakable
+				body = document.forms[sForm][sInput].value.replace(/[\u00a0\r\n]/g, ' ');
+
+				// The last pulldown box that atWho populated
+				mentions = $(all_elk_mentions[i].oMention.mentions);
+			}
+
+			// Adding a space at the beginning to facilitate catching of mentions at the 1st char
+			// and one at the end to simplify catching any last thing in the text
+			body = ' ' + body + ' ';
+
+			// First check if all those in the list are really mentioned
+			$(mentions).find('input').each(function (idx, elem) {
+				var name = $(elem).data('name'),
+					next_char,
+					prev_char,
+					index = body.indexOf(name);
+
+				// It is undefined coming from a preview
+				if (typeof(name) !== 'undefined')
 				{
-					$(elem).remove();
+					if (index === -1)
+						$(elem).remove();
+					else
+					{
+						next_char = body.charAt(index + name.length);
+						prev_char = body.charAt(index - 1);
+
+						if (next_char !== '' && next_char.search(boundaries_pattern) !== 0)
+							$(elem).remove();
+						else if (prev_char !== '' && prev_char.search(boundaries_pattern) !== 0)
+							$(elem).remove();
+					}
 				}
-				else if (prev_char !== '' && prev_char.search(boundaries_pattern) !== 0)
+			});
+
+			for (var k = 0, ccount = cached_queries.length; k < ccount; k++)
+			{
+				var names = cached_names[cached_queries[k]];
+
+				for (var l = 0, ncount = names.length; l < ncount; l++)
 				{
-					$(elem).remove();
+					if(checkWordOccurrence(body, names[l].name)) {
+						pos = body.indexOf(' @' + names[l].name);
+
+						// If there is something like "{space}@username" AND the following char is a space or a punctuation mark
+						if (pos !== -1 && body.charAt(pos + 2 + names[l].name.length + 1).search(boundaries_pattern) === 0)
+							mentions.append($('<input type="hidden" name="uid[]" />').val(names[l].id));
+					}
 				}
 			}
 		}
-	});
+	}
 }
 
 /**
  * Check whether the word exists in a given paragraph
+ *
+ * @param paragraph to check
+ * @param word to match
  */
-function checkWordOccurrence (paragraph, word)
-{
-	return paragraph.search(new RegExp(' @\\b' + word + '\\b[ .,;!?\'\\-\\\\\\/="]', 'iu'));
+
+function checkWordOccurrence(paragraph, word){
+  return new RegExp( '\\b' + word + '\\b', 'i').test(paragraph);
 }
 
 /**
@@ -478,20 +594,15 @@ function checkWordOccurrence (paragraph, word)
  * @param {object} oOptions only set when called from the plugin, contains those options
  */
 var all_elk_mentions = [];
-
-function add_elk_mention (selector, oOptions)
+function add_elk_mention(selector, oOptions)
 {
 	// Global does not exist, hummm
 	if (all_elk_mentions.hasOwnProperty(selector))
-	{
 		return;
-	}
 
 	// No options means its attached to the plain text box
 	if (typeof oOptions === 'undefined')
-	{
 		oOptions = {};
-	}
 	oOptions.selector = selector;
 
 	// Add it to the stack
@@ -502,54 +613,265 @@ function add_elk_mention (selector, oOptions)
 }
 
 /**
- * Revalidates mentions, called from post form submittals.
+ * Drag and drop to reorder ID's via UI Sortable
  *
- * - Checks for invalid mentions, ones that were selected but then had spacing/lettering changed
- * - Used to tag mentioned names when they are entered inline but NOT selected from the dropdown list.  In that
- * case the name must have appeared in the dropdown and be found in that cache list
+ * @param {object} $
  */
-function revalidateMentions (sForm, sInput)
-{
-	let boundaries_pattern = /[ .,;!?'\-\\\/="]/i;
-	all_elk_mentions.forEach(mention => {
-		if (mention.selector === sInput || mention.selector === '#' + sInput)
+(function($) {
+	'use strict';
+	$.fn.elkSortable = function(oInstanceSettings) {
+		$.fn.elkSortable.oDefaultsSettings = {
+			opacity: 0.7,
+			cursor: 'move',
+			axis: 'y',
+			scroll: true,
+			containment: 'parent',
+			delay: 150,
+			handle: '', // Restricts sort start click to the specified element, like category_header
+			href: '', // If an error occurs redirect here
+			tolerance: 'intersect', // mode to use for testing whether the item is hovering over another item.
+			setorder: 'serialize', // how to return the data, really only supports serialize and inorder
+			placeholder: '', // css class used to style the landing zone
+			preprocess: '', // This function is called at the start of the update event (when the item is dropped) must in in global space
+			tag: '#table_grid_sortable', // ID(s) of the container to work with, single or comma separated
+			connect: '', // Use to group all related containers with a common CSS class
+			sa: '', // Subaction that the xmlcontroller should know about
+			title: '', // Title of the error box
+			error: '', // What to say when we don't know what happened, like connection error
+			token: '' // Security token if needed
+		};
+
+		// Account for any user options
+		var oSettings = $.extend({}, $.fn.elkSortable.oDefaultsSettings, oInstanceSettings || {});
+
+		if (typeof oSettings.infobar === 'undefined')
 		{
-			if (mention.oOptions.isPlugin)
-			{
-				getMentionsFromPlugin(mention, boundaries_pattern);
-			}
-			else
-			{
-				getMentionsFromPlainText(mention, sForm, sInput, boundaries_pattern);
-			}
+			oSettings.infobar = new ElkInfoBar('sortable_bar', {error_class: 'errorbox', success_class: 'infobox'});
 		}
+
+		// Divs to hold our responses
+		$("<div id='errorContainer'><div/>").appendTo('body');
+
+		$('#errorContainer').css({'display': 'none'});
+
+		// Find all oSettings.tag and attach the UI sortable action
+		$(oSettings.tag).sortable({
+			opacity: oSettings.opacity,
+			cursor: oSettings.cursor,
+			axis: oSettings.axis,
+			handle: oSettings.handle,
+			containment: oSettings.containment,
+			connectWith: oSettings.connect,
+			placeholder: oSettings.placeholder,
+			tolerance: oSettings.tolerance,
+			delay: oSettings.delay,
+			scroll: oSettings.scroll,
+			helper: function(e, ui) {
+				// Fist create a helper container
+				var $originals = ui.children(),
+					$helper = ui.clone(),
+					$clone;
+
+				// Replace the helper elements with spans, normally this is a <td> -> <span>
+				// Done to make this container agnostic.
+				$helper.children().each(function() {
+					$(this).replaceWith(function(){
+						return $("<span />", {html: $(this).html()});
+					});
+				});
+
+				// Set the width of each helper cell span to be the width of the original cells
+				$helper.children().each(function(index) {
+					// Set helper cell sizes to match the original sizes
+					return $(this).width($originals.eq(index).width()).css('display', 'inline-block');
+				});
+
+				// Next to overcome an issue where page scrolling does not work, we add the new agnostic helper
+				// element to the body, and hide it
+				$('body').append('<div id="clone" class="' + oSettings.placeholder + '">' + $helper.html() + '</div>');
+				$clone = $('#clone');
+				$clone.hide();
+
+				// Append the clone element to the actual container we are working in and show it
+				setTimeout(function() {
+					$clone.appendTo(ui.parent());
+					$clone.show();
+				}, 1);
+
+				// The above append process allows page scrolls to work while dragging the clone element
+				return $clone;
+			},
+			update: function(e, ui) {
+				// Called when an element is dropped in a new location
+				var postdata = '',
+					moved = ui.item.attr('id'),
+					order = [],
+					receiver = ui.item.parent().attr('id');
+
+				// Calling a pre processing function?
+				if (oSettings.preprocess !== '')
+					window[oSettings.preprocess]();
+
+				// How to post the sorted data
+				if (oSettings.setorder === 'inorder')
+				{
+					// This will get the order in 1-n as shown on the screen
+					$(oSettings.tag).find('li').each(function() {
+						var aid = $(this).attr('id').split('_');
+						order.push({name: aid[0] + '[]', value: aid[1]});
+					});
+					postdata = $.param(order);
+				}
+				// Get all id's in all the sortable containers
+				else
+				{
+					$(oSettings.tag).each(function() {
+						// Serialize will be 1-n of each nesting / connector
+						if (postdata === "")
+							postdata += $(this).sortable(oSettings.setorder);
+						else
+							postdata += "&" + $(this).sortable(oSettings.setorder);
+					});
+				}
+
+				// Add in our security tags and additional options
+				postdata += '&' + elk_session_var + '=' + elk_session_id;
+				postdata += '&order=reorder';
+				postdata += '&moved=' + moved;
+				postdata += '&received=' + receiver;
+
+				if (oSettings.token !== '')
+					postdata += '&' + oSettings.token.token_var + '=' + oSettings.token.token_id;
+
+				// And with the post data prepared, lets make the ajax request
+				$.ajax({
+					type: "POST",
+					url: elk_scripturl + "?action=xmlhttp;sa=" + oSettings.sa + ";xml",
+					dataType: "xml",
+					data: postdata
+				})
+				.fail(function(jqXHR, textStatus, errorThrown) {
+					oSettings.infobar.isError();
+					oSettings.infobar.changeText(textStatus).showBar();
+					// Reset the interface?
+					if (oSettings.href !== '')
+						setTimeout(function() {
+							window.location.href = elk_scripturl + oSettings.href;
+						}, 1000);
+				})
+				.done(function(data, textStatus, jqXHR) {
+					var $_errorContent = $('#errorContent'),
+						$_errorContainer = $('#errorContainer');
+
+					if ($(data).find("error").length !== 0)
+					{
+						// Errors get a modal dialog box and redirect on close
+						$_errorContainer.append('<p id="errorContent"></p>');
+						$_errorContent.html($(data).find("error").text());
+						$_errorContent.dialog({
+							autoOpen: true,
+							title: oSettings.title,
+							modal: true,
+							close: function(event, ui) {
+								// Redirecting due to the error, that's a good idea
+								if (oSettings.href !== '')
+									window.location.href = elk_scripturl + oSettings.href;
+							}
+						});
+					}
+					else if ($(data).find("elk").length !== 0)
+					{
+						// Valid responses get the unobtrusive slider
+						oSettings.infobar.isSuccess();
+						oSettings.infobar.changeText($(data).find('elk > orders > order').text()).showBar();
+					}
+					else
+					{
+						// Something "other" happened ...
+						$_errorContainer.append('<p id="errorContent"></p>');
+						$_errorContent.html(oSettings.error + ' : ' + textStatus);
+						$_errorContent.dialog({autoOpen: true, title: oSettings.title, modal: true});
+					}
+				})
+				.always(function(data, textStatus, jqXHR) {
+					if ($(data).find("elk > tokens > token").length !== 0)
+					{
+						// Reset the token
+						oSettings.token.token_id = $(data).find("tokens").find('[type="token"]').text();
+						oSettings.token.token_var = $(data).find("tokens").find('[type="token_var"]').text();
+					}
+				});
+			}
+		});
+	};
+})(jQuery);
+
+/**
+ * Helper function used in the preprocess call for drag/drop boards
+ * Sets the id of all 'li' elements to cat#,board#,childof# for use in the
+ * $_POST back to the xmlcontroller
+ */
+function setBoardIds() {
+	// For each category of board
+	$("[id^=category_]").each(function() {
+		var cat = $(this).attr('id').split('category_'),
+			uls = $(this).find("ul");
+
+		// First up add drop zones so we can drag and drop to each level
+		if (uls.length === 1)
+		{
+			// A single empty ul in a category, this can happen when a cat is dragged empty
+			if ($(uls).find("li").length === 0)
+				$(uls).append('<li id="cbp_' + cat + ',-1,-1"></li>');
+			// Otherwise the li's need a child ul so we have a "child-of" drop zone
+			else
+				$(uls).find("li:not(:has(ul))").append('<ul class="nolist elk_droppings"></ul>');
+		}
+		// All others normally
+		else
+			$(uls).find("li:not(:has(ul))").append('<ul class="nolist elk_droppings"></ul>');
+
+		// Next make find all the ul's in this category that have children, update the
+		// id's with information that indicates the 1-n and parent/child info
+		$(this).find('ul:parent').each(function(i, ul) {
+
+			// Get the (li) parent of this ul
+			var parentList = $(this).parent('li').attr('id'),
+					pli = 0;
+
+			// No parent, then its a base node 0, else its a child-of this node
+			if (typeof (parentList) !== "undefined")
+			{
+				pli = parentList.split(",");
+				pli = pli[1];
+			}
+
+			// Now for each li in this ul
+			$(this).find('li').each(function(i, el) {
+				var currentList = $(el).attr('id');
+				var myid = currentList.split(",");
+
+				// Remove the old id, insert the newly computed cat,brd,childof
+				$(el).removeAttr("id");
+				myid = "cbp_" + cat[1] + "," + myid[1] + "," + pli;
+				$(el).attr('id', myid);
+			});
+		});
 	});
 }
 
 /**
  * Expands the ... of the page indexes
+ *
+ * @todo not exactly a plugin and still very bound to the theme structure
+ *
  */
-(function($) {
-	const PER_PAGE_LIMIT = 10;
-
-	// Used when the user clicks on the ... to expand
+;(function($) {
 	$.fn.expand_pages = function() {
-		function expand_pages ($element)
+		// Used when the user clicks on the ... to expand instead of just a hover expand
+		function expand_pages($element)
 		{
-			function createPage (i)
-			{
-				let bElem = aModel.clone(),
-					boxModelClone = boxModel.clone();
-
-				bElem.attr('href', baseurl.replace('%1$d', i - perPage)).text(i / perPage);
-				boxModelClone.find('a').each(function() {
-					$(this).replaceWith(bElem[0]);
-				});
-				$baseAppend.after(boxModelClone);
-				return boxModelClone;
-			}
-
-			let $baseAppend = $($element.closest('.linavPages')),
+			var $baseAppend = $($element.closest('.linavPages')),
 				boxModel = $baseAppend.prev().clone(),
 				aModel = boxModel.find('a').clone(),
 				expandModel = $element.clone(),
@@ -557,55 +879,253 @@ function revalidateMentions (sForm, sInput)
 				firstPage = $element.data('firstpage'),
 				lastPage = $element.data('lastpage'),
 				rawBaseurl = $element.data('baseurl'),
-				baseurl = $element.data('baseurl').substring(1, $element.data('baseurl').length - 1),
-				first,
-				i,
-				oldLastPage = 0;
+				baseurl = eval($element.data('baseurl')),
+				first;
 
-			// Undo javascript escape
-			baseurl = baseurl.replace('\' + elk_scripturl + \'', elk_scripturl);
+			var i = 0,
+				oldLastPage = 0,
+				perPageLimit = 10;
 
 			// Prevent too many pages to be loaded at once.
-			if ((lastPage - firstPage) / perPage > PER_PAGE_LIMIT)
+			if ((lastPage - firstPage) / perPage > perPageLimit)
 			{
 				oldLastPage = lastPage;
-				lastPage = firstPage + PER_PAGE_LIMIT * perPage;
+				lastPage = firstPage + perPageLimit * perPage;
 			}
 
 			// Calculate the new pages.
 			for (i = lastPage; i > firstPage; i -= perPage)
 			{
-				if (typeof first === 'undefined')
-				{
-					first = createPage(i);
-				}
-				else
-				{
-					createPage(i);
-				}
-			}
+				var bElem = aModel.clone(),
+					boxModelClone = boxModel.clone();
 
+				bElem.attr('href', baseurl.replace('%1$d', i - perPage)).text(i / perPage);
+				boxModelClone.find('a').each(function() {
+					$(this).replaceWith(bElem[0]);
+				});
+				$baseAppend.after(boxModelClone);
+
+				// This is needed just to remember where to attach the new expand
+				if (typeof first === 'undefined')
+					first = boxModelClone;
+			}
 			$baseAppend.remove();
+
 			if (oldLastPage > 0)
 			{
-				expandModel.on('click', function(e) {
-					let $currentElement = $(this);
+				// This is to remove any hover_expand
+				expandModel.find('#expanded_pages_container').each(function() {
+					$(this).remove();
+				});
 
+				expandModel.on('click', function(e) {
+					var $zhis = $(this);
 					e.preventDefault();
-					expand_pages($currentElement);
+
+					expand_pages($zhis);
+
+					$zhis.off('mouseenter focus');
 				})
-					.data('perpage', perPage)
-					.data('firstpage', lastPage)
-					.data('lastpage', oldLastPage)
-					.data('baseurl', rawBaseurl);
+				.on('mouseenter focus', function() {
+					hover_expand($(this));
+				})
+				.data('perpage', perPage)
+				.data('firstpage', lastPage)
+				.data('lastpage', oldLastPage)
+				.data('baseurl', rawBaseurl);
+
 				first.after(expandModel);
 			}
 		}
 
 		this.attr('tabindex', 0).on('click', function(e) {
-			let $currentElement = $(this);
+			var $zhis = $(this);
 			e.preventDefault();
-			expand_pages($currentElement);
+
+			expand_pages($zhis);
+		});
+	};
+})(jQuery);
+
+/**
+ * SiteTooltip, Basic JQuery function to provide styled tooltips
+ *
+ * - will use the hoverintent plugin if available
+ * - shows the tooltip in a div with the class defined in tooltipClass
+ * - moves all selector titles to a hidden div and removes the title attribute to
+ *   prevent any default browser actions
+ * - attempts to keep the tooltip on screen
+ *
+ * @param {type} $
+ */
+(function($) {
+	'use strict';
+	$.fn.SiteTooltip = function(oInstanceSettings) {
+		$.fn.SiteTooltip.oDefaultsSettings = {
+			followMouse: 1,
+			hoverIntent: {sensitivity: 10, interval: 650, timeout: 50},
+			positionTop: 12,
+			positionLeft: 12,
+			tooltipID: 'site_tooltip', // ID used on the outer div
+			tooltipTextID: 'site_tooltipText', // as above but on the inner div holding the text
+			tooltipClass: 'tooltip', // The class applied to the outer div (that displays on hover), use this in your css
+			tooltipSwapClass: 'site_swaptip', // a class only used internally, change only if you have a conflict
+			tooltipContent: 'html' // display captured title text as html or text
+		};
+
+		// Account for any user options
+		var oSettings = $.extend({}, $.fn.SiteTooltip.oDefaultsSettings, oInstanceSettings || {});
+
+		// Move passed selector titles to a hidden span, then remove the selector title to prevent any default browser actions
+		$(this).each(function()
+		{
+			var sTitle = $('<span class="' + oSettings.tooltipSwapClass + '">' + this.title + '</span>').hide();
+			$(this).append(sTitle).attr('title', '');
+		});
+
+		// Determine where we are going to place the tooltip, while trying to keep it on screen
+		var positionTooltip = function(event)
+		{
+			var iPosx = 0,
+				iPosy = 0,
+				$_tip = $('#' + oSettings.tooltipID);
+
+			if (!event)
+				event = window.event;
+
+			if (event.pageX || event.pageY)
+			{
+				iPosx = event.pageX;
+				iPosy = event.pageY;
+			}
+			else if (event.clientX || event.clientY)
+			{
+				iPosx = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+				iPosy = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+			}
+
+			// Position of the tooltip top left corner and its size
+			var oPosition = {
+					x: iPosx + oSettings.positionLeft,
+					y: iPosy + oSettings.positionTop,
+					w: $_tip.width(),
+					h: $_tip.height()
+				};
+
+			// Display limits and window scroll position
+			var oLimits = {
+				x: $(window).scrollLeft(),
+				y: $(window).scrollTop(),
+				w: $(window).width() - 24,
+				h: $(window).height() - 24
+			};
+
+			// Don't go off screen with our tooltip
+			if ((oPosition.y + oPosition.h > oLimits.y + oLimits.h) && (oPosition.x + oPosition.w > oLimits.x + oLimits.w))
+			{
+				oPosition.x = (oPosition.x - oPosition.w) - 45;
+				oPosition.y = (oPosition.y - oPosition.h) - 45;
+			}
+			else if ((oPosition.x + oPosition.w) > (oLimits.x + oLimits.w))
+			{
+				oPosition.x -= (((oPosition.x + oPosition.w) - (oLimits.x + oLimits.w)) + 24);
+			}
+			else if (oPosition.y + oPosition.h > oLimits.y + oLimits.h)
+			{
+				oPosition.y -= (((oPosition.y + oPosition.h) - (oLimits.y + oLimits.h)) + 24);
+			}
+
+			// Finally set the position we determined
+			$_tip.css({'left': oPosition.x + 'px', 'top': oPosition.y + 'px'});
+		};
+
+		// Used to show a tooltip
+		var showTooltip = function() {
+			$('#' + oSettings.tooltipID + ' #' + oSettings.tooltipTextID).slideDown(150);
+		};
+
+		// Used to hide a tooltip
+		var hideTooltip = function() {
+			var $_tip = $('#' + oSettings.tooltipID);
+
+			$_tip.fadeOut(175, function() {
+				$(this).trigger("unload").remove();
+			});
+		};
+
+		// Used to keep html encoded
+		function htmlspecialchars(string)
+		{
+			return $('<span>').text(string).html();
+		}
+
+		// For all of the elements that match the selector on the page, lets set up some actions
+		return this.each(function()
+		{
+			// If we find hoverIntent then use it
+			if ($.fn.hoverIntent)
+			{
+				$(this).hoverIntent({
+					sensitivity: oSettings.hoverIntent.sensitivity,
+					interval: oSettings.hoverIntent.interval,
+					over: site_tooltip_on,
+					timeout: oSettings.hoverIntent.timeout,
+					out: site_tooltip_off
+				});
+			}
+			else
+			{
+				// Plain old hover it is
+				$(this).hover(site_tooltip_on, site_tooltip_off);
+			}
+
+			// Create the on tip action
+			function site_tooltip_on(event)
+			{
+				// If we have text in the hidden span element we created on page load
+				if ($(this).children('.' + oSettings.tooltipSwapClass).text())
+				{
+					// Create a ID'ed div with our style class that holds the tooltip info, hidden for now
+					$('body').append('<div id="' + oSettings.tooltipID + '" class="' + oSettings.tooltipClass + '"><div id="' + oSettings.tooltipTextID + '" class="hide"></div></div>');
+
+					// Load information in to our newly created div
+					var ttContent = $('#' + oSettings.tooltipTextID);
+
+					if (oSettings.tooltipContent === 'html')
+						ttContent.html($(this).children('.' + oSettings.tooltipSwapClass).html());
+					else
+						ttContent.text($(this).children('.' + oSettings.tooltipSwapClass).text());
+
+					// Show then position or it may position off screen
+					showTooltip();
+					positionTooltip(event);
+				}
+
+				return false;
+			}
+
+			// Create the Bye bye tip
+			function site_tooltip_off(event)
+			{
+				hideTooltip(this);
+				return false;
+			}
+
+			// Create the tip move with the cursor
+			if (oSettings.followMouse)
+			{
+				$(this).on("mousemove", function(event) {
+					positionTooltip(event);
+
+					return false;
+				});
+			}
+
+			// Clear the tip on a click
+			$(this).on("click", function() {
+				hideTooltip(this);
+				return true;
+			});
 		});
 	};
 })(jQuery);
@@ -617,115 +1137,225 @@ function revalidateMentions (sForm, sInput)
  * @returns {errorbox_handler}
  */
 var error_txts = {};
-
-function errorbox_handler (oOptions)
+function errorbox_handler(oOptions)
 {
 	this.opt = oOptions;
 	this.oError_box = null;
 	this.oErrorHandle = window;
+	this.evaluate = false;
 	this.init();
 }
 
-errorbox_handler.prototype.init = function() {
+/**
+ * @todo this code works well almost only with the editor I think.
+ */
+errorbox_handler.prototype.init = function()
+{
+	if (this.opt.check_id !== undefined)
+		this.oChecks_on = $(document.getElementById(this.opt.check_id));
+	else if (this.opt.selector !== undefined)
+		this.oChecks_on = this.opt.selector;
+	else if (this.opt.editor !== undefined)
+	{
+		this.oChecks_on = eval(this.opt.editor);
+		this.evaluate = true;
+	}
+
 	this.oErrorHandle.instanceRef = this;
+
 	if (this.oError_box === null)
-	{
-		this.oError_box = document.getElementById(this.opt.error_box_id);
-	}
-};
+		this.oError_box = $(document.getElementById(this.opt.error_box_id));
 
-errorbox_handler.prototype.checkErrors = function(add = false) {
-	let elem = document.getElementById(this.opt.error_box_id + '_' + this.opt.error_code);
-	if (add)
+	if (this.evaluate === false)
 	{
-		this.addError(elem, this.opt.error_code);
+		this.oChecks_on.attr('onblur', this.opt.self + '.checkErrors()');
+		this.oChecks_on.attr('onkeyup', this.opt.self + '.checkErrors()');
 	}
 	else
 	{
-		this.removeError(this.oError_box, elem);
+		var current_error_handler = this.opt.self;
+		$(function() {
+			var current_error = eval(current_error_handler);
+			$editor_data[current_error.opt.editor_id].addEvent(current_error.opt.editor_id, 'keyup', function() {
+				current_error.checkErrors();
+			});
+		});
+	}
+};
+
+errorbox_handler.prototype.boxVal = function()
+{
+	if (this.evaluate === false)
+		return this.oChecks_on.val();
+	else
+		return this.oChecks_on();
+};
+
+/**
+ * Runs the field checks as defined by the object instance
+ */
+errorbox_handler.prototype.checkErrors = function()
+{
+	var num = this.opt.error_checks.length;
+
+	if (num !== 0)
+	{
+		// Adds the error checking functions
+		for (var i = 0; i < num; i++)
+		{
+			// Get the element that holds the errors
+			var $elem = $(document.getElementById(this.opt.error_box_id + "_" + this.opt.error_checks[i].code));
+
+			// Run the efunction check on this field, then add or remove any errors
+			if (this.opt.error_checks[i].efunction(this.boxVal()))
+				this.addError($elem, this.opt.error_checks[i].code);
+			else
+				this.removeError(this.oError_box, $elem);
+		}
+
+		this.oError_box.attr("class", "errorbox");
 	}
 
-	this.oError_box.className = 'infobox';
 	// Hide show the error box based on if we have any errors
-	if (this.oError_box.querySelectorAll('li').length === 0)
-	{
-		this.slideUp(this.oError_box);
-	}
-	// Populate the error and move into view
+	if (this.oError_box.find("li").length === 0)
+		this.oError_box.slideUp();
 	else
-	{
-		this.slideDown(this.oError_box);
-		document.getElementById(this.opt.error_box_id).scrollIntoView();
-	}
+		this.oError_box.slideDown();
 };
 
-errorbox_handler.prototype.addError = function(error_elem, error_code) {
-	if (!error_elem)
+/**
+ * Add and error to the list
+ *
+ * @param {type} error_elem
+ * @param {type} error_code
+ */
+errorbox_handler.prototype.addError = function(error_elem, error_code)
+{
+	if (error_elem.length === 0)
 	{
 		// First error, then set up the list for insertion
-		let errorList = this.oError_box.querySelector('#' + this.opt.error_box_id + '_list');
-		if (!errorList || errorList.innerHTML.trim() === '')
-		{
-			let ul = document.createElement('ul');
-			ul.id = this.opt.error_box_id + '_list';
-			this.oError_box.appendChild(ul);
-		}
+		if ($.trim(this.oError_box.children("#" + this.opt.error_box_id + "_list").html()) === '')
+			this.oError_box.append("<ul id='" + this.opt.error_box_id + "_list'></ul>");
 
-		let li = document.createElement('li');
-		li.style.display = 'none';
-		li.id = this.opt.error_box_id + '_' + error_code;
-		li.innerText = error_txts[error_code];
-		document.getElementById(this.opt.error_box_id + '_list').appendChild(li);
-		document.getElementById(this.opt.error_box_id + '_' + error_code).style.display = 'block';
+		// Add the error it and show it
+		$(document.getElementById(this.opt.error_box_id + "_list")).append("<li style=\"display:none;\" id='" + this.opt.error_box_id + "_" + error_code + "' class='error'>" + error_txts[error_code] + "</li>");
+		$(document.getElementById(this.opt.error_box_id + "_" + error_code)).slideDown();
 	}
 };
 
-errorbox_handler.prototype.removeError = function(error_box, error_elem) {
-	if (error_elem)
+/**
+ * Remove an error from the notice window
+ *
+ * @param {type} error_box
+ * @param {type} error_elem
+ */
+errorbox_handler.prototype.removeError = function(error_box, error_elem)
+{
+	if (error_elem.length !== 0)
 	{
-		error_elem.style.display = 'none';
-		error_elem.parentNode.removeChild(error_elem);
-		if (error_box.querySelectorAll('li').length === 0)
-		{
-			this.slideUp(error_box);
-		}
+		error_elem.slideUp(function() {
+			error_elem.remove();
+
+			// No errors at all then close the box
+			if (error_box.find("li").length === 0)
+				error_box.slideUp();
+		});
 	}
 };
 
-errorbox_handler.prototype.slideUp = function(element) {
-	element.style.transition = 'opacity 0.5s';
-	element.style.opacity = '0';
-};
+/**
+ * Add a new dt/dd pair above a parent selector
+ * Called most often as a callback option in config options
+ * If oData is supplied, will create a select list, populated with that data
+ * otherwise a standard input box.
+ *
+ * @param {string} parent id of the parent "add more button: we will place this before
+ * @param {object} oDtName object of dt element options (type, class, size)
+ * @param {object} oDdName object of the dd element options (type, class size)
+ * @param {object} [oData] optional select box object, 1:{id:value,name:display name}, ...
+ */
+function addAnotherOption(parent, oDtName, oDdName, oData)
+{
+	// Some defaults to use if none are passed
+	oDtName['type'] = oDtName.type || 'text';
+	oDtName['class'] = oDtName['class'] || 'input_text';
+	oDtName['size'] = oDtName.size || '20';
 
-errorbox_handler.prototype.slideDown = function(element) {
-	element.style.transition = 'opacity 0.5s';
-	element.style.opacity = '1';
-};
+	oDdName['type'] = oDdName.type || 'text';
+	oDdName['class'] = oDdName['class'] || 'input_text';
+	oDdName['size'] = oDdName.size || '20';
+	oData = oData || '';
+
+	// Our new <dt> element
+	var newDT = document.createElement('dt'),
+		newInput = document.createElement('input');
+
+	newInput.name = oDtName.name;
+	newInput.type = oDtName.type;
+	newInput.setAttribute('class', oDtName['class']);
+	newInput.size = oDtName.size;
+	newDT.appendChild(newInput);
+
+	// And its matching <dd>
+	var newDD = document.createElement('dd');
+
+	// If we have data for this field make it a select
+	if (oData === '')
+		newInput = document.createElement('input');
+	else
+		newInput = document.createElement('select');
+
+	newInput.name = oDdName.name;
+	newInput.type = oDdName.type;
+	newInput.size = oDdName.size;
+	newInput.setAttribute('class', oDdName['class']);
+	newDD.appendChild(newInput);
+
+	// If its a select box we add in the options
+	if (oData !== '')
+	{
+		// The options are children of the newInput select box
+		var opt,
+			key,
+			obj;
+
+		for (key in oData)
+		{
+			obj = oData[key];
+			opt = document.createElement("option");
+			opt.name = "option";
+			opt.value = obj.id;
+			opt.innerHTML = obj.name;
+			newInput.appendChild(opt);
+		}
+	}
+
+	// Place the new dt/dd pair before our parent
+	var placeHolder = document.getElementById(parent);
+
+	placeHolder.parentNode.insertBefore(newDT, placeHolder);
+	placeHolder.parentNode.insertBefore(newDD, placeHolder);
+}
 
 /**
  * Shows the member search dropdown with the search options
  */
-function toggle_mlsearch_opt ()
+function toggle_mlsearch_opt()
 {
-	let mlsearch = document.getElementById('mlsearch_options');
+	var $_mlsearch = $('#mlsearch_options');
 
 	// If the box is already visible just forget about it
-	if (window.getComputedStyle(mlsearch).display !== 'none')
-	{
+	if ($_mlsearch.is(':visible'))
 		return;
-	}
 
 	// Time to show the droppy
-	mlsearch.fadeIn(250);
+	$_mlsearch.fadeIn('fast');
 
 	// A click anywhere on the page will close the droppy
-	document.body.addEventListener('click', mlsearch_opt_hide);
+	$('body').on('click', mlsearch_opt_hide);
 
 	// Except clicking on the box itself or into the search text input
-	document.getElementById('mlsearch_options').addEventListener('click', function(ev) {
-		ev.stopPropagation();
-	});
-	document.getElementById('mlsearch_input').addEventListener('click', function(ev) {
+	$('#mlsearch_options, #mlsearch_input').off('click', mlsearch_opt_hide).on('click', function(ev) {
 		ev.stopPropagation();
 	});
 }
@@ -733,136 +1363,195 @@ function toggle_mlsearch_opt ()
 /**
  * Hides the member search dropdown and detach the body click event
  */
-function mlsearch_opt_hide ()
+function mlsearch_opt_hide()
 {
-	document.querySelector('body').removeEventListener('click', mlsearch_opt_hide);
-
-	let mlsearchOptions = document.getElementById('mlsearch_options');
-	mlsearchOptions.slideToggle(250);
+	$('body').off('click', mlsearch_opt_hide);
+	$('#mlsearch_options').slideToggle('fast');
 }
 
 /**
- * Attempt to prevent browsers from auto completing fields
+ * Called when the add/remove poll button is pressed from the post screen
  *
- * - when viewing/editing other members profiles
- * - when registering new member
+ * Used to add add/remove poll input area above the post new topic screen
+ * Updates the message icon to the poll icon
+ * Swaps poll button to match the current conditions
+ *
+ * @param {object} button
+ * @param {int} id_board
+ * @param {string} form_name
  */
-function disableAutoComplete ()
+function loadAddNewPoll(button, id_board, form_name)
+{
+	if (typeof id_board === 'undefined')
+		return true;
+
+	// Find the form and add poll to the url
+	var $form = $('#post_header').closest("form"),
+		$_poll_main_option = $('#poll_main, #poll_options');
+
+	// Change the button label
+	if ($(button).val() === poll_add)
+	{
+		$(button).val(poll_remove);
+
+		// We usually like to have the poll icon associated to polls,
+		// but only if the currently selected is the default one
+		var $_pollicon = $('#icon');
+		if ($_pollicon.val() === 'xx')
+			$_pollicon.val('poll').change();
+
+		// Add poll to the form action
+		$form.attr('action', $form.attr('action') + ';poll');
+
+		// If the form already exists...just show it back and go out
+		if ($('#poll_main').length > 0)
+		{
+			$_poll_main_option.find('input').each(function() {
+				if ($(this).data('required') === 'required')
+					$(this).attr('required', 'required');
+			});
+
+			$_poll_main_option.toggle();
+			return false;
+		}
+	}
+	// Remove the poll section
+	else
+	{
+		var $_icon = $('#icon');
+
+		if ($_icon.val() === 'poll')
+			$_icon.val('xx').change();
+
+		// Remove poll to the form action
+		$form.attr('action', $form.attr('action').replace(';poll', ''));
+
+		$_poll_main_option.hide().find('input').each(function() {
+			if ($(this).attr('required') === 'required')
+			{
+				$(this).data('required', 'required');
+				$(this).removeAttr('required');
+			}
+		});
+
+		$(button).val(poll_add);
+
+		return false;
+	}
+
+	// Retrieve the poll area
+	$.ajax({
+		url: elk_scripturl + '?action=poll;sa=interface;xml;board=' + id_board,
+		type: "GET",
+		dataType: "html",
+		beforeSend: ajax_indicator(true)
+	})
+	.done(function (data, textStatus, xhr) {
+		// Find the highest tabindex already present
+		var max_tabIndex = 0;
+		for (var i = 0, n = document.forms[form_name].elements.length; i < n; i++)
+			max_tabIndex = Math.max(max_tabIndex, document.forms[form_name].elements[i].tabIndex);
+
+		// Inject the html
+		$('#post_header').after(data);
+
+		$('#poll_main input, #poll_options input').each(function () {
+			$(this).attr('tabindex', ++max_tabIndex);
+		});
+
+		// Repeated collapse/expand of fieldsets as above
+		$('#poll_main legend, #poll_options legend').on('click', function() {
+			$(this).siblings().slideToggle("fast");
+			$(this).parent().toggleClass("collapsed");
+		}).each(function () {
+			if ($(this).data('collapsed'))
+			{
+				$(this).siblings().css({display: "none"});
+				$(this).parent().toggleClass("collapsed");
+			}
+		});
+	})
+	.always(function() {
+		// turn off the indicator
+		ajax_indicator(false);
+	});
+
+	return false;
+}
+
+/**
+ * Attempt to prevent browsers from auto completing fields when viewing/editing other members profiles
+ * or when register new member
+ */
+function disableAutoComplete()
 {
 	window.onload = function() {
 		// Turn off autocomplete for these elements
-		const elements = document.querySelectorAll('input[type=email], .input_text, .input_clear');
-		for (let item of elements)
-		{
-			item.setAttribute('autocomplete', 'off');
-		}
+		$("input[type=email], input[type=password], .input_text, .input_clear").attr("autocomplete", "off");
 
-		const passwordElements = document.querySelectorAll('input[type=password]');
-		for (let item of passwordElements)
-		{
-			item.setAttribute('autocomplete', 'new-password');
-		}
-
-		// Chrome will fill out the form even with autocomplete off, so we need to clear the values as well
+		// Chrome will fill out the form even with autocomplete off, so we need to empty the value as well.
 		setTimeout(function() {
-			let clearElements = document.querySelectorAll('input[type=password], .input_clear');
-			for (let item of clearElements)
-			{
-				item.value = '';
-			}
+			$("input[type=password], .input_clear").val(" ").val("");
 		}, 1);
 	};
 }
 
 /**
- * A system to collect notifications from a single AJAX call and redistribute them among notifiers
- * via their .send methods
- *
- * Current notifiers are:
- * - ElkDesktop for desktop push notifications
- * - ElkFavicon for favicon counter
- *
+ * A system to collect notifications from a single AJAX call and redistribute them
+ * among notifiers
  */
 (function() {
-	/**
-	 * ElkNotifications is a module that allows sending notifications to multiple notifiers.
-	 * @returns {Object} - The ElkNotifications module.
-	 */
-	const ElkNotifications = (function(opt) {
+	var ElkNotifications = (function(opt) {
 		'use strict';
 
-		opt = opt || {};
-		let _notifiers = [],
+		opt = (opt) ? opt : {};
+		var _notifiers = [],
 			start = true,
 			lastTime = 0;
 
-		let init = function(opt) {
+		var init = function(opt) {
 			if (typeof opt.delay === 'undefined')
 			{
 				start = false;
-				opt.delay = 45000;
+				opt.delay = 15000;
 			}
 
-			// Run at startup
 			setTimeout(function() {
-				fetchData();
-			}, 500);
+				fetch();
+			}, opt.delay);
 		};
 
-		// Add a notifier, like favicon
-		let add = function(notif) {
+		var add = function(notif) {
 			_notifiers.push(notif);
 		};
 
-		// Trigger a notifier update
-		let send = function(request) {
-			_notifiers.forEach((notification) => {
-				notification.send(request);
-			});
+		var send = function(request) {
+			for (var i = 0; i < _notifiers.length; i++) {
+				_notifiers[i].send(request);
+			}
 		};
 
-		// Recursively calls itself on a timeout loop looking for new mentions.  When found will
-		// trigger send request to all bound notifiers.
-		let fetchData = function() {
+		var fetch = function() {
 			if (_notifiers.length === 0)
-			{
 				return;
-			}
 
-			let url = elk_prepareScriptUrl(elk_scripturl) + 'action=mentions;sa=fetch;api=json;lastsent=' + lastTime;
-			fetch(url, {
-				cache: 'no-store',
-				headers: {
-					'Content-Type': 'application/json; charset=utf-8',
-					'X-Requested-With': 'XMLHttpRequest',
+			$.ajax({
+				cache: false,
+				dataType: 'json',
+				timeout: 1500,
+				url: elk_scripturl + "?action=mentions;sa=fetch;api=json;lastsent=" + lastTime
+			})
+			.done(function(request) {
+				if (request !== "") {
+					send(request);
+					lastTime = request.timelast;
 				}
 			})
-				.then(response => {
-					if (!response.ok)
-					{
-						throw new Error('HTTP error ' + response.status);
-					}
-					return response.json();
-				})
-				.then(request => {
-					if (request !== '')
-					{
-						// Trigger any updates
-						send(request);
-						lastTime = request.timelast;
-					}
-				})
-				.catch(error => {
-					if ('console' in window && console.info)
-					{
-						console.info('Error:', error);
-					}
-				})
-				.finally(() => {
-					setTimeout(function() {
-						fetchData();
-					}, opt.delay);
-				});
+			.always(function() {
+				setTimeout(function() {
+					fetch();
+				}, opt.delay);
+			});
 		};
 
 		init(opt);
@@ -871,87 +1560,290 @@ function disableAutoComplete ()
 		};
 	});
 
-	this.ElkNotifications = ElkNotifications;
+	// AMD / RequireJS
+	if ( typeof define !== 'undefined' && define.amd) {
+		define([], function() {
+			return ElkNotifications;
+		});
+	}
+	// CommonJS
+	else if ( typeof module !== 'undefined' && module.exports) {
+		module.exports = ElkNotifications;
+	}
+	// included directly via <script> tag
+	else {
+		this.ElkNotifications = ElkNotifications;
+	}
+
 })();
 
-const ElkNotifier = new window.ElkNotifications({});
+var ElkNotifier = new ElkNotifications();
+
+/**
+ * Initialize the inline attachments posting interface
+ */
+(function () {
+	var ElkInlineAttachments = (function (selector, editor, opt) {
+		'use strict';
+
+		opt = $.extend({
+			inlineSelector: '.inline_insert',
+			data: 'attachid',
+			addAfter: 'label',
+			template: ''
+		}, opt);
+
+		var listAttachs = [],
+			init = function (opt) {},
+			addInterface = function ($before, attachId) {
+				var $trigger, $container = $('<div class="container" />'), $over;
+
+				if (typeof opt.trigger !== 'undefined')
+				{
+					$trigger = opt.trigger.clone();
+				}
+				else
+				{
+					$trigger = $('<a />');
+
+					if (typeof opt.triggerClass !== 'undefined')
+					{
+						$trigger.addClass(opt.triggerClass);
+					}
+				}
+
+				$container.append($trigger);
+				$trigger.on('click', function (e) {
+					e.preventDefault();
+
+					if ($over != undefined)
+					{
+						$(document).trigger('click.ila_insert');
+						return;
+					}
+
+					$over = $(opt.template).hide();
+					var firstLi = false,
+					    $tabs = $over.find("ul[data-group='tabs'] li");
+					/*
+					 * Behaviours (onSomething)
+					 */
+					$tabs.each(function(k, v) {
+						$(this).on('click', function(e) {
+							e.preventDefault();
+							e.stopPropagation();
+
+							$tabs.each(function(k, v) {
+								$(this).removeClass('active');
+							});
+							var toShow = $(this).data('tab');
+							$(this).addClass('active');
+							$over.find('.container').each(function(k, v) {
+								if ($(this).data('visual') == toShow)
+								{
+									$(this).show();
+								}
+								else
+								{
+									$(this).hide();
+								}
+							});
+						});
+						if (firstLi == false)
+						{
+							$(this).click();
+							firstLi = true;
+						}
+					});
+					$over.find("input[data-size='thumb']").on('change', function(e) {
+						$over.find('.customsize').slideUp();
+					});
+					$over.find("input[data-size='full']").on('change', function(e) {
+						$over.find('.customsize').slideUp();
+					});
+					$over.find("input[data-size='cust']").on('change', function(e) {
+						$over.find('.customsize').slideDown();
+					});
+					$over.find(".range").on('input', function () {
+						var val = $(this).val()
+						$over.find(".visualizesize").val(val + 'px');
+					}).trigger('input');
+
+					$over.find('.button').on('click', function() {
+						var ila_text = '[attach';
+						if ($over.find("input[data-size='thumb']").is(':checked'))
+						{
+							ila_text = ila_text + ' type=thumb';
+						}
+						else if ($over.find("input[data-size='cust']").is(':checked'))
+						{
+							var w = $over.find('.range').val();
+							// Doesn't really matter that much, but just to ensure it's not 1
+							if (w > 10)
+							{
+								ila_text = ila_text + ' width=' + w;
+							}
+						}
+						else if ($over.find("input[data-size='full']").is(':checked'))
+						{
+							ila_text = ila_text + ' type=image';
+						}
+
+						$over.find(".container[data-visual='align'] input").each(function (k, v) {
+							if ($(this).is(':checked'))
+							{
+								if ($(this).data('align') != 'none')
+								{
+									ila_text = ila_text + ' align=' + $(this).data('align');
+									return;
+								}
+							}
+						});
+
+						ila_text = ila_text + ']' + attachId + '[/attach]';
+						$editor_data[editor].insertText(ila_text, false, true);
+						$(document).trigger('click.ila_insert');
+					});
+					// Prevents removing the element to disappear when clicking on
+					// anything because of the click.ila_insert event
+					$over.find('*').on('click', function(e) {
+						e.stopPropagation();
+					});
+
+					/*
+					 * Initialization
+					 */
+					$over.find('.container label:first-child input').each(function(k, v) {
+						$(this).change().prop('checked', true);
+					});
+
+					$container.append($over);
+					$over.fadeIn(function() {
+						$(document).on('click.ila_insert', function() {
+							$over.fadeOut(function() {
+								$over.remove();
+								$over = undefined;
+							});
+							$(document).off('click.ila_insert');
+						});
+					});
+				}).attr('id', 'inline_attach_' + attachId)
+					.data('attachid', attachId);
+
+				$before.after($container);
+				listAttachs.push($trigger);
+			},
+			removeAttach = function (attachId) {
+				var tmpList = [],
+					i;
+
+				for (i = 0; i < listAttachs.length; i++) {
+					if (listAttachs[i].data('attachid') == attachId)
+						break;
+
+					tmpList.push(listAttachs[i]);
+				}
+
+				i++;
+				for (; i < listAttachs.length; i++) {
+					tmpList.push(listAttachs[i]);
+				}
+
+				listAttachs = tmpList;
+				$('#inline_attach_' + attachId).remove();
+			};
+
+		init(opt);
+		return {
+			addInterface: addInterface,
+			removeAttach: removeAttach
+		};
+	});
+
+	// AMD / RequireJS
+	if (typeof define !== 'undefined' && define.amd) {
+		define([], function () {
+			return ElkInlineAttachments;
+		});
+	}
+	// CommonJS
+	else if (typeof module !== 'undefined' && module.exports) {
+		module.exports = ElkInlineAttachments;
+	}
+	// included directly via <script> tag
+	else {
+		this.ElkInlineAttachments = ElkInlineAttachments;
+	}
+})();
 
 /**
  * Initialize the ajax info-bar
  */
-(function() {
-	let ElkInfoBar = (function(elem_id, opt = {}) {
-		let defaults = {
+(function () {
+	var ElkInfoBar = (function (elem_id, opt) {
+		'use strict';
+
+		opt = $.extend({
 			text: '',
 			class: 'ajax_infobar',
 			hide_delay: 4000,
-			error_class: 'errorbox',
-			success_class: 'successbox'
-		};
+			error_class: 'error',
+			success_class: 'success'
+		}, opt);
 
-		let settings = Object.assign({}, defaults, opt);
-
-		let elem = document.getElementById(elem_id),
+		var $elem = $('#' + elem_id),
 			time_out = null,
-			init = function(elem_id, settings) {
+			init = function (elem_id, opt) {
 				clearTimeout(time_out);
-				if (elem === null)
-				{
-					elem = document.createElement('div');
-					elem.id = elem_id;
-					elem.className = settings.class;
-					elem.innerHTML = settings.text + '<span class="icon i-concentric"></span>';
-					document.body.appendChild(elem);
+				if ($elem.length === 0) {
+					$elem = $('<div id="' + elem_id + '" class="' + opt.class + ' hide" />');
+					$('body').append($elem);
+					$elem.attr('id', elem_id);
+					$elem.addClass(opt.class);
+					$elem.text(opt.text);
 				}
 			},
-			changeText = function(text) {
+			changeText = function (text) {
 				clearTimeout(time_out);
-				elem.innerHTML = text;
+				$elem.html(text);
 				return this;
 			},
-			addClass = function(aClass) {
-				elem.classList.add(aClass);
+			addClass = function (aClass) {
+				$elem.addClass(aClass);
 				return this;
 			},
-			removeClass = function(aClass) {
-				elem.classList.remove(aClass);
+			removeClass = function (aClass) {
+				$elem.removeClass(aClass);
 				return this;
 			},
 			showBar = function() {
 				clearTimeout(time_out);
+				$elem.fadeIn();
 
-				elem.fadeIn(250, function() {
-					if (settings.hide_delay !== 0)
-					{
-						// This will clear the bar if hide has not been implicitly called
-						time_out = setTimeout(function() {
-							hide();
-						}, settings.hide_delay);
-					}
-				});
-
+				if (opt.hide_delay !== 0)
+				{
+					time_out = setTimeout(function() {
+						hide();
+					}, opt.hide_delay);
+				}
 				return this;
 			},
 			isError = function() {
-				removeClass(settings.success_class);
-				addClass(settings.error_class);
+				removeClass(opt.success_class);
+				addClass(opt.error_class);
 			},
 			isSuccess = function() {
-				removeClass(settings.error_class);
-				addClass(settings.success_class);
+				removeClass(opt.error_class);
+				addClass(opt.success_class);
 			},
-			hide = function() {
-				// Short delay to avoid removing opacity while it is still be added
-				window.setTimeout(function() {
-					elem.fadeOut(300);
-				}, 300);
-
+			hide = function () {
 				clearTimeout(time_out);
+				$elem.slideUp();
 				return this;
 			};
 
 		// Call the init function by default
-		init(elem_id, settings);
+		init(elem_id, opt);
 
 		return {
 			changeText: changeText,
@@ -964,366 +1856,18 @@ const ElkNotifier = new window.ElkNotifications({});
 		};
 	});
 
-	this.ElkInfoBar = ElkInfoBar;
+	// AMD / RequireJS
+	if (typeof define !== 'undefined' && define.amd) {
+		define([], function () {
+			return ElkInfoBar;
+		});
+	}
+	// CommonJS
+	else if (typeof module !== 'undefined' && module.exports) {
+		module.exports = ElkInfoBar;
+	}
+	// included directly via <script> tag
+	else {
+		this.ElkInfoBar = ElkInfoBar;
+	}
 })();
-
-/**
- * Define the Elk_NewsFader function
- *
- * Inspired by Paul Mason's tutorial:
- * http://paulmason.name/item/simple-jquery-carousel-slider-tutorial
- *
- * Licensed under the MIT license:
- * http://www.opensource.org/licenses/mit-license.php
- */
-function Elk_NewsFader (element, options)
-{
-	let settings = {iFadeDelay: 5000, iFadeSpeed: 1000},
-		iFadeIndex = 0,
-		news = document.getElementById(element).querySelectorAll('li');
-
-	if (news.length > 1)
-	{
-		// Merge custom options with default settings
-		Object.assign(settings, options);
-
-		// Hide all news items except the first one
-		for (let i = 1; i < news.length; i++)
-		{
-			news[i].style.opacity = '0';
-		}
-
-		// Set up the interval for fading news items
-		setInterval(function() {
-			let currentNews = news[iFadeIndex],
-				nextNews = news[(iFadeIndex + 1) % news.length];
-
-			// Fade out current news item
-			currentNews.fadeOut(settings.iFadeSpeed, function() {
-				// Fade in next news item
-				nextNews.fadeIn(settings.iFadeSpeed);
-			});
-
-			// Update index for the next news item
-			iFadeIndex = (iFadeIndex + 1) % news.length;
-		}, settings.iFadeSpeed + settings.iFadeDelay);
-	}
-}
-
-/**
- * This function regularly checks for the existence of a specific function in the global scope,
- * until either the function appears or a time limit passes. This could be helpful for scripts
- * that rely on deferred or asynchronously loaded scripts.
- *
- * isFunctionLoaded(NameOfFunction).then((available) => { if (available === true) DoStuff })
- *
- * @param {string} selector - The name of the function to check.
- * @param {number} [limit] - The maximum number of retries before considering the function as not loaded. Default is 180. Every 60 is ~ 1 second wait time.
- * @returns {Promise<boolean>} - A Promise that resolves to `true` if the function is loaded, or `false` if it is not loaded within the specified limit.
- */
-async function isFunctionLoaded (selector, limit)
-{
-	let MAX_RETRIES = limit || 180;
-	let retries = 0;
-	while ((typeof window[selector] !== 'function') && retries < MAX_RETRIES)
-	{
-		await new Promise(resolve => requestAnimationFrame(resolve));
-		retries++;
-	}
-
-	if (retries < MAX_RETRIES)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-/**
- * Debounces a function by delaying its execution until a certain amount of time has passed
- * without it being called again.
- *
- * This is useful for scenarios like search inputs or scroll events, where you want to wait for
- * the user to finish typing or scrolling before executing a function.
- *
- * https://github.com/you-dont-need/You-Dont-Need-Lodash-Underscore
- *
- * @param {Function} func - The function to be debounced.
- * @param {number} wait - The time delay in milliseconds.
- * @param {boolean} immediate - Determines whether the function should be executed immediately on the leading edge.
- * @return {Function} - The debounced function.
- */
-function debounce (func, wait, immediate = false)
-{
-	var timeout;
-
-	return function() {
-		var context = this, args = arguments;
-
-		clearTimeout(timeout);
-		if (immediate && !timeout)
-		{
-			func.apply(context, args);
-		}
-
-		timeout = setTimeout(function() {
-			timeout = null;
-			if (!immediate)
-			{
-				func.apply(context, args);
-			}
-		}, wait);
-	};
-}
-
-/**
- * Serializes a form or object into a URL-encoded string.
- *
- * @param {HTMLFormElement|FormData|object} form - The form element, or object to serialize.
- * @returns {string} - The serialized data as a URL-encoded string.
- */
-function serialize (form)
-{
-	// Passed a form
-	if (form instanceof HTMLFormElement)
-	{
-		const formData = new FormData(form);
-
-		return new URLSearchParams(formData).toString();
-	}
-
-	// Passed formData?
-	if (form instanceof FormData)
-	{
-		return new URLSearchParams(form).toString();
-	}
-
-	// Or an object of key->pairs
-	let str = [];
-	for (let key in form)
-	{
-		if (form.hasOwnProperty(key))
-		{
-			str.push(encodeURIComponent(key) + '=' + encodeURIComponent(form[key]));
-		}
-	}
-
-	return str.join('&');
-}
-
-/**
- * Toggles the visibility and height of the specified HTMLElement using animation.
- *
- * Mimics jQ slideToggle, slideUp, slideDown
- *
- * https://github.com/ericbutler555/plain-js-slidetoggle
- * MIT License
- *
- * fadeIn, fadeOut _s2 functions (c) ElkArte BSD
- */
-HTMLElement.prototype.slideToggle = function(duration, callback) {
-	if (this.clientHeight === 0)
-	{
-		_s(this, duration, callback, true);
-	}
-	else
-	{
-		_s(this, duration, callback);
-	}
-};
-
-HTMLElement.prototype.slideUp = function(duration, callback) {
-	_s(this, duration, callback);
-};
-
-HTMLElement.prototype.slideDown = function(duration, callback) {
-	_s(this, duration, callback, true);
-};
-
-HTMLElement.prototype.fadeIn = function(duration, callback) {
-	_s2(this, duration, callback);
-};
-
-HTMLElement.prototype.fadeOut = function(duration, callback) {
-	_s2(this, duration, callback, true);
-};
-
-/**
- * Animates the height, padding, and margin of an element.
- *
- * Intended to be a replacement for jQuery slideToggle, slideUp, slideDown
- *
- * @param {HTMLElement} el - The element to animate.
- * @param {number} [duration=400] - The duration of the animation in milliseconds.
- * @param {function} [callback] - The callback function to execute after the animation finishes.
- * @param {boolean} [isDown=false] - Determines if the animation expands the element or collapses it.
- * @private
- */
-function _s (el, duration, callback, isDown)
-{
-	duration = duration || 300;
-	isDown = isDown || false;
-
-	el.style.overflow = 'hidden';
-	if (isDown)
-	{
-		el.style.display = 'block';
-		el.style.boxSizing = 'border-box';
-	}
-
-	let elStyles = window.getComputedStyle(el),
-		// Current properties
-		elHeight = parseFloat(elStyles.getPropertyValue('height')),
-		elPaddingTop = parseFloat(elStyles.getPropertyValue('padding-top')),
-		elPaddingBottom = parseFloat(elStyles.getPropertyValue('padding-bottom')),
-		elMarginTop = parseFloat(elStyles.getPropertyValue('margin-top')),
-		elMarginBottom = parseFloat(elStyles.getPropertyValue('margin-bottom')),
-		// Transition steps
-		stepHeight = elHeight / duration,
-		stepPaddingTop = elPaddingTop / duration,
-		stepPaddingBottom = elPaddingBottom / duration,
-		stepMarginTop = elMarginTop / duration,
-		stepMarginBottom = elMarginBottom / duration,
-		// Animation timing
-		start,
-		elapsed;
-
-	function step (timestamp)
-	{
-		if (start === undefined)
-		{
-			start = timestamp;
-		}
-
-		elapsed = timestamp - start;
-
-		if (isDown)
-		{
-			el.style.height = (stepHeight * elapsed) + 'px';
-			el.style.paddingTop = (stepPaddingTop * elapsed) + 'px';
-			el.style.paddingBottom = (stepPaddingBottom * elapsed) + 'px';
-			el.style.marginTop = (stepMarginTop * elapsed) + 'px';
-			el.style.marginBottom = (stepMarginBottom * elapsed) + 'px';
-		}
-		else
-		{
-			el.style.height = elHeight - (stepHeight * elapsed) + 'px';
-			el.style.paddingTop = elPaddingTop - (stepPaddingTop * elapsed) + 'px';
-			el.style.paddingBottom = elPaddingBottom - (stepPaddingBottom * elapsed) + 'px';
-			el.style.marginTop = elMarginTop - (stepMarginTop * elapsed) + 'px';
-			el.style.marginBottom = elMarginBottom - (stepMarginBottom * elapsed) + 'px';
-		}
-
-		if (elapsed >= duration)
-		{
-			el.style.height = '';
-			el.style.paddingTop = '';
-			el.style.paddingBottom = '';
-			el.style.marginTop = '';
-			el.style.marginBottom = '';
-			el.style.overflow = '';
-
-			if (!isDown)
-			{
-				el.style.display = 'none';
-			}
-
-			if (typeof callback === 'function')
-			{
-				callback();
-			}
-		}
-		else
-		{
-			window.requestAnimationFrame(step);
-		}
-	}
-
-	window.requestAnimationFrame(step);
-}
-
-/**
- * Animates the opacity of an element to make it fade in to out
- *
- * Intended to be a replacement for jQuery fadeIn and fadeOut
- *
- * @param {HTMLElement} element - The element to animate.
- * @param {number} [duration=1000] - The duration of the animation in milliseconds.
- * @param {Function} [callback] - A function to be called when the animation completes.
- * @param {boolean} [isOut=false] - Specifies whether the animation should fade out the element.
- * @private
- */
-function _s2 (element, duration, callback, isOut)
-{
-	duration = duration || 500;
-	isOut = isOut || false;
-
-	let initialOpacity = 1,
-		finalOpacity = 0;
-
-	if (!isOut)
-	{
-		initialOpacity = 0;
-		finalOpacity = 1;
-		element.style.display = 'block';
-	}
-
-	let opacity = initialOpacity,
-		opacityChangeFactor,
-		start;
-
-	function animateOpacity (timestamp)
-	{
-		if (start === undefined)
-		{
-			start = timestamp;
-		}
-
-		let progress = timestamp - start;
-		opacity = progress / duration;
-		opacityChangeFactor = isOut ? 1 - opacity : opacity;
-
-		if ((isOut && opacityChangeFactor > finalOpacity) || (!isOut && opacityChangeFactor < finalOpacity))
-		{
-			element.style.opacity = opacityChangeFactor;
-			window.requestAnimationFrame(animateOpacity);
-		}
-		else
-		{
-			// Animation complete
-			element.style.opacity = finalOpacity;
-
-			if (isOut)
-			{
-				element.style.display = 'none';
-			}
-
-			if (typeof callback === 'function')
-			{
-				callback();
-			}
-		}
-	}
-
-	window.requestAnimationFrame(animateOpacity);
-}
-
-/**
- * Retrieves the siblings of the given element.
- *
- * @param {HTMLElement} el - The element whose siblings to retrieve.
- * @returns {HTMLElement[]} - An array of HTMLElement objects representing the siblings of the given element.
- */
-function elkGetSiblings (el)
-{
-	let siblings = [];
-	for (let i = 0; i < el.parentNode.children.length; i++)
-	{
-		if (el.parentNode.children[i] !== el)
-		{
-			siblings.push(el.parentNode.children[i]);
-		}
-	}
-
-	return siblings;
-}

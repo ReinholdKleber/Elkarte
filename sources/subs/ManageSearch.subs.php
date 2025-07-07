@@ -3,18 +3,17 @@
 /**
  * Support functions for setting up the search features and creating search index's
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.9
  *
  */
-
-use ElkArte\Http\Headers;
 
 /**
  * Checks if the message table already has a fulltext index created and returns the key name
@@ -28,23 +27,31 @@ function detectFulltextIndex()
 
 	$db = database();
 
-	$fulltext_index = array();
-	$db->fetchQuery('
+	// Something like 5.7.16
+	list($ver,) = explode('-', $db->db_server_version());
+
+	$request = $db->query('', '
 		SHOW INDEX
 		FROM {db_prefix}messages',
 		array()
-	)->fetch_callback(
-		function ($row) use (&$fulltext_index) {
-			if (($row['Column_name'] === 'body' || $row['Column_name'] === 'subject')
-				&& (isset($row['Index_type']) && $row['Index_type'] === 'FULLTEXT'
-					|| isset($row['Comment']) && $row['Comment'] === 'FULLTEXT'))
+	);
+	$fulltext_index = array();
+	if ($request !== false || $db->num_rows($request) != 0)
+	{
+		while ($row = $db->fetch_assoc($request))
+		{
+			foreach(array('body', 'subject') as $column)
 			{
-				$fulltext_index[] = $row['Key_name'];
+				if ($row['Column_name'] === $column && (isset($row['Index_type']) && $row['Index_type'] === 'FULLTEXT' || isset($row['Comment']) && $row['Comment'] === 'FULLTEXT'))
+				{
+					$fulltext_index[] = $row['Key_name'];
+				}
 			}
 		}
-	);
+		$db->free_result($request);
 
-	$fulltext_index = array_unique($fulltext_index);
+		$fulltext_index = array_unique($fulltext_index);
+	}
 
 	if (preg_match('~^`(.+?)`\.(.+?)$~', $db_prefix, $match) !== 0)
 	{
@@ -69,12 +76,24 @@ function detectFulltextIndex()
 		);
 	}
 
-	// innodb (since 5.6.4 and myisam) both support fulltext index
-	if ($request === false)
+	if ($request !== false)
 	{
-		$context['cannot_create_fulltext'] = true;
+		// InnoDB full-text search (FTS) is available in MySQL >=5.6.4
+		$innodb_capable = version_compare($ver, '5.6.4') >= 0;
+
+		while ($row = $db->fetch_assoc($request))
+		{
+			$check1 = isset($row['Type']) && strtolower($row['Type']) !== 'myisam' && !$innodb_capable;
+			$check2 = isset($row['Engine']) && strtolower($row['Engine']) !== 'myisam' && !$innodb_capable;
+
+			if ($check1 || $check2)
+			{
+				$context['cannot_create_fulltext'] = true;
+			}
+		}
+
+		$db->free_result($request);
 	}
-	$request->free_result();
 
 	return $fulltext_index;
 }
@@ -108,20 +127,18 @@ function createSphinxConfig()
 {
 	global $db_server, $db_name, $db_user, $db_passwd, $db_prefix, $modSettings;
 
+	$version = SphinxVersion();
+
 	// Set up to output a file to the users browser
 	while (ob_get_level() > 0)
-	{
 		@ob_end_clean();
-	}
 
-	Headers::instance()
-		->header('Content-Encoding', 'none')
-		->header('Pragma', 'no-cache')
-		->header('Cache-Control', 'no-cache')
-		->header('Connection', 'close')
-		->header('Content-Disposition', 'attachment; filename="sphinx.conf"')
-		->contentType('application/octet-stream', '')
-		->sendHeaders();
+	header('Content-Encoding: none');
+	header('Pragma: no-cache');
+	header('Cache-Control: no-cache');
+	header('Connection: close');
+	header('Content-Disposition: attachment; filename="sphinx.conf"');
+	header('Content-Type: application/octet-stream');
 
 	$weight_factors = array(
 		'age',
@@ -167,7 +184,6 @@ function createSphinxConfig()
 # /usr/local/etc/sphinx.conf or /etc/sphinxsearch/sphinx.conf
 #
 
-## data source definition
 source ', $prefix, '_source
 {
 	type				= mysql
@@ -177,7 +193,6 @@ source ', $prefix, '_source
 	sql_db				= ', $db_name, '
 	sql_port			= 3306
 	sql_query_pre		= SET NAMES utf8
-	sql_query_pre		= SET CHARACTER_SET_RESULTS=utf8
 	# If you do not have query_cache enabled in my.cnf, then you can comment out the next line
 	sql_query_pre		= SET SESSION query_cache_type=OFF
 	sql_query_pre		= \
@@ -191,37 +206,29 @@ source ', $prefix, '_source
 	sql_range_step		= 1000
 	sql_query			= \
 		SELECT \
-			m.id_msg, m.id_topic, m.id_board, CASE WHEN m.id_member = 0 THEN 4294967295 ELSE m.id_member END AS id_member, \
-			m.poster_time, m.body, m.subject, t.num_replies + 1 AS num_replies, t.num_likes, t.is_sticky, \
-			1 - ((m.id_msg - t.id_first_msg) / (t.id_last_msg - t.id_first_msg)) AS position, \		
-			CEILING(10 * ( \
-				CASE WHEN m.id_msg < 0.6 * s.value THEN 0 ELSE (m.id_msg - 0.6 * s.value) / (0.4 * s.value) END * ' . $weight['age'] . ' + \
-				CASE WHEN t.num_replies < 50 THEN t.num_replies / 50 ELSE 1 END * ' . $weight['length'] . ' + \
-				CASE WHEN m.id_msg = t.id_first_msg THEN 1 ELSE 0 END * ' . $weight['first_message'] . ' + \
-				CASE WHEN t.num_likes < 20 THEN t.num_likes / 20 ELSE 1 END * ' . $weight['likes'] . ' + \
-				CASE WHEN t.is_sticky = 0 THEN 0 ELSE 1 END * ' . $weight['sticky'] . ' \
-			) * 100/' . $weight_total . ') AS acprel \
-		FROM ', $db_prefix, 'messages AS m \
-			INNER JOIN ', $db_prefix, 'topics AS t ON (m.id_topic = t.id_topic) \
-			INNER JOIN ', $db_prefix, 'settings AS s \
+			m.id_msg, m.id_topic, m.id_board, IF(m.id_member = 0, 4294967295, m.id_member) AS id_member, m.poster_time, m.body, m.subject, \
+			t.num_replies + 1 AS num_replies, CEILING(1000000 * ( \
+				IF(m.id_msg < 0.7 * s.value, 0, (m.id_msg - 0.7 * s.value) / (0.3 * s.value)) * ' . $weight['age'] . ' + \
+				IF(t.num_replies < 50, t.num_replies / 50, 1) * ' . $weight['length'] . ' + \
+				IF(m.id_msg = t.id_first_msg, 1, 0) * ' . $weight['first_message'] . ' + \
+				IF(t.num_likes < 20, t.num_likes / 20, 1) * ' . $weight['likes'] . ' + \
+				IF(t.is_sticky = 0, 0, 1) * ' . $weight['sticky'] . ' \
+			) / ' . $weight_total . ') AS relevance \
+		FROM ', $db_prefix, 'messages AS m, ', $db_prefix, 'topics AS t, ', $db_prefix, 'settings AS s \
 		WHERE t.id_topic = m.id_topic \
 			AND s.variable = \'maxMsgID\' \
 			AND m.id_msg BETWEEN $start AND $end
 	sql_attr_uint		= id_topic
 	sql_attr_uint		= id_board
 	sql_attr_uint		= id_member
-	sql_attr_uint		= poster_time
-	sql_attr_uint		= acprel
+	sql_attr_timestamp	= poster_time
+	sql_attr_uint		= relevance
 	sql_attr_uint		= num_replies
-	sql_attr_uint		= num_likes
-	sql_attr_bool		= is_sticky
-	sql_attr_float		= position	
 }
 
 source ', $prefix, '_delta_source : ', $prefix, '_source
 {
 	sql_query_pre = SET NAMES utf8
-	sql_query_pre		= SET CHARACTER_SET_RESULTS=utf8
 	# If you do not have query_cache enabled in my.cnf, then you can comment out the next line
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_range	= \
@@ -231,27 +238,16 @@ source ', $prefix, '_delta_source : ', $prefix, '_source
 			AND s2.variable = \'maxMsgID\'
 }
 
-## index definition
 index ', $prefix, '_base_index
 {
-	html_strip			= 1
-	min_prefix_len		= 3
-	min_stemming_len	= 4
-	stopwords_unstemmed	= 1
-	index_exact_words	= 1
-	index_field_lengths	= 1
-	expand_keywords		= 1
-	regexp_filter		= \b(\d+)[.-/]+(\d+)\b => \1_\2
-	blend_chars			= +, &, U+23, -, !, @
-	blend_mode			= trim_head, trim_none
-	source				= ', $prefix, '_source
-	path				= ', $modSettings['sphinx_data_path'], '/', $prefix, '_sphinx_base.index', (empty($modSettings['sphinx_stopword_path']) ? '' : '
-	stopwords			= ' . $modSettings['sphinx_stopword_path']), '
-	# The default is 1.  Changing from that on Sphinx 3 stalls/fails the indexer with blended chars enabled.
-	min_word_len		= 1
-	charset_table		= 0..9, A..Z->a..z, _, a..z, U+451->U+435, U+401->U+435, U+410..U+42F->U+430..U+44F, U+430..U+44F
-	ignore_chars		= U+AD
-	morphology			= stem_en, soundex
+	html_strip		= 1
+	source			= ', $prefix, '_source
+	path			= ', $modSettings['sphinx_data_path'], '/', $prefix, '_sphinx_base.index', empty($modSettings['sphinx_stopword_path']) ? '' : '
+	stopwords		= ' . $modSettings['sphinx_stopword_path'], '
+	min_word_len	= 2
+	charset_type	= utf-8
+	charset_table	= 0..9, A..Z->a..z, _, a..z, U+451->U+435, U+401->U+435, U+410..U+42F->U+430..U+44F, U+430..U+44F
+	ignore_chars	= -, U+AD
 }
 
 index ', $prefix, '_delta_index : ', $prefix, '_base_index
@@ -267,13 +263,11 @@ index ', $prefix, '_index
 	local			= ', $prefix, '_delta_index
 }
 
-## indexer settings
 indexer
 {
-	mem_limit		= ', (empty($modSettings['sphinx_indexer_mem']) ? 256 : (int) $modSettings['sphinx_indexer_mem']), 'M
+	mem_limit		= ', (empty($modSettings['sphinx_indexer_mem']) ? 128 : (int) $modSettings['sphinx_indexer_mem']), 'M
 }
 
-## searchd definition
 searchd
 {
 	listen					= ', (empty($modSettings['sphinx_searchd_port']) ? 9312 : (int) $modSettings['sphinx_searchd_port']), '
@@ -282,7 +276,8 @@ searchd
 	query_log				= ', $modSettings['sphinx_log_path'], '/query.log
 	read_timeout			= 5
 	max_children			= 30
-	pid_file				= ', $modSettings['sphinx_data_path'], '/searchd.pid
+	pid_file				= ', $modSettings['sphinx_data_path'], '/searchd.pid', version_compare($version, '2.2.3') < 0 ? '
+	max_matches				= ' . (empty($modSettings['sphinx_max_results']) ? 2000 : (int) $modSettings['sphinx_max_results']) : '', '
 }
 ';
 	obExit(false, false);
@@ -291,10 +286,10 @@ searchd
 /**
  * Drop one or more indexes from a table and adds them back if specified
  *
+ * @package Search
  * @param string $table
  * @param string[]|string $indexes
- * @param bool $add
- * @package Search
+ * @param boolean $add
  */
 function alterFullTextIndex($table, $indexes, $add = false)
 {
@@ -320,8 +315,8 @@ function alterFullTextIndex($table, $indexes, $add = false)
 				ALTER TABLE ' . $table . '
 				ADD FULLTEXT {raw:name} ({raw:index})',
 				array(
-					'index' => $index,
-					'name'	=> $name
+					'name'	=> $name,
+					'index' => $index
 				)
 			);
 		}
@@ -331,14 +326,13 @@ function alterFullTextIndex($table, $indexes, $add = false)
 /**
  * Creates a custom search index
  *
+ * @package Search
  * @param int $start
  * @param int $messages_per_batch
- *
- * @return array
- * @package Search
- *
+ * @param string $column_size_definition
+ * @param mixed[] $index_settings array containing specifics of what to create e.g. bytes per word
  */
-function createSearchIndex($start, $messages_per_batch)
+function createSearchIndex($start, $messages_per_batch, $column_size_definition, $index_settings)
 {
 	global $modSettings;
 
@@ -351,19 +345,15 @@ function createSearchIndex($start, $messages_per_batch)
 	{
 		drop_log_search_words();
 
-		$db_search->create_word_search();
+		$db_search->create_word_search($column_size_definition);
 
 		// Temporarily switch back to not using a search index.
 		if (!empty($modSettings['search_index']) && $modSettings['search_index'] === 'custom')
-		{
 			updateSettings(array('search_index' => ''));
-		}
 
 		// Don't let simultaneous processes be updating the search index.
 		if (!empty($modSettings['search_custom_index_config']))
-		{
 			updateSettings(array('search_custom_index_config' => ''));
-		}
 	}
 
 	$num_messages = array(
@@ -371,19 +361,16 @@ function createSearchIndex($start, $messages_per_batch)
 		'todo' => 0,
 	);
 
-	$db->fetchQuery('
-		SELECT 
-			id_msg >= {int:starting_id} AS todo, COUNT(*) AS num_messages
+	$request = $db->query('', '
+		SELECT id_msg >= {int:starting_id} AS todo, COUNT(*) AS num_messages
 		FROM {db_prefix}messages
 		GROUP BY todo',
 		array(
 			'starting_id' => $start,
 		)
-	)->fetch_callback(
-		function ($row) use (&$num_messages) {
-			$num_messages[empty($row['todo']) ? 'done' : 'todo'] = $row['num_messages'];
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+		$num_messages[empty($row['todo']) ? 'done' : 'todo'] = $row['num_messages'];
 
 	// Done with indexing the messages, on to the next step
 	if (empty($num_messages['todo']))
@@ -400,11 +387,8 @@ function createSearchIndex($start, $messages_per_batch)
 		while (time() < $stop)
 		{
 			$inserts = array();
-			$forced_break = false;
-			$number_processed = 0;
-			$db->fetchQuery('
-				SELECT 
-					id_msg, body
+			$request = $db->query('', '
+				SELECT id_msg, body
 				FROM {db_prefix}messages
 				WHERE id_msg BETWEEN {int:starting_id} AND {int:ending_id}
 				LIMIT {int:limit}',
@@ -413,36 +397,35 @@ function createSearchIndex($start, $messages_per_batch)
 					'ending_id' => $start + $messages_per_batch - 1,
 					'limit' => $messages_per_batch,
 				)
-			)->fetch_callback(
-				function ($row) use (&$forced_break, &$number_processed, &$inserts, $stop) {
-					// In theory it's possible for one of these to take friggin ages so add more timeout protection.
-					if ($stop < time() || $forced_break)
-					{
-						$forced_break = true;
-						return;
-					}
-
-					$number_processed++;
-					foreach (text2words($row['body'], true) as $id_word)
-					{
-						$inserts[] = array($id_word, $row['id_msg']);
-					}
-				}
 			);
+			$forced_break = false;
+			$number_processed = 0;
+			while ($row = $db->fetch_assoc($request))
+			{
+				// In theory it's possible for one of these to take friggin ages so add more timeout protection.
+				if ($stop < time())
+				{
+					$forced_break = true;
+					break;
+				}
+
+				$number_processed++;
+				foreach (text2words($row['body'], $index_settings['bytes_per_word'], true) as $id_word)
+					$inserts[] = array($id_word, $row['id_msg']);
+			}
 			$num_messages['done'] += $number_processed;
 			$num_messages['todo'] -= $number_processed;
+			$db->free_result($request);
 
 			$start += $forced_break ? $number_processed : $messages_per_batch;
 
 			if (!empty($inserts))
-			{
 				$db->insert('ignore',
 					'{db_prefix}log_search_words',
 					array('id_word' => 'int', 'id_msg' => 'int'),
 					$inserts,
 					array('id_word', 'id_msg')
 				);
-			}
 
 			// Done then set up for the next step, set up for the next loop.
 			if ($num_messages['todo'] === 0)
@@ -452,13 +435,11 @@ function createSearchIndex($start, $messages_per_batch)
 				break;
 			}
 			else
-			{
-				updateSettings(array('search_custom_index_resume' => serialize(array('resume_at' => $start))));
-			}
+				updateSettings(array('search_custom_index_resume' => serialize(array_merge($index_settings, array('resume_at' => $start)))));
 		}
 
-		// Since there are still steps to go, 90% is the maximum here.
-		$percentage = round($num_messages['done'] / ($num_messages['done'] + $num_messages['todo']), 2) * 90;
+		// Since there are still steps to go, 80% is the maximum here.
+		$percentage = round($num_messages['done'] / ($num_messages['done'] + $num_messages['todo']), 3) * 80;
 	}
 
 	return array($start, $step, $percentage);
@@ -467,12 +448,11 @@ function createSearchIndex($start, $messages_per_batch)
 /**
  * Removes common stop words from the index as they inhibit search performance
  *
- * @param int $start
- *
- * @return array
  * @package Search
+ * @param int $start
+ * @param mixed[] $column_definition
  */
-function removeCommonWordsFromIndex($start)
+function removeCommonWordsFromIndex($start, $column_definition)
 {
 	global $modSettings;
 
@@ -480,38 +460,30 @@ function removeCommonWordsFromIndex($start)
 
 	$stop_words = $start === 0 || empty($modSettings['search_stopwords']) ? array() : explode(',', $modSettings['search_stopwords']);
 	$stop = time() + 3;
-	$max_occurrences = ceil(60 * $modSettings['totalMessages'] / 100);
+	$max_messages = ceil(60 * $modSettings['totalMessages'] / 100);
 	$complete = false;
-	$step_size = 100000000;
-	$max_size = 4294967295; // FFFF FFFF
 
 	while (time() < $stop)
 	{
-		// Find indexed words that appear to often
-		$db->fetchQuery('
-			SELECT
-				id_word, COUNT(id_word) AS num_words, id_msg
+		$request = $db->query('', '
+			SELECT id_word, COUNT(id_word) AS num_words
 			FROM {db_prefix}log_search_words
 			WHERE id_word BETWEEN {int:starting_id} AND {int:ending_id}
 			GROUP BY id_word
 			HAVING COUNT(id_word) > {int:minimum_messages}',
 			array(
 				'starting_id' => $start,
-				'ending_id' => min($start + $step_size - 1, $max_size),
-				'minimum_messages' => $max_occurrences,
+				'ending_id' => $start + $column_definition['step_size'] - 1,
+				'minimum_messages' => $max_messages,
 			)
-		)->fetch_callback(
-			function ($row) use (&$stop_words) {
-				$stop_words[] = $row['id_word'];
-			}
 		);
+		while ($row = $db->fetch_assoc($request))
+			$stop_words[] = $row['id_word'];
+		$db->free_result($request);
 
-		// Add them to the stopwords list since we are removing them as to common
 		updateSettings(array('search_stopwords' => implode(',', $stop_words)));
 
-		// Pfft ... commoners
 		if (!empty($stop_words))
-		{
 			$db->query('', '
 				DELETE FROM {db_prefix}log_search_words
 				WHERE id_word in ({array_int:stop_words})',
@@ -519,19 +491,16 @@ function removeCommonWordsFromIndex($start)
 					'stop_words' => $stop_words,
 				)
 			);
-		}
 
-		$start += $step_size;
-		if ($start >= $max_size)
+		$start += $column_definition['step_size'];
+		if ($start > $column_definition['max_size'])
 		{
 			$complete = true;
 			break;
 		}
 	}
 
-	$percentage = 90 + (min(round($start / $max_size, 2), 1) * 10);
-
-	return array($start, $complete, $percentage);
+	return array($start, $complete);
 }
 
 /**
@@ -543,5 +512,5 @@ function drop_log_search_words()
 {
 	$db_table = db_table();
 
-	$db_table->drop_table('{db_prefix}log_search_words');
+	$db_table->db_drop_table('{db_prefix}log_search_words');
 }

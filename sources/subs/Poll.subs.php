@@ -4,16 +4,13 @@
  * This file contains those functions pertaining to polls, including removing
  * resetting votes, editing, adding, and more
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
-
-use BBC\ParserWrapper;
-use ElkArte\User;
 
 /**
  * This function deals with the poll ID associated to a topic.
@@ -24,7 +21,7 @@ use ElkArte\User;
  *
  * @param int $topicID the ID of the topic
  * @param int|null $pollID = null the ID of the poll, if any. If null is passed, it retrieves the current ID.
- * @return int
+ * @return integer
  */
 function associatedPoll($topicID, $pollID = null)
 {
@@ -36,8 +33,10 @@ function associatedPoll($topicID, $pollID = null)
 
 		return $pollID['id_poll'];
 	}
-
-	setTopicAttribute($topicID, array('id_poll' => $pollID));
+	else
+	{
+		setTopicAttribute($topicID, array('id_poll' => $pollID));
+	}
 
 	return false;
 }
@@ -92,8 +91,7 @@ function resetVotes($pollID)
 
 	$db->query('', '
 		UPDATE {db_prefix}polls
-		SET 
-			num_guest_voters = {int:no_votes}, reset_poll = {int:time}
+		SET num_guest_voters = {int:no_votes}, reset_poll = {int:time}
 		WHERE id_poll = {int:id_poll}',
 		array(
 			'no_votes' => 0,
@@ -104,8 +102,7 @@ function resetVotes($pollID)
 
 	$db->query('', '
 		UPDATE {db_prefix}poll_choices
-		SET 
-			votes = {int:no_votes}
+		SET votes = {int:no_votes}
 		WHERE id_poll = {int:id_poll}',
 		array(
 			'no_votes' => 0,
@@ -147,9 +144,7 @@ function pollInfo($id_poll, $ignore_permissions = true)
 		$boardsAllowed = boardsAllowedTo('poll_view');
 
 		if (empty($boardsAllowed))
-		{
 			return false;
-		}
 	}
 
 	// Read info from the db
@@ -172,13 +167,11 @@ function pollInfo($id_poll, $ignore_permissions = true)
 			'is_approved' => 1,
 		)
 	);
-	$poll_info = $request->fetch_assoc();
-	$request->free_result();
+	$poll_info = $db->fetch_assoc($request);
+	$db->free_result($request);
 
 	if (empty($poll_info))
-	{
 		return false;
-	}
 
 	$request = $db->query('', '
 		SELECT COUNT(DISTINCT id_member) AS total
@@ -190,8 +183,8 @@ function pollInfo($id_poll, $ignore_permissions = true)
 			'not_guest' => 0,
 		)
 	);
-	list ($poll_info['total']) = $request->fetch_row();
-	$request->free_result();
+	list ($poll_info['total']) = $db->fetch_row($request);
+	$db->free_result($request);
 
 	// Total voters needs to include guest voters
 	$poll_info['total'] += $poll_info['num_guest_voters'];
@@ -204,8 +197,6 @@ function pollInfo($id_poll, $ignore_permissions = true)
  * to topic $topicID.
  *
  * @param int $topicID the topic with an associated poll.
- *
- * @return string[]|bool
  */
 function pollInfoForTopic($topicID)
 {
@@ -214,8 +205,7 @@ function pollInfoForTopic($topicID)
 	// Check if a poll currently exists on this topic, and get the id, question and starter.
 	$request = $db->query('', '
 		SELECT
-			t.id_member_started, p.id_poll, p.voting_locked, p.question,
-			p.hide_results, p.expire_time, p.max_votes, p.change_vote,
+			t.id_member_started, p.id_poll, p.question, p.hide_results, p.expire_time, p.max_votes, p.change_vote,
 			m.subject, p.guest_vote, p.id_member AS poll_starter
 		FROM {db_prefix}topics AS t
 			INNER JOIN {db_prefix}messages AS m ON (m.id_msg = t.id_first_msg)
@@ -228,14 +218,12 @@ function pollInfoForTopic($topicID)
 	);
 
 	// The topic must exist
-	if ($request->num_rows() === 0)
-	{
+	if ($db->num_rows($request) == 0)
 		return false;
-	}
 
 	// Get the poll information.
-	$pollinfo = $request->fetch_assoc();
-	$request->free_result();
+	$pollinfo = $db->fetch_assoc($request);
+	$db->free_result($request);
 
 	return $pollinfo;
 }
@@ -265,17 +253,13 @@ function topicFromPoll($pollID)
 	);
 
 	// The topic must exist
-	if ($request->num_rows() === 0)
-	{
+	if ($db->num_rows($request) == 0)
 		$topicID = false;
-	}
 	// Get the poll information.
 	else
-	{
-		list ($topicID, $boardID) = $request->fetch_row();
-	}
+		list ($topicID, $boardID) = $db->fetch_row($request);
 
-	$request->free_result();
+	$db->free_result($request);
 
 	return array($topicID, $boardID);
 }
@@ -291,18 +275,14 @@ function topicFromPoll($pollID)
  *
  * @param int $id_poll The id of the poll to query
  * @param int $id_member The id of the member
- *
- * @return array
  */
 function pollOptionsForMember($id_poll, $id_member)
 {
 	$db = database();
 
 	// Get the choices
-	$pollOptions = array();
-	$db->fetchQuery('
-		SELECT 
-			pc.id_choice, pc.label, pc.votes, COALESCE(lp.id_choice, -1) AS voted_this
+	$request = $db->query('', '
+		SELECT pc.id_choice, pc.label, pc.votes, COALESCE(lp.id_choice, -1) AS voted_this
 		FROM {db_prefix}poll_choices AS pc
 			LEFT JOIN {db_prefix}log_polls AS lp ON (lp.id_choice = pc.id_choice AND lp.id_poll = {int:id_poll} AND lp.id_member = {int:current_member} AND lp.id_member != {int:not_guest})
 		WHERE pc.id_poll = {int:id_poll}
@@ -312,12 +292,14 @@ function pollOptionsForMember($id_poll, $id_member)
 			'id_poll' => $id_poll,
 			'not_guest' => 0,
 		)
-	)->fetch_callback(
-		function ($row) use (&$pollOptions) {
-			$row['label'] = censor($row['label']);
-			$pollOptions[$row['id_choice']] = $row;
-		}
 	);
+	$pollOptions = array();
+	while ($row = $db->fetch_assoc($request))
+	{
+		$row['label'] = censor($row['label']);
+		$pollOptions[$row['id_choice']] = $row;
+	}
+	$db->free_result($request);
 
 	return $pollOptions;
 }
@@ -327,28 +309,26 @@ function pollOptionsForMember($id_poll, $id_member)
  * It censors the label in the result array.
  *
  * @param int $id_poll The id of the poll to load its options
- *
- * @return array
  */
 function pollOptions($id_poll)
 {
 	$db = database();
 
-	$pollOptions = array();
-	$db->fetchQuery('
-		SELECT 
-			label, votes, id_choice
+	$request = $db->query('', '
+		SELECT label, votes, id_choice
 		FROM {db_prefix}poll_choices
 		WHERE id_poll = {int:id_poll}',
 		array(
 			'id_poll' => $id_poll,
 		)
-	)->fetch_callback(
-		function ($row) use (&$pollOptions) {
-			$row['label'] = censor($row['label']);
-			$pollOptions[$row['id_choice']] = $row;
-		}
 	);
+	$pollOptions = array();
+	while ($row = $db->fetch_assoc($request))
+	{
+		$row['label'] = censor($row['label']);
+		$pollOptions[$row['id_choice']] = $row;
+	}
+	$db->free_result($request);
 
 	return $pollOptions;
 }
@@ -385,12 +365,10 @@ function createPoll($question, $id_member, $poster_name, $max_votes = 1, $hide_r
 		array('id_poll')
 	);
 
-	$id_poll = $db->insert_id('{db_prefix}polls');
+	$id_poll = $db->insert_id('{db_prefix}polls', 'id_poll');
 
 	if (!empty($options))
-	{
 		addPollOptions($id_poll, $options);
-	}
 
 	call_integration_hook('integrate_poll_add_edit', array($id_poll, false));
 
@@ -414,8 +392,7 @@ function modifyPoll($id_poll, $question, $max_votes = 1, $hide_results = 1, $exp
 
 	$db->query('', '
 		UPDATE {db_prefix}polls
-		SET 
-			question = {string:question}, change_vote = {int:change_vote},' . (allowedTo('moderate_board') ? '
+		SET question = {string:question}, change_vote = {int:change_vote},' . (allowedTo('moderate_board') ? '
 			hide_results = {int:hide_results}, expire_time = {int:expire_time}, max_votes = {int:max_votes},
 			guest_vote = {int:guest_vote}' : '
 			hide_results = CASE WHEN expire_time = {int:expire_time_zero} AND {int:hide_results} = 2 THEN 1 ELSE {int:hide_results} END') . '
@@ -447,9 +424,7 @@ function addPollOptions($id_poll, array $options)
 
 	$pollOptions = array();
 	foreach ($options as $i => $option)
-	{
 		$pollOptions[] = array($id_poll, $i, $option);
-	}
 
 	$db->insert('insert',
 		'{db_prefix}poll_choices',
@@ -488,11 +463,9 @@ function modifyPollOption($options)
 	$db = database();
 
 	foreach ($options as $option)
-	{
 		$db->query('', '
 			UPDATE {db_prefix}poll_choices
-			SET 
-				label = {string:option_name}
+			SET label = {string:option_name}
 			WHERE id_poll = {int:id_poll}
 				AND id_choice = {int:id_choice}',
 			array(
@@ -501,7 +474,6 @@ function modifyPollOption($options)
 				'option_name' => $option[2],
 			)
 		);
-	}
 }
 
 /**
@@ -540,17 +512,13 @@ function deletePollOptions($id_poll, $id_options)
  * for the poll associated with the $id_topic.
  *
  * @param int $id_topic The id of the topic
- *
- * @return array
  */
 function pollStarters($id_topic)
 {
 	$db = database();
 
-	$pollStarters = array();
 	$request = $db->query('', '
-		SELECT 
-			t.id_member_started, p.id_member AS poll_starter
+		SELECT t.id_member_started, p.id_member AS poll_starter
 		FROM {db_prefix}topics AS t
 			INNER JOIN {db_prefix}polls AS p ON (p.id_poll = t.id_poll)
 		WHERE t.id_topic = {int:current_topic}
@@ -560,12 +528,12 @@ function pollStarters($id_topic)
 		)
 	);
 
-	if ($request->num_rows() !== 0)
-	{
-		$pollStarters = $request->fetch_row();
-	}
+	$pollStarters = array();
 
-	$request->free_result();
+	if ($db->num_rows($request) != 0)
+		$pollStarters = $db->fetch_row($request);
+
+	$db->free_result($request);
 
 	return $pollStarters;
 }
@@ -574,15 +542,15 @@ function pollStarters($id_topic)
  * Check if they have already voted, or voting is locked.
  *
  * @param int $topic the topic with an associated poll
- * @return mixed[]
  */
 function checkVote($topic)
 {
+	global $user_info;
+
 	$db = database();
 
-	return $db->fetchQuery('
-		SELECT 
-			COALESCE(lp.id_choice, -1) AS selected, p.voting_locked, p.id_poll, p.expire_time, p.max_votes, p.change_vote,
+	$request = $db->query('', '
+		SELECT COALESCE(lp.id_choice, -1) AS selected, p.voting_locked, p.id_poll, p.expire_time, p.max_votes, p.change_vote,
 			p.guest_vote, p.reset_poll, p.num_guest_voters
 		FROM {db_prefix}topics AS t
 			INNER JOIN {db_prefix}polls AS p ON (p.id_poll = t.id_poll)
@@ -590,11 +558,16 @@ function checkVote($topic)
 		WHERE t.id_topic = {int:current_topic}
 		LIMIT 1',
 		array(
-			'current_member' => User::$info->id,
+			'current_member' => $user_info['id'],
 			'current_topic' => $topic,
 			'not_guest' => 0,
 		)
-	)->fetch_assoc();
+	);
+
+	$row = $db->fetch_assoc($request);
+	$db->free_result($request);
+
+	return $row;
 }
 
 /**
@@ -630,8 +603,7 @@ function decreaseVoteCounter($id_poll, $options)
 
 	$db->query('', '
 		UPDATE {db_prefix}poll_choices
-		SET 
-		 	votes = votes - 1
+		SET votes = votes - 1
 		WHERE id_poll = {int:id_poll}
 			AND id_choice IN ({array_int:poll_options})
 			AND votes > {int:votes}',
@@ -655,8 +627,7 @@ function increaseVoteCounter($id_poll, $options)
 
 	$db->query('', '
 		UPDATE {db_prefix}poll_choices
-		SET 
-			votes = votes + 1
+		SET votes = votes + 1
 		WHERE id_poll = {int:id_poll}
 			AND id_choice IN ({array_int:poll_options})',
 		array(
@@ -694,8 +665,7 @@ function increaseGuestVote($id_poll)
 
 	$db->query('', '
 		UPDATE {db_prefix}polls
-		SET 
-			num_guest_voters = num_guest_voters + 1
+		SET num_guest_voters = num_guest_voters + 1
 		WHERE id_poll = {int:id_poll}',
 		array(
 			'id_poll' => $id_poll,
@@ -714,11 +684,10 @@ function increaseGuestVote($id_poll)
 function determineVote($id_member, $id_poll)
 {
 	$db = database();
-	$pollOptions = [];
+	$pollOptions = array();
 
-	$db->fetchQuery('
-		SELECT 
-			id_choice
+	$request = $db->query('', '
+		SELECT id_choice
 		FROM {db_prefix}log_polls
 		WHERE id_member = {int:current_member}
 			AND id_poll = {int:id_poll}',
@@ -726,14 +695,10 @@ function determineVote($id_member, $id_poll)
 			'current_member' => $id_member,
 			'id_poll' => $id_poll,
 		)
-	)->fetch_callback(
-		function ($row) use (&$pollOptions) {
-			if (isset($row['id_choice']))
-			{
-				$pollOptions[] = $row['id_choice'];
-			}
-		}
 	);
+	while ($choice = $db->fetch_row($request))
+		$pollOptions[] = $choice[0];
+	$db->free_result($request);
 
 	return $pollOptions;
 }
@@ -742,14 +707,27 @@ function determineVote($id_member, $id_poll)
  * Get some basic details from a poll
  *
  * @param int $id_topic
- * @return string[]|bool
- * @deprecated since 2.0 - use pollInfoForTopic instead
+ * @return array
  */
 function pollStatus($id_topic)
 {
-	\ElkArte\Errors\Errors::instance()->log_deprecated('pollStatus()', 'pollInfoForTopic()');
+	$db = database();
 
-	return pollInfoForTopic($id_topic);
+	$poll = array();
+
+	$request = $db->query('', '
+		SELECT t.id_member_started, t.id_poll, p.voting_locked
+		FROM {db_prefix}topics AS t
+			INNER JOIN {db_prefix}polls AS p ON (p.id_poll = t.id_poll)
+		WHERE t.id_topic = {int:current_topic}
+		LIMIT 1',
+		array(
+			'current_topic' => $id_topic,
+		)
+	);
+	list ($poll['id_member'], $poll['id_poll'], $poll['locked']) = $db->fetch_row($request);
+
+		return $poll;
 }
 
 /**
@@ -764,8 +742,7 @@ function lockPoll($id_poll, $locked)
 
 	$db->query('', '
 		UPDATE {db_prefix}polls
-		SET 
-			voting_locked = {int:voting_locked}
+		SET voting_locked = {int:voting_locked}
 		WHERE id_poll = {int:id_poll}',
 		array(
 			'voting_locked' => $locked,
@@ -784,28 +761,29 @@ function getPollChoices($id_poll)
 {
 	$db = database();
 
-	$choices = array();
-	$number = 1;
-	$db->fetchQuery('
-		SELECT 
-			label, votes, id_choice
+	$request = $db->query('', '
+		SELECT label, votes, id_choice
 		FROM {db_prefix}poll_choices
 		WHERE id_poll = {int:id_poll}',
 		array(
 			'id_poll' => $id_poll,
 		)
-	)->fetch_callback(
-		function ($row) use (&$choices, &$number) {
-			$row['label'] = censor($row['label']);
-			$choices[$row['id_choice']] = array(
-				'id' => $row['id_choice'],
-				'number' => $number++,
-				'votes' => $row['votes'],
-				'label' => $row['label'],
-				'is_last' => false
-			);
-		}
 	);
+
+	$choices = array();
+	$number = 1;
+	while ($row = $db->fetch_assoc($request))
+	{
+		$row['label'] = censor($row['label']);
+		$choices[$row['id_choice']] = array(
+			'id' => $row['id_choice'],
+			'number' => $number++,
+			'votes' => $row['votes'],
+			'label' => $row['label'],
+			'is_last' => false
+		);
+	}
+	$db->free_result($request);
 
 	return $choices;
 }
@@ -816,15 +794,14 @@ function getPollChoices($id_poll)
  * @param int $id_topic The id of the topic that has an associated poll
  *
  * @return array
- * @throws \ElkArte\Exceptions\Exception no_board
+ * @throws Elk_Exception no_board
  */
 function getPollStarter($id_topic)
 {
 	$db = database();
 
 	$request = $db->query('', '
-		SELECT 
-			t.id_member_started, t.id_poll, p.id_member AS poll_starter, p.expire_time
+		SELECT t.id_member_started, t.id_poll, p.id_member AS poll_starter, p.expire_time
 		FROM {db_prefix}topics AS t
 			LEFT JOIN {db_prefix}polls AS p ON (p.id_poll = t.id_poll)
 		WHERE t.id_topic = {int:current_topic}
@@ -833,12 +810,10 @@ function getPollStarter($id_topic)
 			'current_topic' => $id_topic,
 		)
 	);
-	if ($request->num_rows() === 0)
-	{
-		throw new \ElkArte\Exceptions\Exception('no_board');
-	}
-	$bcinfo = $request->fetch_assoc();
-	$request->free_result();
+	if ($db->num_rows($request) == 0)
+		throw new Elk_Exception('no_board');
+	$bcinfo = $db->fetch_assoc($request);
+	$db->free_result($request);
 
 	return $bcinfo;
 }
@@ -850,13 +825,13 @@ function getPollStarter($id_topic)
  */
 function loadPollContext($poll_id)
 {
-	global $context, $txt;
+	global $context, $user_info, $txt, $scripturl;
 
 	// Get the question and if it's locked.
 	$pollinfo = pollInfo($poll_id);
 
 	// Get all the options, and calculate the total votes.
-	$pollOptions = pollOptionsForMember($poll_id, User::$info->id);
+	$pollOptions = pollOptionsForMember($poll_id, $user_info['id']);
 
 	// Compute total votes.
 	$realtotal = 0;
@@ -868,7 +843,7 @@ function loadPollContext($poll_id)
 	}
 
 	// If this is a guest we need to do our best to work out if they have voted, and what they voted for.
-	if (User::$info->is_guest && $pollinfo['guest_vote'] && allowedTo('poll_vote'))
+	if ($user_info['is_guest'] && $pollinfo['guest_vote'] && allowedTo('poll_vote'))
 	{
 		if (!empty($_COOKIE['guest_poll_vote']) && preg_match('~^[0-9,;]+$~', $_COOKIE['guest_poll_vote']) && strpos($_COOKIE['guest_poll_vote'], ';' . $poll_id . ',') !== false)
 		{
@@ -880,9 +855,7 @@ function loadPollContext($poll_id)
 			{
 				$guestvoted = explode(',', $guestvoted);
 				if ($guestvoted[0] == $poll_id)
-				{
 					break;
-				}
 			}
 
 			// Has the poll been reset since guest voted?
@@ -891,13 +864,9 @@ function loadPollContext($poll_id)
 				// Remove the poll info from the cookie to allow guest to vote again
 				unset($guestinfo[$i]);
 				if (!empty($guestinfo))
-				{
 					$_COOKIE['guest_poll_vote'] = ';' . implode(';', $guestinfo);
-				}
 				else
-				{
 					unset($_COOKIE['guest_poll_vote']);
-				}
 			}
 			else
 			{
@@ -914,10 +883,9 @@ function loadPollContext($poll_id)
 		}
 	}
 
-	$bbc_parser = ParserWrapper::instance();
+	$bbc_parser = \BBC\ParserWrapper::instance();
 
 	// Set up the basic poll information.
-	$starter_href = getUrl('profile', ['action' => 'profile', 'u' => $pollinfo['id_member'], 'name' => $pollinfo['poster_name']]);
 	$context['poll'] = array(
 		'id' => $poll_id,
 		'image' => 'normal_' . (empty($pollinfo['voting_locked']) ? 'poll' : 'locked_poll'),
@@ -935,8 +903,8 @@ function loadPollContext($poll_id)
 		'starter' => array(
 			'id' => $pollinfo['id_member'],
 			'name' => $pollinfo['poster_name'],
-			'href' => $pollinfo['id_member'] == 0 ? '' : $starter_href,
-			'link' => $pollinfo['id_member'] == 0 ? $pollinfo['poster_name'] : '<a href="' . $starter_href . '">' . $pollinfo['poster_name'] . '</a>'
+			'href' => $pollinfo['id_member'] == 0 ? '' : $scripturl . '?action=profile;u=' . $pollinfo['id_member'],
+			'link' => $pollinfo['id_member'] == 0 ? $pollinfo['poster_name'] : '<a href="' . $scripturl . '?action=profile;u=' . $pollinfo['id_member'] . '">' . $pollinfo['poster_name'] . '</a>'
 		)
 	);
 
@@ -951,7 +919,7 @@ function loadPollContext($poll_id)
 	// 4. the poll is not locked, and
 	// 5. you have the proper permissions, and
 	// 6. you haven't already voted before.
-	$context['allow_vote'] = !$context['poll']['is_expired'] && (User::$info->is_guest === false || ($pollinfo['guest_vote'] && allowedTo('poll_vote'))) && empty($pollinfo['voting_locked']) && allowedTo('poll_vote') && !$context['poll']['has_voted'];
+	$context['allow_vote'] = !$context['poll']['is_expired'] && (!$user_info['is_guest'] || ($pollinfo['guest_vote'] && allowedTo('poll_vote'))) && empty($pollinfo['voting_locked']) && allowedTo('poll_vote') && !$context['poll']['has_voted'];
 
 	// You're allowed to view the results if:
 	// 1. you're just a super-nice-guy, or
@@ -968,7 +936,7 @@ function loadPollContext($poll_id)
 	// 4. you have the proper permissions, and
 	// 5. you have already voted, and
 	// 6. the poll creator has said you can!
-	$context['allow_change_vote'] = !$context['poll']['is_expired'] && User::$info->is_guest === false && empty($pollinfo['voting_locked']) && allowedTo('poll_vote') && $context['poll']['has_voted'] && $context['poll']['change_vote'];
+	$context['allow_change_vote'] = !$context['poll']['is_expired'] && !$user_info['is_guest'] && empty($pollinfo['voting_locked']) && allowedTo('poll_vote') && $context['poll']['has_voted'] && $context['poll']['change_vote'];
 
 	// You're allowed to return to voting options if:
 	// 1. you are (still) allowed to vote.

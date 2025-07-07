@@ -3,37 +3,35 @@
 /**
  * Support functions and db interface functions for permissions
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
-
-use ElkArte\Helper\Util;
-use ElkArte\Permissions;
 
 /**
  * Set the permission level for a specific profile, group, or group for a profile.
  *
- * @param string $level The level ('restrict', 'standard', etc.)
- * @param int|null $group The group to set the permission for
- * @param int|null $profile = null, int id of the permissions group or 'null' if we're setting it for a group
- *
- * @throws \ElkArte\Exceptions\Exception no_access
  * @package Permissions
  *
+ * @param string       $level The level ('restrict', 'standard', etc.)
+ * @param integer|null $group The group to set the permission for
+ * @param integer|null $profile = null, int id of the permissions group or 'null' if we're setting it for a group
+ *
+ * @throws Elk_Exception no_access
  */
 function setPermissionLevel($level, $group = null, $profile = null)
 {
 	$db = database();
 
 	// we'll need to init illegal permissions.
-	$permissionsObject = new Permissions();
+	$permissionsObject = new Permissions;
 	$illegal_permissions = $permissionsObject->getIllegalPermissions();
 	$illegal_guest_permissions = $permissionsObject->getIllegalGuestPermissions();
 
@@ -64,6 +62,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		'mark_any_notify',
 		'mark_notify',
 		'report_any',
+		'send_topic',
 	);
 
 	// Standard - ie. members.  They can do anything Restrictive can.
@@ -131,16 +130,19 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		'profile_extra_any',
 		'profile_title_any',
 	));
-	$groupLevels['board']['maintenance'] = array_merge($groupLevels['board']['moderator'], array());
+	$groupLevels['board']['maintenance'] = array_merge($groupLevels['board']['moderator'], array(
+	));
 
 	// Standard - nothing above the group permissions. (this SHOULD be empty.)
-	$boardLevels['standard'] = array();
+	$boardLevels['standard'] = array(
+	);
 
 	// Locked - just that, you can't post here.
 	$boardLevels['locked'] = array(
 		'poll_view',
 		'mark_notify',
 		'report_any',
+		'send_topic',
 		'view_attachments',
 	);
 
@@ -184,26 +186,15 @@ function setPermissionLevel($level, $group = null, $profile = null)
 	foreach ($groupLevels['global'][$level] as $k => $permission)
 	{
 		if (!empty($illegal_permissions) && in_array($permission, $illegal_permissions))
-		{
 			unset($groupLevels['global'][$level][$k]);
-		}
 
 		if ($group == -1 && in_array($permission, $illegal_guest_permissions))
-		{
 			unset($groupLevels['global'][$level][$k]);
-		}
 	}
-
 	if ($group == -1)
-	{
 		foreach ($groupLevels['board'][$level] as $k => $permission)
-		{
 			if (in_array($permission, $illegal_guest_permissions))
-			{
 				unset($groupLevels['board'][$level][$k]);
-			}
-		}
-	}
 
 	// Reset all cached permissions.
 	updateSettings(array('settings_updated' => time()));
@@ -214,9 +205,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		$group = (int) $group;
 
 		if (empty($groupLevels['global'][$level]))
-		{
 			return;
-		}
 
 		$db->query('', '
 			DELETE FROM {db_prefix}permissions
@@ -239,9 +228,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 
 		$groupInserts = array();
 		foreach ($groupLevels['global'][$level] as $permission)
-		{
 			$groupInserts[] = array($group, $permission);
-		}
 
 		$db->insert('insert',
 			'{db_prefix}permissions',
@@ -252,9 +239,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 
 		$boardInserts = array();
 		foreach ($groupLevels['board'][$level] as $permission)
-		{
 			$boardInserts[] = array(1, $group, $permission);
-		}
 
 		$db->insert('insert',
 			'{db_prefix}board_permissions',
@@ -264,7 +249,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		);
 	}
 	// Setting profile permissions for a specific group.
-	elseif ($profile !== null && $group !== null && ($profile === 1 || $profile > 4))
+	elseif ($profile !== null && $group !== null && ($profile == 1 || $profile > 4))
 	{
 		$group = (int) $group;
 		$profile = (int) $profile;
@@ -286,9 +271,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		{
 			$boardInserts = array();
 			foreach ($groupLevels['board'][$level] as $permission)
-			{
 				$boardInserts[] = array($profile, $group, $permission);
-			}
 
 			$db->insert('insert',
 				'{db_prefix}board_permissions',
@@ -299,7 +282,7 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		}
 	}
 	// Setting profile permissions for all groups.
-	elseif ($profile !== null && $group === null && ($profile === 1 || $profile > 4))
+	elseif ($profile !== null && $group === null && ($profile == 1 || $profile > 4))
 	{
 		$profile = (int) $profile;
 
@@ -312,14 +295,11 @@ function setPermissionLevel($level, $group = null, $profile = null)
 		);
 
 		if (empty($boardLevels[$level]))
-		{
 			return;
-		}
 
 		// Get all the groups...
-		$db->fetchQuery('
-			SELECT 
-				id_group
+		$query = $db->query('', '
+			SELECT id_group
 			FROM {db_prefix}membergroups
 			WHERE id_group > {int:moderator_group}
 			ORDER BY min_posts, CASE WHEN id_group < {int:newbie_group} THEN id_group ELSE 4 END, group_name',
@@ -327,44 +307,39 @@ function setPermissionLevel($level, $group = null, $profile = null)
 				'moderator_group' => 3,
 				'newbie_group' => 4,
 			)
-		)->fetch_callback(
-			function ($row) use ($db, $boardLevels, $profile, $level) {
-				$group = $row['id_group'];
-
-				$boardInserts = array();
-				foreach ($boardLevels[$level] as $permission)
-				{
-					$boardInserts[] = array($profile, $group, $permission);
-				}
-
-				$db->insert('insert',
-					'{db_prefix}board_permissions',
-					array('id_profile' => 'int', 'id_group' => 'int', 'permission' => 'string'),
-					$boardInserts,
-					array('id_profile', 'id_group')
-				);
-			}
 		);
+		while ($row = $db->fetch_row($query))
+		{
+			$group = $row[0];
+
+			$boardInserts = array();
+			foreach ($boardLevels[$level] as $permission)
+				$boardInserts[] = array($profile, $group, $permission);
+
+			$db->insert('insert',
+				'{db_prefix}board_permissions',
+				array('id_profile' => 'int', 'id_group' => 'int', 'permission' => 'string'),
+				$boardInserts,
+				array('id_profile', 'id_group')
+			);
+		}
+		$db->free_result($query);
 
 		// Add permissions for ungrouped members.
 		$boardInserts = array();
 		foreach ($boardLevels[$level] as $permission)
-		{
 			$boardInserts[] = array($profile, 0, $permission);
-		}
 
 		$db->insert('insert',
-			'{db_prefix}board_permissions',
-			array('id_profile' => 'int', 'id_group' => 'int', 'permission' => 'string'),
-			$boardInserts,
-			array('id_profile', 'id_group')
-		);
+				'{db_prefix}board_permissions',
+				array('id_profile' => 'int', 'id_group' => 'int', 'permission' => 'string'),
+				$boardInserts,
+				array('id_profile', 'id_group')
+			);
 	}
 	// $profile and $group are both null!
 	else
-	{
-		throw new \ElkArte\Exceptions\Exception('no_access', false);
-	}
+		throw new Elk_Exception('no_access', false);
 }
 
 /**
@@ -378,28 +353,30 @@ function loadPermissionProfiles()
 
 	$db = database();
 
-	$context['profiles'] = array();
-	$db->fetchQuery('
-		SELECT 
-			id_profile, profile_name
+	$request = $db->query('', '
+		SELECT id_profile, profile_name
 		FROM {db_prefix}permission_profiles
 		ORDER BY id_profile',
-		array()
-	)->fetch_callback(
-		function ($row) use ($txt) {
-			global $context;
-
-			// Format the label nicely.
-			$name = $txt['permissions_profile_' . $row['profile_name']] ?? $row['profile_name'];
-
-			$context['profiles'][$row['id_profile']] = array(
-				'id' => $row['id_profile'],
-				'name' => $name,
-				'can_modify' => $row['id_profile'] == 1 || $row['id_profile'] > 4,
-				'unformatted_name' => $row['profile_name'],
-			);
-		}
+		array(
+		)
 	);
+	$context['profiles'] = array();
+	while ($row = $db->fetch_assoc($request))
+	{
+		// Format the label nicely.
+		if (isset($txt['permissions_profile_' . $row['profile_name']]))
+			$name = $txt['permissions_profile_' . $row['profile_name']];
+		else
+			$name = $row['profile_name'];
+
+		$context['profiles'][$row['id_profile']] = array(
+			'id' => $row['id_profile'],
+			'name' => $name,
+			'can_modify' => $row['id_profile'] == 1 || $row['id_profile'] > 4,
+			'unformatted_name' => $row['profile_name'],
+		);
+	}
+	$db->free_result($request);
 }
 
 /**
@@ -449,7 +426,6 @@ function loadAllPermissions()
 			'karma_edit' => array(false, 'general'),
 			'like_posts_stats' => array(false, 'general'),
 			'disable_censor' => array(false, 'general'),
-			'post_nofollow' => array(false, 'general'),
 			'pm_read' => array(false, 'pm'),
 			'pm_send' => array(false, 'pm'),
 			'send_email_to_members' => array(false, 'pm'),
@@ -485,6 +461,7 @@ function loadAllPermissions()
 			'post_reply' => array(true, 'topic'),
 			'merge_any' => array(false, 'topic'),
 			'split_any' => array(false, 'topic'),
+			'send_topic' => array(false, 'topic'),
 			'make_sticky' => array(false, 'topic'),
 			'move' => array(true, 'topic'),
 			'lock' => array(true, 'topic'),
@@ -523,36 +500,26 @@ function loadAllPermissions()
 	);
 
 	// We need to know what permissions we can't give to guests.
-	$permissionsObject = new Permissions();
+	$permissionsObject = new Permissions;
 	$illegal_guest_permissions = $permissionsObject->getIllegalGuestPermissions();
 
 	// Some permissions are hidden if features are off.
 	$hiddenPermissions = array();
 	$relabelPermissions = array(); // Permissions to apply a different label to.
 
-	if (featureEnabled('cd') === false)
+	if (!in_array('cd', $context['admin_features']))
 	{
 		$hiddenPermissions[] = 'calendar_view';
 		$hiddenPermissions[] = 'calendar_post';
 		$hiddenPermissions[] = 'calendar_edit';
 	}
-
-	if (featureEnabled('w') === false)
-	{
+	if (!in_array('w', $context['admin_features']))
 		$hiddenPermissions[] = 'issue_warning';
-	}
-
-	if (featureEnabled('k') === false)
-	{
+	if (!in_array('k', $context['admin_features']))
 		$hiddenPermissions[] = 'karma_edit';
-	}
-
-	if (featureEnabled('l') === false)
-	{
+	if (!in_array('l', $context['admin_features']))
 		$hiddenPermissions[] = 'like_posts';
-	}
-
-	if (featureEnabled('pe') === false)
+	if (!in_array('pe', $context['admin_features']))
 	{
 		$hiddenPermissions[] = 'approve_emails';
 		$hiddenPermissions[] = 'postby_email';
@@ -624,7 +591,7 @@ function loadAllPermissions()
 			$bothGroups = array();
 
 			// Guests can have only any, registered users both
-			if (!isset($context['group']['id']) || $context['group']['id'] != -1)
+			if (!isset($context['group']['id']) || !($context['group']['id'] == -1))
 			{
 				$bothGroups['own'] = $own_group;
 			}
@@ -641,8 +608,8 @@ function loadAllPermissions()
 						'type' => $permissionType,
 						'id' => $group,
 						'name' => $txt['permissiongroup_' . $group],
-						'icon' => $txt['permissionicon_' . $group] ?? $txt['permissionicon'],
-						'help' => $txt['permissionhelp_' . $group] ?? '',
+						'icon' => isset($txt['permissionicon_' . $group]) ? $txt['permissionicon_' . $group] : $txt['permissionicon'],
+						'help' => isset($txt['permissionhelp_' . $group]) ? $txt['permissionhelp_' . $group] : '',
 						'hidden' => false,
 						'permissions' => array()
 					);
@@ -654,7 +621,7 @@ function loadAllPermissions()
 				'id' => $permission,
 				'name' => !isset($relabelPermissions[$permission]) ? $txt['permissionname_' . $permission] : $txt[$relabelPermissions[$permission]],
 				'show_help' => isset($txt['permissionhelp_' . $permission]),
-				'note' => $txt['permissionnote_' . $permission] ?? '',
+				'note' => isset($txt['permissionnote_' . $permission]) ? $txt['permissionnote_' . $permission] : '',
 				'has_own_any' => $permissionArray[0],
 				'own' => array(
 					'id' => $permission . '_own',
@@ -715,33 +682,33 @@ function loadAllPermissions()
 /**
  * Counts membergroup permissions.
  *
+ * @package Permissions
  * @param int[] $groups the group ids to return permission counts
  * @param string[]|null $hidden_permissions array of permission names to skip in the count totals
  *
  * @return int[] [id_group][num_permissions][denied] = count, [id_group][num_permissions][allowed] = count
- * @package Permissions
  */
 function countPermissions($groups, $hidden_permissions = null)
 {
 	$db = database();
 
-	$db->fetchQuery('
-		SELECT 
-			id_group, COUNT(*) AS num_permissions, add_deny
+	$request = $db->query('', '
+		SELECT id_group, COUNT(*) AS num_permissions, add_deny
 		FROM {db_prefix}permissions'
 		. (isset($hidden_permissions) ? '' : 'WHERE permission NOT IN ({array_string:hidden_permissions})') . '
 		GROUP BY id_group, add_deny',
 		array(
 			'hidden_permissions' => !isset($hidden_permissions) ? $hidden_permissions : array(),
 		)
-	)->fetch_callback(
-		function ($row) use (&$groups) {
-			if (isset($groups[(int) $row['id_group']]) && (!empty($row['add_deny']) || $row['id_group'] != -1))
-			{
-				$groups[$row['id_group']]['num_permissions'][empty($row['add_deny']) ? 'denied' : 'allowed'] = $row['num_permissions'];
-			}
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+	{
+		if (isset($groups[(int) $row['id_group']]) && (!empty($row['add_deny']) || $row['id_group'] != -1))
+		{
+			$groups[$row['id_group']]['num_permissions'][empty($row['add_deny']) ? 'denied' : 'allowed'] = $row['num_permissions'];
+		}
+	}
+	$db->free_result($request);
 
 	return $groups;
 }
@@ -749,37 +716,33 @@ function countPermissions($groups, $hidden_permissions = null)
 /**
  * Counts board permissions.
  *
+ * @package Permissions
  * @param int[] $groups
  * @param string[]|null $hidden_permissions
- * @param int|null $profile_id
+ * @param integer|null $profile_id
  *
  * @return int[]
- * @package Permissions
  */
 function countBoardPermissions($groups, $hidden_permissions = null, $profile_id = null)
 {
 	$db = database();
 
-	$db->fetchQuery('
-		SELECT 
-			' . (isset($profile_id) ? 'id_profile, ' : '') . 'id_group, add_deny, COUNT(*) AS num_permissions
+	$request = $db->query('', '
+		SELECT id_profile, id_group, COUNT(*) AS num_permissions, add_deny
 		FROM {db_prefix}board_permissions
 		WHERE 1 = 1'
-		. (isset($profile_id) ? ' AND id_profile = {int:current_profile}' : '')
-		. (empty($hidden_permissions) ? '' : ' AND permission NOT IN ({array_string:hidden_permissions})') . '
+			. (isset($profile_id) ? ' AND id_profile = {int:current_profile}' : '')
+			. (empty($hidden_permissions) ? '' : ' AND permission NOT IN ({array_string:hidden_permissions})') . '
 		GROUP BY ' . (isset($profile_id) ? 'id_profile, ' : '') . 'id_group, add_deny',
 		array(
 			'hidden_permissions' => !empty($hidden_permissions) ? $hidden_permissions : array(),
 			'current_profile' => $profile_id,
 		)
-	)->fetch_callback(
-		function ($row) use (&$groups) {
-			if (isset($groups[(int) $row['id_group']]) && (!empty($row['add_deny']) || $row['id_group'] != -1))
-			{
-				$groups[$row['id_group']]['num_permissions'][empty($row['add_deny']) ? 'denied' : 'allowed'] += $row['num_permissions'];
-			}
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+		if (isset($groups[(int) $row['id_group']]) && (!empty($row['add_deny']) || $row['id_group'] != -1))
+			$groups[$row['id_group']]['num_permissions'][empty($row['add_deny']) ? 'denied' : 'allowed'] += $row['num_permissions'];
+	$db->free_result($request);
 
 	return $groups;
 }
@@ -787,9 +750,9 @@ function countBoardPermissions($groups, $hidden_permissions = null, $profile_id 
 /**
  * Used to assign a permission profile to a board.
  *
+ * @package Permissions
  * @param int $profile
  * @param int $board
- * @package Permissions
  */
 function assignPermissionProfileToBoard($profile, $board)
 {
@@ -797,8 +760,7 @@ function assignPermissionProfileToBoard($profile, $board)
 
 	$db->query('', '
 		UPDATE {db_prefix}boards
-		SET 
-			id_profile = {int:current_profile}
+		SET id_profile = {int:current_profile}
 		WHERE id_board IN ({array_int:board_list})',
 		array(
 			'board_list' => $board,
@@ -810,55 +772,46 @@ function assignPermissionProfileToBoard($profile, $board)
 /**
  * Copy a set of permissions from one group to another..
  *
+ * @package Permissions
  * @param int $copy_from
  * @param int[] $groups
  * @param string[] $illegal_permissions
  * @param string[] $non_guest_permissions
  * @todo another function with the same name in Membergroups.subs.php
- * @package Permissions
  */
 function copyPermission($copy_from, $groups, $illegal_permissions, $non_guest_permissions = array())
 {
 	$db = database();
 
 	// Retrieve current permissions of group.
-	$target_perm = array();
-	$db->fetchQuery('
-		SELECT 
-			permission, add_deny
+	$request = $db->query('', '
+		SELECT permission, add_deny
 		FROM {db_prefix}permissions
 		WHERE id_group = {int:copy_from}',
 		array(
 			'copy_from' => $copy_from,
 		)
-	)->fetch_callback(
-		function ($row) use (&$target_perm) {
-			$target_perm[$row['permission']] = $row['add_deny'];
-		}
 	);
+	$target_perm = array();
+	while ($row = $db->fetch_assoc($request))
+		$target_perm[$row['permission']] = $row['add_deny'];
+	$db->free_result($request);
 
 	$inserts = array();
 	foreach ($groups as $group_id)
-	{
 		foreach ($target_perm as $perm => $add_deny)
 		{
 			// No dodgy permissions please!
 			if (!empty($illegal_permissions) && in_array($perm, $illegal_permissions))
-			{
 				continue;
-			}
-
-			if ($group_id === -1 && in_array($perm, $non_guest_permissions))
-			{
+			if ($group_id == -1 && in_array($perm, $non_guest_permissions))
 				continue;
-			}
 
-			if ($group_id !== 1 && $group_id !== 3)
+			if ($group_id != 1 && $group_id != 3)
 			{
 				$inserts[] = array('permission' => $perm, 'id_group' => $group_id, 'add_deny' => $add_deny);
 			}
 		}
-	}
 
 	// Delete the previous permissions...
 	$db->query('', '
@@ -882,21 +835,19 @@ function copyPermission($copy_from, $groups, $illegal_permissions, $non_guest_pe
 /**
  * Copy a set of board permissions from one group to another..
  *
+ * @package Permissions
  * @param int $copy_from
  * @param int[] $groups The target groups
  * @param int $profile_id
  * @param string[] $non_guest_permissions
- * @package Permissions
  */
 function copyBoardPermission($copy_from, $groups, $profile_id, $non_guest_permissions)
 {
 	$db = database();
 
 	// Now do the same for the board permissions.
-	$target_perm = array();
-	$db->fetchQuery('
-		SELECT 
-			permission, add_deny
+	$request = $db->query('', '
+		SELECT permission, add_deny
 		FROM {db_prefix}board_permissions
 		WHERE id_group = {int:copy_from}
 			AND id_profile = {int:current_profile}',
@@ -904,11 +855,11 @@ function copyBoardPermission($copy_from, $groups, $profile_id, $non_guest_permis
 			'copy_from' => $copy_from,
 			'current_profile' => $profile_id,
 		)
-	)->fetch_callback(
-		function ($row) use (&$target_perm) {
-			$target_perm[$row['permission']] = $row['add_deny'];
-		}
 	);
+	$target_perm = array();
+	while ($row = $db->fetch_assoc($request))
+		$target_perm[$row['permission']] = $row['add_deny'];
+	$db->free_result($request);
 
 	$inserts = array();
 	foreach ($groups as $group_id)
@@ -916,10 +867,8 @@ function copyBoardPermission($copy_from, $groups, $profile_id, $non_guest_permis
 		foreach ($target_perm as $perm => $add_deny)
 		{
 			// Are these for guests?
-			if ($group_id === -1 && in_array($perm, $non_guest_permissions))
-			{
+			if ($group_id == -1 && in_array($perm, $non_guest_permissions))
 				continue;
-			}
 
 			$inserts[] = array($perm, $group_id, $add_deny, $profile_id);
 		}
@@ -939,10 +888,10 @@ function copyBoardPermission($copy_from, $groups, $profile_id, $non_guest_permis
 /**
  * Deletes membergroup permissions.
  *
+ * @package Permissions
  * @param int[] $groups
  * @param string $permission
  * @param string[] $illegal_permissions
- * @package Permissions
  */
 function deletePermission($groups, $permission, $illegal_permissions)
 {
@@ -964,10 +913,10 @@ function deletePermission($groups, $permission, $illegal_permissions)
 /**
  * Delete board permissions.
  *
+ * @package Permissions
  * @param int[] $group
  * @param int $profile_id
  * @param string $permission
- * @package Permissions
  */
 function deleteBoardPermission($group, $profile_id, $permission)
 {
@@ -989,35 +938,32 @@ function deleteBoardPermission($group, $profile_id, $permission)
 /**
  * Replaces existing membergroup permissions with the given ones.
  *
- * @param mixed[] $permChange associative array permission, id_group, add_deny
  * @package Permissions
+ * @param mixed[] $permChange associative array permission, id_group, add_deny
  */
 function replacePermission($permChange)
 {
 	$db = database();
 
-	if (!empty($permChange))
-	{
-		$db->replace(
-			'{db_prefix}permissions',
+	$db->insert('replace',
+		'{db_prefix}permissions',
 			array('permission' => 'string', 'id_group' => 'int', 'add_deny' => 'int'),
 			$permChange,
 			array('permission', 'id_group')
 		);
-	}
 }
 
 /**
  * Replaces existing board permissions with the given ones.
  *
- * @param mixed[] $permChange associative array of 'permission', 'id_group', 'add_deny', 'id_profile'
  * @package Permissions
+ * @param mixed[] $permChange associative array of 'permission', 'id_group', 'add_deny', 'id_profile'
  */
 function replaceBoardPermission($permChange)
 {
 	$db = database();
 
-	$db->replace(
+	$db->insert('replace',
 		'{db_prefix}board_permissions',
 		array('permission' => 'string', 'id_group' => 'int', 'add_deny' => 'int', 'id_profile' => 'int'),
 		$permChange,
@@ -1046,9 +992,9 @@ function removeModeratorPermissions()
 /**
  * Fetches membergroup permissions from the given group.
  *
+ * @package Permissions
  * @param int $id_group
  * @return array
- * @package Permissions
  */
 function fetchPermissions($id_group)
 {
@@ -1059,19 +1005,17 @@ function fetchPermissions($id_group)
 		'denied' => array(),
 	);
 
-	$db->fetchQuery('
-		SELECT 
-			permission, add_deny
+	$result = $db->query('', '
+		SELECT permission, add_deny
 		FROM {db_prefix}permissions
 		WHERE id_group = {int:current_group}',
 		array(
 			'current_group' => $id_group,
 		)
-	)->fetch_callback(
-		function ($row) use (&$permissions) {
-			$permissions[empty($row['add_deny']) ? 'denied' : 'allowed'][] = $row['permission'];
-		}
 	);
+	while ($row = $db->fetch_assoc($result))
+		$permissions[empty($row['add_deny']) ? 'denied' : 'allowed'][] = $row['permission'];
+	$db->free_result($result);
 
 	return $permissions;
 }
@@ -1079,13 +1023,10 @@ function fetchPermissions($id_group)
 /**
  * Fetches board permissions from the given group.
  *
+ * @package Permissions
  * @param int $id_group
  * @param string $permission_type
  * @param int $profile_id
- *
- * @return array
- * @package Permissions
- *
  */
 function fetchBoardPermissions($id_group, $permission_type, $profile_id)
 {
@@ -1096,21 +1037,19 @@ function fetchBoardPermissions($id_group, $permission_type, $profile_id)
 		'denied' => array(),
 	);
 
-	$db->fetchQuery('
-		SELECT 
-			permission, add_deny
+	$result = $db->query('', '
+		SELECT permission, add_deny
 		FROM {db_prefix}board_permissions
 		WHERE id_group = {int:current_group}
 			AND id_profile = {int:current_profile}',
 		array(
 			'current_group' => $id_group,
-			'current_profile' => $permission_type === 'membergroup' ? 1 : $profile_id,
+			'current_profile' => $permission_type == 'membergroup' ? 1 : $profile_id,
 		)
-	)->fetch_callback(
-		function ($row) use (&$permissions) {
-			$permissions[empty($row['add_deny']) ? 'denied' : 'allowed'][] = $row['permission'];
-		}
 	);
+	while ($row = $db->fetch_assoc($result))
+		$permissions[empty($row['add_deny']) ? 'denied' : 'allowed'][] = $row['permission'];
+	$db->free_result($result);
 
 	return $permissions;
 }
@@ -1118,9 +1057,9 @@ function fetchBoardPermissions($id_group, $permission_type, $profile_id)
 /**
  * Deletes invalid permissions for the given group.
  *
+ * @package Permissions
  * @param int $id_group
  * @param string[] $illegal_permissions
- * @package Permissions
  */
 function deleteInvalidPermissions($id_group, $illegal_permissions)
 {
@@ -1140,9 +1079,9 @@ function deleteInvalidPermissions($id_group, $illegal_permissions)
 /**
  * Deletes a membergroup's board permissions from a specified permission profile.
  *
- * @param int[] $groups
- * @param int $id_profile
  * @package Permissions
+ * @param int[] $groups
+ * @param integer $id_profile
  */
 function deleteAllBoardPermissions(array $groups, $id_profile)
 {
@@ -1194,16 +1133,15 @@ function clearPostgroupPermissions()
 {
 	$db = database();
 
-	$post_groups = $db->fetchQuery('
-		SELECT 
-			id_group
+	$post_groups = $db->fetchQueryCallback('
+		SELECT id_group
 		FROM {db_prefix}membergroups
 		WHERE min_posts != {int:min_posts}',
 		array(
 			'min_posts' => -1,
-		)
-	)->fetch_callback(
-		function ($row) {
+		),
+		function ($row)
+		{
 			return $row['id_group'];
 		}
 	);
@@ -1225,8 +1163,7 @@ function clearPostgroupPermissions()
 	);
 	$db->query('', '
 		UPDATE {db_prefix}membergroups
-		SET 
-			id_parent = {int:not_inherited}
+		SET id_parent = {int:not_inherited}
 		WHERE id_parent IN ({array_int:post_group_list})',
 		array(
 			'post_group_list' => $post_groups,
@@ -1238,9 +1175,9 @@ function clearPostgroupPermissions()
 /**
  * Copies a permission profile.
  *
+ * @package Permissions
  * @param string $profile_name
  * @param int $copy_from
- * @package Permissions
  */
 function copyPermissionProfile($profile_name, $copy_from)
 {
@@ -1258,19 +1195,18 @@ function copyPermissionProfile($profile_name, $copy_from)
 		),
 		array('id_profile')
 	);
-	$profile_id = $db->insert_id('{db_prefix}permission_profiles');
+	$profile_id = $db->insert_id('{db_prefix}permission_profiles', 'id_profile');
 
 	// Load the permissions from the one it's being copied from.
-	$inserts = $db->fetchQuery('
-		SELECT 
-			id_group, permission, add_deny
+	$inserts = $db->fetchQueryCallback('
+		SELECT id_group, permission, add_deny
 		FROM {db_prefix}board_permissions
 		WHERE id_profile = {int:copy_from}',
 		array(
 			'copy_from' => $copy_from,
-		)
-	)->fetch_callback(
-		function ($row) use ($profile_id) {
+		),
+		function ($row) use ($profile_id)
+		{
 			return array($profile_id, $row['id_group'], $row['permission'], $row['add_deny']);
 		}
 	);
@@ -1289,9 +1225,9 @@ function copyPermissionProfile($profile_name, $copy_from)
 /**
  * Rename a permission profile.
  *
+ * @package Permissions
  * @param int $id_profile
  * @param string $name
- * @package Permissions
  */
 function renamePermissionProfile($id_profile, $name)
 {
@@ -1301,8 +1237,7 @@ function renamePermissionProfile($id_profile, $name)
 
 	$db->query('', '
 		UPDATE {db_prefix}permission_profiles
-		SET 
-			profile_name = {string:profile_name}
+		SET profile_name = {string:profile_name}
 		WHERE id_profile = {int:current_profile}',
 		array(
 			'current_profile' => $id_profile,
@@ -1314,11 +1249,11 @@ function renamePermissionProfile($id_profile, $name)
 /**
  * Delete a permission profile
  *
- * @param int[] $profiles
- *
- * @throws \ElkArte\Exceptions\Exception no_access
  * @package Permissions
  *
+ * @param int[] $profiles
+ *
+ * @throws Elk_Exception no_access
  */
 function deletePermissionProfiles($profiles)
 {
@@ -1326,8 +1261,7 @@ function deletePermissionProfiles($profiles)
 
 	// Verify it's not in use...
 	$request = $db->query('', '
-		SELECT 
-			id_board
+		SELECT id_board
 		FROM {db_prefix}boards
 		WHERE id_profile IN ({array_int:profile_list})
 		LIMIT 1',
@@ -1335,11 +1269,9 @@ function deletePermissionProfiles($profiles)
 			'profile_list' => $profiles,
 		)
 	);
-	if ($request->num_rows() !== 0)
-	{
-		throw new \ElkArte\Exceptions\Exception('no_access', false);
-	}
-	$request->free_result();
+	if ($db->num_rows($request) != 0)
+		throw new Elk_Exception('no_access', false);
+	$db->free_result($request);
 
 	// Oh well, delete.
 	$db->query('', '
@@ -1354,33 +1286,32 @@ function deletePermissionProfiles($profiles)
 /**
  * Checks, if a permission profile is in use.
  *
+ * @package Permissions
  * @param int[] $profiles
  *
  * @return int[]
- * @package Permissions
  */
 function permProfilesInUse($profiles)
 {
+	global $txt;
+
 	$db = database();
 
-	$db->fetchQuery('
-		SELECT 
-			id_profile, COUNT(id_board) AS board_count
+	$request = $db->query('', '
+		SELECT id_profile, COUNT(id_board) AS board_count
 		FROM {db_prefix}boards
 		GROUP BY id_profile',
-		array()
-	)->fetch_callback(
-		function ($row) use (&$profiles) {
-			global $txt;
-
-			if (isset($profiles[$row['id_profile']]))
-			{
-				$profiles[$row['id_profile']]['in_use'] = true;
-				$profiles[$row['id_profile']]['boards'] = $row['board_count'];
-				$profiles[$row['id_profile']]['boards_text'] = $row['board_count'] > 1 ? sprintf($txt['permissions_profile_used_by_many'], $row['board_count']) : $txt['permissions_profile_used_by_' . ($row['board_count'] ? 'one' : 'none')];
-			}
-		}
+		array(
+		)
 	);
+	while ($row = $db->fetch_assoc($request))
+		if (isset($profiles[$row['id_profile']]))
+		{
+			$profiles[$row['id_profile']]['in_use'] = true;
+			$profiles[$row['id_profile']]['boards'] = $row['board_count'];
+			$profiles[$row['id_profile']]['boards_text'] = $row['board_count'] > 1 ? sprintf($txt['permissions_profile_used_by_many'], $row['board_count']) : $txt['permissions_profile_used_by_' . ($row['board_count'] ? 'one' : 'none')];
+		}
+	$db->free_result($request);
 
 	return $profiles;
 }
@@ -1388,10 +1319,10 @@ function permProfilesInUse($profiles)
 /**
  * Delete a board permission.
  *
+ * @package Permissions
  * @param mixed[] $groups array where the keys are the group id's
  * @param int[] $profile
  * @param string[] $permissions
- * @package Permissions
  */
 function deleteBoardPermissions($groups, $profile, $permissions)
 {
@@ -1414,8 +1345,8 @@ function deleteBoardPermissions($groups, $profile, $permissions)
 /**
  * Adds a new board permission to the board_permissions table.
  *
- * @param mixed[] $new_permissions
  * @package Permissions
+ * @param mixed[] $new_permissions
  */
 function insertBoardPermission($new_permissions)
 {
@@ -1432,11 +1363,11 @@ function insertBoardPermission($new_permissions)
 /**
  * Lists the board permissions.
  *
+ * @package Permissions
  * @param int[] $group
  * @param int $profile
  * @param string[] $permissions
  * @return array
- * @package Permissions
  */
 function getPermission($group, $profile, $permissions)
 {
@@ -1444,9 +1375,8 @@ function getPermission($group, $profile, $permissions)
 
 	$groups = array();
 
-	$db->fetchQuery('
-		SELECT 
-			id_group, permission, add_deny
+	$request = $db->query('', '
+		SELECT id_group, permission, add_deny
 		FROM {db_prefix}board_permissions
 		WHERE id_profile = {int:current_profile}
 			AND permission IN ({array_string:permissions})
@@ -1456,11 +1386,11 @@ function getPermission($group, $profile, $permissions)
 			'current_profile' => $profile,
 			'permissions' => $permissions,
 		)
-	)->fetch_callback(
-		function ($row) use (&$groups) {
-			$groups[$row['id_group']][$row['add_deny'] ? 'add' : 'deny'][] = $row['permission'];
-		}
 	);
+	while ($row = $db->fetch_assoc($request))
+		$groups[$row['id_group']][$row['add_deny'] ? 'add' : 'deny'][] = $row['permission'];
+
+	$db->free_result($request);
 
 	return $groups;
 }

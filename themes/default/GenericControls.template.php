@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1.7
  *
  */
 
@@ -16,79 +17,163 @@
  * This function displays all the goodies you get with a richedit box - BBC, smileys etc.
  *
  * @param string $editor_id
+ * @param string|null $smileyContainer if set show the smiley container id
+ * @param string|null $bbcContainer show the bbc container id
  *
- * @return void echo output
+ * @return string as echo output
  */
-function template_control_richedit($editor_id)
+function template_control_richedit($editor_id, $smileyContainer = null, $bbcContainer = null)
 {
 	global $context, $settings;
 
 	$editor_context = &$context['controls']['richedit'][$editor_id];
-	$class = isset($context['post_error']['errors']['no_message']) || isset($context['post_error']['errors']['long_message']) ? ' border_error' : '';
-	$style = 'width:' . $editor_context['width'] . ';height: ' . $editor_context['height'];
+
+	$plugins = array_filter(array('bbcode', 'splittag', 'undo', (!empty($context['mentions_enabled']) ? 'mention' : '')));
+
+	// Allow addons to insert additional editor plugin scripts
+	if (!empty($editor_context['plugin_addons']) && is_array($editor_context['plugin_addons']))
+		$plugins = array_filter(array_merge($plugins, $editor_context['plugin_addons']));
+
+	// Add in special config objects to the editor, typically for plugin use
+	$plugin_options = array();
+	$plugin_options[] = '
+					parserOptions: {
+						quoteType: $.sceditor.BBCodeParser.QuoteType.auto
+					}';
+
+	if (!empty($context['mentions_enabled']))
+		$plugin_options[] = '
+					mentionOptions: {
+						editor_id: \'' . $editor_id . '\',
+						cache: {
+							mentions: [],
+							queries: [],
+							names: []
+						}
+					}';
+
+	// Allow addons to insert additional editor objects
+	if (!empty($editor_context['plugin_options']) && is_array($editor_context['plugin_options']))
+		$plugin_options = array_merge($plugin_options, $editor_context['plugin_options']);
 
 	echo '
 		<div id="editor_toolbar_container"></div>
-		<label for="', $editor_id, '" class="hide">', $editor_id, '</label>
-		<textarea class="editor', $class, '" name="', $editor_id, '" id="', $editor_id, '" tabindex="', $context['tabindex']++, '" style="', $style, ';" required="required">', $editor_context['value'], '</textarea>
+		<label for="', $editor_id, '">
+			<textarea class="editor', isset($context['post_error']['errors']['no_message']) || isset($context['post_error']['errors']['long_message']) ? ' border_error' : '', '" name="', $editor_id, '" id="', $editor_id, '" tabindex="', $context['tabindex']++, '" style="width:', $editor_context['width'], ';height: ', $editor_context['height'], ';" required="required">', $editor_context['value'], '</textarea>
+		</label>
 		<input type="hidden" name="', $editor_id, '_mode" id="', $editor_id, '_mode" value="0" />
 		<script>
-			let eTextarea = document.getElementById("', $editor_id, '"),
-				$editor_data = {},
+			var $editor_data = {},
 				$editor_container = {};
-				
+
 			function elk_editor() {
-				sceditor.createEx(eTextarea, {
-					style: "', $settings['theme_url'], '/css/', $context['theme_variant_url'], 'jquery.sceditor.wysiwyg', $context['theme_variant'], '.css', CACHE_STALE, '",
+				$("#', $editor_id, '").sceditor({
+					style: "', $settings['theme_url'], '/css/', $context['theme_variant_url'], 'jquery.sceditor.elk_wiz', $context['theme_variant'], '.css', CACHE_STALE, '",
 					width: "100%",
-					height: "', $editor_context['height'], '",
-					autofocus: ', (!empty($context['site_action']) && $context['site_action'] !== 'display') ? 'true' : 'false', ',
-					autofocusEnd: false,
 					startInSourceMode: ', $editor_context['rich_active'] ? 'false' : 'true', ',
-					toolbarContainer: document.getElementById("editor_toolbar_container"),
+					toolbarContainer: $("#editor_toolbar_container"),
 					resizeWidth: false,
 					resizeMaxHeight: -1,
 					emoticonsCompat: true,
-					emoticonsEnabled: ', $editor_context['disable_smiley_box'] ? 'false' : 'true', ',
-					locale: "', empty($editor_context['locale']) ? 'en_US' : $editor_context['locale'], '",
+					locale: "', !empty($editor_context['locale']) ? $editor_context['locale'] : 'en_US', '",
 					rtl: ', empty($context['right_to_left']) ? 'false' : 'true', ',
 					colors: "black,red,yellow,pink,green,orange,purple,blue,beige,brown,teal,navy,maroon,limegreen,white",
 					enablePasteFiltering: true,
-					format: "bbcode",
-					plugins: "', implode(',', $context['plugins']), '",
-					', trim(implode(',', $context['plugin_options']));
+					plugins: "', implode(',', $plugins), '",
+					', trim(implode(',', $plugin_options));
 
 	// Show the smileys.
-	echo $context['editor_smileys_toolbar'];
+	if ((!empty($context['smileys']['postform']) || !empty($context['smileys']['popup'])) && !$editor_context['disable_smiley_box'] && $smileyContainer !== null)
+	{
+		echo ',
+					emoticons:
+					{';
+		$countLocations = count($context['smileys']);
+		foreach ($context['smileys'] as $location => $smileyRows)
+		{
+			$countLocations--;
+			if ($location === 'postform')
+				echo '
+						dropdown:
+						{';
+			elseif ($location === 'popup')
+				echo '
+						popup:
+						{';
+
+			$numRows = count($smileyRows);
+
+			// This is needed because otherwise the editor will remove all the duplicate (empty) keys and leave only 1 additional line
+			$emptyPlaceholder = 0;
+			foreach ($smileyRows as $smileyRow)
+			{
+				foreach ($smileyRow['smileys'] as $smiley)
+				{
+					echo '
+							', JavaScriptEscape($smiley['code']), ': {url: ', JavaScriptEscape(rtrim($settings['smileys_url'], '/\\') . '/' . $smiley['filename']), ', tooltip: ', JavaScriptEscape($smiley['description']), '}', empty($smiley['isLast']) ? ',' : '';
+				}
+
+				if (empty($smileyRow['isLast']) && $numRows !== 1)
+					echo ',
+						\'-', $emptyPlaceholder++, '\': \'\',';
+			}
+
+			echo '
+						}', $countLocations != 0 ? ',' : '';
+		}
+
+		echo '
+					}';
+	}
+	else
+		echo ',
+					emoticons:
+					{}';
 
 	// Show all the editor command buttons
-	echo $context['editor_bbc_toolbar'];
+	if ($bbcContainer !== null)
+	{
+		echo ',
+					toolbar: "';
+
+		// Create the tooltag rows to display the buttons in the editor
+		foreach ($context['bbc_toolbar'] as $i => $buttonRow)
+			echo $buttonRow[0], '||';
+
+		echo ',emoticon",';
+	}
+	else
+		echo ',
+					toolbar: "source,emoticon",';
 
 	echo '
-		});
-		
-		$editor_data.', $editor_id, ' = sceditor.instance(eTextarea);
-		$editor_container.', $editor_id, ' = $(".sceditor-container");',
-		isset($context['post_error']['errors']['no_message']) || isset($context['post_error']['errors']['long_message'])
-			? '$editor_container.' . $editor_id . '.find("eTextarea, iframe").addClass("border_error");'
-			: '', '
-	};
-	</script>
-	<script type="module">
-		elk_editor();
-	</script>';
+				});
+				$editor_data["', $editor_id, '"] = $("#', $editor_id, '").data("sceditor");
+				$editor_container["', $editor_id, '"] = $(".sceditor-container");
+				$editor_data["', $editor_id, '"].css("code {white-space: pre;}").createPermanentDropDown();
+				if (!(is_ie || is_ff || is_opera || is_safari || is_chrome))
+					$(".sceditor-button-source").hide();
+				', isset($context['post_error']['errors']['no_message']) || isset($context['post_error']['errors']['long_message']) ? '
+				$editor_container["' . $editor_id . '"].find("textarea, iframe").addClass("border_error");' : '', '
+			}
+	
+			$(function() {
+				elk_editor();
+			});
+
+		</script>';
 }
 
 /**
- * Shows the buttons that the user can see .. preview, post, draft etc
+ * Shows the buttons that the user can see .. preview, spellchecker, etc
  *
  * @param string $editor_id
  *
- * @return void echo output
+ * @return string as echo output
  */
 function template_control_richedit_buttons($editor_id)
 {
-	global $context, $txt;
+	global $context, $options, $txt;
 
 	$editor_context = &$context['controls']['richedit'][$editor_id];
 
@@ -97,21 +182,28 @@ function template_control_richedit_buttons($editor_id)
 
 	// If this message has been edited in the past - display when it was.
 	if (isset($context['last_modified']))
-	{
 		echo '
 			<p class="lastedit">', $context['last_modified_text'], '</p>';
-	}
 
 	// Show the helpful shortcut text
 	echo '
 			', $context['shortcuts_text'], '
 		</span>
-		<input type="submit" name="', $editor_context['labels']['post_name'] ?? 'post', '" value="', $editor_context['labels']['post_button'] ?? $txt['post'], '" tabindex="', $context['tabindex']++, '" onclick="return onPostSubmit() && submitThisOnce(this);" accesskey="s" />';
+		<input type="submit" name="', isset($editor_context['labels']['post_name']) ? $editor_context['labels']['post_name'] : 'post', '" value="', isset($editor_context['labels']['post_button']) ? $editor_context['labels']['post_button'] : $txt['post'], '" tabindex="', $context['tabindex']++, '" onclick="return submitThisOnce(this);" accesskey="s" />';
 
 	if ($editor_context['preview_type'])
+		echo '
+		<input type="submit" name="preview" value="', isset($editor_context['labels']['preview_button']) ? $editor_context['labels']['preview_button'] : $txt['preview'], '" tabindex="', $context['tabindex']++, '" onclick="', $editor_context['preview_type'] == 2 ? 'return event.ctrlKey || previewControl();' : 'return submitThisOnce(this);', '" accesskey="p" />';
+
+	// Show the spellcheck button?
+	if ($context['show_spellchecking'])
+		echo '
+		<input type="button" value="', $txt['spell_check'], '" tabindex="', $context['tabindex']++, '" onclick="spellCheckStart();" />';
+
+	foreach ($editor_context['buttons'] as $button)
 	{
 		echo '
-		<input type="button" name="preview" value="', $editor_context['labels']['preview_button'] ?? $txt['preview'], '" tabindex="', $context['tabindex']++, '" onclick="', $editor_context['preview_type'] == 2 ? 'return event.ctrlKey || previewControl();' : 'return submitThisOnce(this);', '" accesskey="p" />';
+		<input type="submit" name="', $button['name'], '" value="', $button['value'], '" tabindex="', $context['tabindex']++, '" ', $button['options'], ' />';
 	}
 
 	foreach ($editor_context['hidden_fields'] as $hidden)
@@ -120,9 +212,11 @@ function template_control_richedit_buttons($editor_id)
 		<input type="hidden" id="', $hidden['name'], '" name="', $hidden['name'], '" value="', $hidden['value'], '" />';
 	}
 
-	foreach ($editor_context['buttons'] as $button)
-	{
+	// Create an area to show the draft last saved on text
+	if (!empty($context['drafts_autosave']) && !empty($options['drafts_autosave_enabled']))
 		echo '
-		<input type="', $button['type'] ?? 'button', '" name="', $button['name'], '" value="', $button['value'], '" tabindex="', $context['tabindex']++, '" ', $button['options'], ' />';
-	}
+		<div class="draftautosave">
+			<span id="throbber" class="hide"><i class="icon icon-spin i-spinner"></i>&nbsp;</span>
+			<span id="draft_lastautosave"></span>
+		</div>';
 }

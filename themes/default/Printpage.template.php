@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -39,7 +40,7 @@ function template_print_above()
 				font-size: large;
 				font-weight: bold;
 			}
-			h2#breadcrumb {
+			h2#linktree {
 				margin: 1em 0 2.5em 0;
 				font-size: small;
 				font-weight: bold;
@@ -82,11 +83,6 @@ function template_print_above()
 			.centertext {
 				text-align: center;
 			}
-			.emoji {
-				max-width: 18px;
-				padding: 0 .13em;
-				vertical-align: text-bottom;
-			}
 			hr {
 				height: 1px;
 				border: 0;
@@ -113,20 +109,16 @@ function template_print_above()
 
 	// Which option is set, text or text&images
 	if (!empty($context['viewing_attach']))
-	{
 		echo '
 			<a href="', $context['view_attach_mode']['text'], '">', $txt['print_page_text'], '</a> | <strong><a href="', $context['view_attach_mode']['images'], '">', $txt['print_page_images'], '</a></strong>';
-	}
 	else
-	{
 		echo '
 			<strong><a href="', $context['view_attach_mode']['text'], '">', $txt['print_page_text'], '</a></strong> | <a href="', $context['view_attach_mode']['images'], '">', $txt['print_page_images'], '</a>';
-	}
 
 	echo '
 		</div>
 		<h1 id="title">', $context['forum_name_html_safe'], '</h1>
-		<h2 id="breadcrumb">', $context['category_name'], ' => ', (empty($context['parent_boards']) ? '' : implode(' => ', $context['parent_boards']) . ' => '), $context['board_name'], ' => ', $txt['topic_started'], ': ', $context['poster_name'], ' ', $txt['search_on'], ' ', $context['post_time'], '</h2>
+		<h2 id="linktree">', $context['category_name'], ' => ', (!empty($context['parent_boards']) ? implode(' => ', $context['parent_boards']) . ' => ' : ''), $context['board_name'], ' => ', $txt['topic_started'], ': ', $context['poster_name'], ' ', $txt['search_on'], ' ', $context['post_time'], '</h2>
 		<div id="posts">';
 }
 
@@ -145,12 +137,10 @@ function template_print_poll_above()
 
 		$print_options = 1;
 		foreach ($context['poll']['options'] as $option)
-		{
 			echo '
 					<div class="', $option['voted_this'] ? 'voted' : '', '">', $txt['option'], ' ', $print_options++, ': <strong>', $option['option'], '</strong>
-						', $context['allow_poll_view'] ? $txt['votes'] . ': ' . $option['votes'] : '', '
+						', $context['allow_poll_view'] ? $txt['votes'] . ': ' . $option['votes'] . '' : '', '
 					</div>';
-		}
 
 		echo '
 			</div>';
@@ -181,16 +171,8 @@ function template_print_page()
 				<hr />';
 
 			foreach ($context['printattach'][$post['id_msg']] as $attach)
-			{
-				if (!empty($context['ila_dont_show_attach_below'])
-					&& in_array((int) $attach['id_attach'], $context['ila_dont_show_attach_below'], true))
-				{
-					continue;
-				}
-
 				echo '
 					<img style="width:' . $attach['width'] . 'px; height:' . $attach['height'] . 'px;" src="', $scripturl . '?action=dlattach;topic=' . $topic . '.0;attach=' . $attach['id_attach'] . '" alt="" />';
-			}
 		}
 
 		echo '
@@ -211,15 +193,11 @@ function template_print_below()
 
 	// Show the text / image links
 	if (!empty($context['viewing_attach']))
-	{
 		echo '
 			<a href="', $context['view_attach_mode']['text'], '">', $txt['print_page_text'], '</a> | <strong><a href="', $context['view_attach_mode']['images'], '">', $txt['print_page_images'], '</a></strong>';
-	}
 	else
-	{
 		echo '
 			<strong><a href="', $context['view_attach_mode']['text'], '">', $txt['print_page_text'], '</a></strong> | <a href="', $context['view_attach_mode']['images'], '">', $txt['print_page_images'], '</a>';
-	}
 
 	echo '
 		</div>

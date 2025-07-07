@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -17,11 +18,11 @@
  */
 function template_maintenance()
 {
-	global $context, $txt, $modSettings;
+	global $context, $scripturl, $txt, $modSettings;
 
 	echo '
 	<div id="manage_attachments">
-		<h2 class="category_header hdicon i-pie-chart">', $txt['attachment_stats'], '</h2>
+		<h2 class="category_header hdicon cat_img_stats_info">', $txt['attachment_stats'], '</h2>
 		<div class="content">
 			<dl class="settings">
 				<dt><label>', $txt['attachment_total'], ':</label></dt>
@@ -39,13 +40,13 @@ function template_maintenance()
 				<dt><label>', $txt['attachmentdir_files_current'], ':</label></dt>
 				<dd>', $context['attachment_current_files'], '</dd>
 				<dt><label>', $txt['attachment_files'], ':</label></dt>
-				<dd>', $context['attachment_files'] ?? $txt['attachmentdir_files_not_set'], '</dd>
+				<dd>', isset($context['attachment_files']) ? $context['attachment_files'] : $txt['attachmentdir_files_not_set'], '</dd>
 			</dl>
 		</div>
 		<div class="separator"></div>
 		<h2 class="category_header">', $txt['attachment_integrity_check'], '</h2>
 		<div class="content">
-			<form action="', getUrl('admin', ['action' => 'admin', 'area' => 'manageattachments', 'sa' => 'repair', '{session_data}']), '" method="post" accept-charset="UTF-8">
+			<form action="', $scripturl, '?action=admin;area=manageattachments;sa=repair;', $context['session_var'], '=', $context['session_id'], '" method="post" accept-charset="UTF-8">
 				<p>', $txt['attachment_integrity_check_desc'], '</p>
 				<div class="submitbutton">
 					<input type="submit" name="repair" value="', $txt['attachment_check_now'], '" />
@@ -55,7 +56,7 @@ function template_maintenance()
 		<div class="separator"></div>
 		<h2 class="category_header">', $txt['attachment_pruning'], '</h2>
 		<div class="content">
-			<form action="', getUrl('admin', ['action' => 'admin', 'area' => 'manageattachments']), '" method="post" accept-charset="UTF-8" onsubmit="return confirm(\'', $txt['attachment_pruning_warning'], '\');">
+			<form action="', $scripturl, '?action=admin;area=manageattachments" method="post" accept-charset="UTF-8" onsubmit="return confirm(\'', $txt['attachment_pruning_warning'], '\');">
 				<label for="age">', sprintf($txt['attachment_remove_old'], ' <input type="text" id="age" name="age" value="25" size="4" class="input_text" /> '), '</label><br />
 				<label for="age_notice">', $txt['attachment_pruning_message'], '</label>: <input type="text" id="age_notice" name="notice" value="', $txt['attachment_delete_admin'], '" size="40" class="input_text" /><br />
 				<div class="submitbutton">
@@ -66,7 +67,7 @@ function template_maintenance()
 				</div>
 			</form>
 			<hr />
-			<form action="', getUrl('admin', ['action' => 'admin', 'area' => 'manageattachments']), '" method="post" accept-charset="UTF-8" onsubmit="return confirm(\'', $txt['attachment_pruning_warning'], '\');">
+			<form action="', $scripturl, '?action=admin;area=manageattachments" method="post" accept-charset="UTF-8" onsubmit="return confirm(\'', $txt['attachment_pruning_warning'], '\');">
 				<label for="size">', sprintf($txt['attachment_remove_size'], ' <input type="text" name="size" id="size" value="100" size="4" class="input_text" /> '), '</label><br />
 				<label for="size_notice">', $txt['attachment_pruning_message'], '</label>: <input type="text" id="size_notice" name="notice" value="', $txt['attachment_delete_admin'], '" size="40" class="input_text" /><br />
 				<div class="submitbutton">
@@ -77,7 +78,7 @@ function template_maintenance()
 				</div>
 			</form>
 			<hr />
-			<form action="', getUrl('admin', ['action' => 'admin', 'area' => 'manageattachments']), '" method="post" accept-charset="UTF-8" onsubmit="return confirm(\'', $txt['attachment_pruning_warning'], '\');">
+			<form action="', $scripturl, '?action=admin;area=manageattachments" method="post" accept-charset="UTF-8" onsubmit="return confirm(\'', $txt['attachment_pruning_warning'], '\');">
 				<label for="avatar_age">', sprintf($txt['attachment_manager_avatars_older'], '
  					<input type="text" id="avatar_age" name="age" value="45" size="4" class="input_text" /> '), '
 				</label>
@@ -97,15 +98,13 @@ function template_maintenance()
 
 	// Any results to show
 	if (!empty($context['results']))
-	{
 		echo '
 		<div class="successbox">', $context['results'], '</div>';
-	}
 
 	// Lots-o-options
 	echo '
 		<div class="content">
-			<form action="', getUrl('admin', ['action' => 'admin', 'area' => 'manageattachments', 'sa' => 'transfer']), '" method="post" accept-charset="UTF-8">
+			<form action="', $scripturl, '?action=admin;area=manageattachments;sa=transfer" method="post" accept-charset="UTF-8">
 				<p class="infobox">', $txt['attachment_transfer_desc'], '</p>
 				<dl class="settings">
 					<dt>
@@ -116,10 +115,8 @@ function template_maintenance()
 							<option value="0">', $txt['attachment_transfer_select'], '</option>';
 
 	foreach ($context['attach_dirs'] as $id => $dir)
-	{
 		echo '
 								<option value="', $id, '">', $dir, '</option>';
-	}
 
 	echo '
 						</select>
@@ -133,18 +130,12 @@ function template_maintenance()
 							<option value="-1">', $txt['attachment_transfer_forum_root'], '</option>';
 
 	if (!empty($context['base_dirs']))
-	{
 		foreach ($context['base_dirs'] as $id => $dir)
-		{
 			echo '
 							<option value="', $id, '">', $dir, '</option>';
-		}
-	}
 	else
-	{
 		echo '
 							<option value="0" disabled="disabled">', $txt['attachment_transfer_no_base'], '</option>';
-	}
 
 	echo '
 						</select>
@@ -157,10 +148,8 @@ function template_maintenance()
 							<option value="0">', $txt['attachment_transfer_select'], '</option>';
 
 	foreach ($context['attach_dirs'] as $id => $dir)
-	{
 		echo '
 							<option value="', $id, '">', $dir, '</option>';
-	}
 
 	echo '
 						</select>
@@ -168,15 +157,13 @@ function template_maintenance()
 
 	// If there are directory limits to impose, give the option to enforce it
 	if (!empty($modSettings['attachmentDirFileLimit']))
-	{
 		echo '
 					<dt>
-						<a href="' . getUrl('action', ['action' => 'quickhelp', 'help' => 'attachment_transfer_empty']), '" onclick="return reqOverlayDiv(this.href);" class="helpicon i-help"><s>' . $txt['help'] . '</s></a>', $txt['attachment_transfer_empty'], '
+						<a href="' . $scripturl . '?action=quickhelp;help=attachment_transfer_empty" onclick="return reqOverlayDiv(this.href);" class="helpicon i-help"><s>' . $txt['help'] . '</s></a>', $txt['attachment_transfer_empty'], '
 					</dt>
 					<dd>
 						<input type="checkbox" name="empty_it"', $context['checked'] ? ' checked="checked"' : '', ' />
 					</dd>';
-	}
 
 	echo '
 				</dl>
@@ -193,7 +180,7 @@ function template_maintenance()
 				}
 
 				function show_msg() {
-					$(\'#progress_msg\').html(\'<div><i class="icon i-oval"></i>&nbsp;', $txt['attachment_transfer_progress'], '<\/div>\');
+					$(\'#progress_msg\').html(\'<div><i class="icon icon-spin i-spinner"></i>&nbsp;', $txt['attachment_transfer_progress'], '<\/div>\');
 					show_progress();
 				}
 
@@ -212,7 +199,7 @@ function template_maintenance()
  */
 function template_attachment_repair()
 {
-	global $context, $txt;
+	global $context, $txt, $scripturl;
 
 	// If we've completed just let them know!
 	if ($context['completed'])
@@ -239,7 +226,7 @@ function template_attachment_repair()
 	else
 	{
 		echo '
-	<form id="admin_form_wrapper" action="', getUrl('admin', ['action' => 'admin', 'area' => 'manageattachments', 'sa' => 'repair', 'fixErrors' => 1, 'step' => 0, 'substep' => 0, '{session_data}']), '" method="post" accept-charset="UTF-8">
+	<form id="admin_form_wrapper" action="', $scripturl, '?action=admin;area=manageattachments;sa=repair;fixErrors=1;step=0;substep=0;', $context['session_var'], '=', $context['session_id'], '" method="post" accept-charset="UTF-8">
 		<h2 class="category_header">', $txt['repair_attachments'], '</h2>
 		<div class="content">
 			<p>', $txt['repair_attachments_error_desc'], '</p>';
@@ -248,12 +235,10 @@ function template_attachment_repair()
 		foreach ($context['repair_errors'] as $error => $number)
 		{
 			if (!empty($number))
-			{
 				echo '
 			<input type="checkbox" name="to_fix[]" id="', $error, '" value="', $error, '" />
 			<label for="', $error, '">', sprintf($txt['attach_repair_' . $error], $number), '</label>
 			<br />';
-			}
 		}
 
 		echo '
@@ -274,9 +259,7 @@ function template_attach_paths()
 	global $modSettings;
 
 	if (!empty($modSettings['attachment_basedirectories']))
-	{
 		template_show_list('base_paths');
-	}
 
 	template_show_list('attach_paths');
 }

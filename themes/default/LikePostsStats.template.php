@@ -3,11 +3,11 @@
 /**
  * The likes stats pages
  *
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 function template_lp_stats()
@@ -24,7 +24,7 @@ function template_lp_stats()
 		</p>';
 
 	echo '
-		<ul class="like_post_stats_menu buttonlist" role="menubar">';
+		<ul id="adm_submenus" class="like_post_stats_menu" role="menubar">';
 
 	// Print out all the items in this tab.
 	foreach ($context['lp_stats_tabs'] as $tab)
@@ -61,8 +61,7 @@ function template_lp_stats()
 	echo '
 		</div>';
 
-	echo '
-	<script type="module">
+	echo '<script>
 		$(function() {
 			likePostStats.prototype.init({
 				txtStrings: {

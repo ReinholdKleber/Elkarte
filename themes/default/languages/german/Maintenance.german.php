@@ -1,0 +1,207 @@
+<?php
+// Version: 1.1; Maintenance
+
+$txt['repair_zero_ids'] = 'Themen bzw. Beiträge mit einer ID von 0 gefunden.';
+$txt['repair_missing_topics'] = 'Beitag "#%1$d" befindet sich im nicht existierenden Thema "#%2$d".';
+$txt['repair_missing_messages'] = 'Thema "#%1$d" enthält keine (aktuellen) Beiträge.';
+$txt['repair_stats_topics_1'] = 'Thema "#%1$d" hat im ersten Beitrag die ID "%2$d", welche nicht korrekt ist.';
+$txt['repair_stats_topics_2'] = 'Thema "#%1$d" hat im letzten Beitrag die ID "%2$d", welche nicht korrekt ist.';
+$txt['repair_stats_topics_3'] = 'Thema "#%1$d" hat die falsche Anzahl an Antworten, "%2$d".';
+$txt['repair_stats_topics_4'] = 'Thema "#%1$d" hat die falsche Anzahl an nicht genehmigten Beiträgen, "%2$d".';
+$txt['repair_stats_topics_5'] = 'Thema "#%1$d" hat die falsche Genehmigungs-Kennzeichnung.';
+$txt['repair_missing_boards'] = 'Thema "#%1$d" befindet sich im fehlenden Board "#%2$d".';
+$txt['repair_missing_categories'] = 'Board "#%1$d" befindet sich in der fehlenden Kategorie "#%2$d".';
+$txt['repair_missing_posters'] = 'Beitrag "#%1$d" wurde vom Benutzer #%2$d geschrieben, welcher nicht mehr existiert.';
+$txt['repair_missing_parents'] = 'Board "#%1$d" hat kein existierendes übergeordnetes Board (übergeordnetes Board: "#%2$d").';
+$txt['repair_missing_polls'] = 'Das Thema "#%1$d" hat eine ungültige Umfragen-ID ("#%2$d").';
+$txt['repair_polls_missing_topics'] = 'Umfrage "#%1$d" ist mit dem nicht existierenden Thema "#%2$d" verbunden.';
+$txt['repair_missing_calendar_topics'] = 'Das Ereignis "#%1$d" hat eine fehlende Themen-ID ("#%2$d").';
+$txt['repair_missing_log_topics'] = 'Thema "#%1$d" ist für einen oder mehreren Benutzer als gelesen markiert, existiert jedoch nicht mehr.';
+$txt['repair_missing_log_topics_members'] = 'Benutzer #%1$d hat ein oder mehrere Themen als gelesen markiert, existiert aber nicht mehr.';
+$txt['repair_missing_log_boards'] = 'Board "#%1$d" ist für einen oder mehreren Benutzer als gelesen markiert, existiert jedoch nicht mehr.';
+$txt['repair_missing_log_boards_members'] = 'Benutzer #%1$d hat ein oder mehrere Boards als gelesen markiert, existiert aber nicht mehr.';
+$txt['repair_missing_log_mark_read'] = 'Board "#%1$d" ist für einen oder mehreren Benutzer als gelesen markiert, existiert jedoch nicht mehr.';
+$txt['repair_missing_log_mark_read_members'] = 'Benutzer #%1$d hat ein oder mehrere Boards als gelesen markiert, existiert aber nicht mehr.';
+$txt['repair_missing_pms'] = 'Mitteilung "#%1$d" wurde an einen oder mehrere Empfänger geschickt, existiert aber nicht mehr.';
+$txt['repair_missing_recipients'] = 'Benutzer #%1$d hat eine oder mehrere Private Mitteilungen erhalten, existiert aber nicht mehr.';
+$txt['repair_missing_senders'] = 'Mitteilung "#%1$d" wurde vom Benutzer #%2$d gesendet, welcher jedoch nicht existiert.';
+$txt['repair_missing_notify_members'] = 'Es wurden von #%1$d Benachrichtigungen angefordert, obwohl der Benutzer nicht existiert.';
+$txt['repair_missing_cached_subject'] = 'Der Titel des Themas "#%1$d" ist momentan nicht im Zwischenspeicher.';
+$txt['repair_missing_topic_for_cache'] = 'Das zwischengespeicherte Wort "%1$s" ist mit einem nicht existierenden Thema verknüpft.';
+$txt['repair_missing_log_poll_member'] = 'In der Umfrage "#%1$d" wurde vom Benutzer #%2$d abgestimmt, welcher nicht mehr existiert.';
+$txt['repair_missing_log_poll_vote'] = 'Der Benutzer #%1$d hat in der nicht existierenden Umfrage "#%2$d" abgestimmt.';
+$txt['repair_missing_thumbnail_parent'] = 'Es existiert ein Vorschaubild mit dem Namen "%1$s", welches aber keine Verknüpfung hat.';
+$txt['repair_report_missing_comments'] = 'Meldung "#%1$d" des Themas "%2$s" hat keine Kommentare.';
+$txt['repair_comments_missing_report'] = 'Kommentar "#%1$d" von %2$s hat keine zugewiesene Meldung.';
+$txt['repair_group_request_missing_member'] = 'Die Anfrage für eine Gruppenmitgliedschaft existiert für den gelöschten Benutzer #%1$d.';
+$txt['repair_group_request_missing_group'] = 'Die Anfrage für eine Gruppenmitgliedschaft existiert für die gelöschte Gruppe #%1$d.';
+
+$txt['repair_currently_checking'] = 'Prüfe: "%1$s"';
+$txt['repair_currently_fixing'] = 'Repariere: "%1$s"';
+$txt['repair_operation_zero_topics'] = 'Themen mit inkorrektem Wert 0 für id_topic';
+$txt['repair_operation_zero_messages'] = 'Beiträge mit inkorrektem Wert 0 für id_topic';
+$txt['repair_operation_missing_topics'] = 'Beiträge ohne Thema-Einträge';
+$txt['repair_operation_missing_messages'] = 'Themen ohne Beiträge';
+$txt['repair_operation_stats_topics'] = 'Themen mit inkorrekten erst- oder zuletzt-Beitragseinträgen';
+$txt['repair_operation_stats_topics2'] = 'Themen mit der falschen Anzahl an Antworten';
+$txt['repair_operation_stats_topics3'] = 'Themen mit der falschen, nicht überprüften Beitragsanzahl';
+$txt['repair_operation_missing_boards'] = 'Themen in einer nicht existenten Kategorie';
+$txt['repair_operation_missing_categories'] = 'Bereiche in nicht existierenden Kategorien';
+$txt['repair_operation_missing_posters'] = 'Beiträge die zu nicht existierenden Mitgliedern zugewiesen sind';
+$txt['repair_operation_missing_parents'] = 'untergeordnete Boards mit nicht existierenden Eltern-Boards';
+$txt['repair_operation_missing_polls'] = 'Themen, die zu nicht existierenden Umfragen verweisen';
+$txt['repair_operation_missing_calendar_topics'] = 'Ereignisse, die auf nicht existierende Themen verweisen';
+$txt['repair_operation_missing_log_topics'] = 'Themen-Protokolle, die auf nicht existierende Themen verweisen';
+$txt['repair_operation_missing_log_topics_members'] = 'Themen-Protokolle, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_log_boards'] = 'Bereichs-Protokolle, die auf nicht existierende Bereiche verweisen';
+$txt['repair_operation_missing_log_boards_members'] = 'Bereichs-Protokolle, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_log_mark_read'] = '"Als gelesen markieren"-Daten, die auf nicht existierende Bereiche verweisen';
+$txt['repair_operation_missing_log_mark_read_members'] = '"Als gelesen markieren"-Daten, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_pms'] = 'PM-Empfänger ohne eigentliche Nachricht';
+$txt['repair_operation_missing_recipients'] = 'PM-Empfänger, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_senders'] = 'PM, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_notify_members'] = 'Benachrichtigungs-Protokolle, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_cached_subject'] = 'Themen, denen ihre Such-Cache-Einträge fehlen';
+$txt['repair_operation_missing_topic_for_cache'] = 'Such-Cache-Einträge, die auf nicht existierende Themen verweisen';
+$txt['repair_operation_missing_member_vote'] = 'Umfrage-Abstimmungen, die auf nicht existierende Benutzer verweisen';
+$txt['repair_operation_missing_log_poll_vote'] = 'Umfrage-Abstimmungen, die auf nicht existierende Umfragen verweisen';
+$txt['repair_operation_report_missing_comments'] = 'Themen-Berichte ohne Kommentar';
+$txt['repair_operation_comments_missing_report'] = 'Berichts-Kommentare ohne Themen-Bericht';
+$txt['repair_operation_group_request_missing_member'] = 'Gruppen-Anfragen, deren ausgehender Benutzer nicht existiert';
+$txt['repair_operation_group_request_missing_group'] = 'Gruppen-Anfragen für nicht existierende Gruppen';
+
+$txt['salvaged_category_name'] = 'Gerettete Daten';
+$txt['salvaged_category_error'] = 'Die Kategorie "Gerettete Daten" konnte nicht erstellt werden!';
+$txt['salvaged_board_name'] = 'Gerettete Themen';
+$txt['salvaged_board_description'] = 'Diese Themen wurden für Beiträge erstellt, die kein zugewiesenes oder existierendes Thema haben.';
+$txt['salvaged_board_error'] = 'Das Board "Gerettete Themen" konnte nicht erstellt werden!';
+$txt['salvaged_poll_topic_name'] = 'Isolierte Umfragen';
+$txt['salvaged_poll_message_body'] = 'Diese Umfrage wurde ohne zugewiesenes Thema gefunden.';
+
+$txt['database_optimize'] = 'Datenbank optimieren';
+$txt['database_numb_tables'] = 'Deine Datenbank enthält %1$d Tabellen.';
+$txt['database_optimize_attempt'] = 'Versuche die Datenbank zu optimieren ...';
+$txt['database_optimizing'] = 'Optimiere %1$s... %2$01.2f KB KB optimiert.';
+$txt['database_already_optimized'] = 'Alle Tabellen sind optimiert!';
+$txt['database_optimized'] = 'Tabelle(n) optimiert';
+
+$txt['apply_filter'] = 'Filter hinzufügen';
+$txt['applying_filter'] = 'Hinzufügen des Filters';
+$txt['filter_only_member'] = 'Nur Fehlermeldungen dieses Benutzers anzeigen';
+$txt['filter_only_ip'] = 'Nur Fehlermeldungen dieser IP-Adresse anzeigen';
+$txt['filter_only_session'] = 'Nur Fehlermeldungen dieser Sitzung anzeigen';
+$txt['filter_only_url'] = 'Nur Fehlermeldungen dieser URL anzeigen';
+$txt['filter_only_message'] = 'Nur Fehlermeldungen mit der gleichen Nachricht anzeigen';
+$txt['session'] = 'Sitzung';
+$txt['error_url'] = 'URL der Seite, die den Fehler erzeugte';
+$txt['error_message'] = 'Fehlermeldung';
+$txt['clear_filter'] = 'Filter löschen';
+$txt['remove_selection'] = 'Auswahl entfernen';
+$txt['remove_filtered_results'] = 'Alle gefilterten Einträge löschen';
+$txt['sure_about_errorlog_remove'] = 'Bist du sicher, dass das Fehlerprotokoll komplett geleert werden soll?';
+$txt['remove_selection_confirm'] = 'Bist du sicher, dass die markierten Einträge gelöscht werden sollen?';
+$txt['remove_filtered_results_confirm'] = 'Bist du sicher, dass du die ausgewählten Einträge löschen möchtest?';
+$txt['reverse_direction'] = 'Chronologische Reihenfolge der Liste ändern';
+$txt['error_type'] = 'Art des Fehlers';
+$txt['filter_only_type'] = 'Nur Fehler von diesem Typ zeigen';
+$txt['filter_only_file'] = 'Nur Fehler von dieser Datei zeigen';
+$txt['apply_filter_of_type'] = 'Filter hinzufügen';
+
+$txt['errortype_all'] = 'Alle Fehler';
+$txt['errortype_general'] = 'Generell';
+$txt['errortype_general_desc'] = 'Generelle Fehler, die keinem anderen Fehler-Typ zugeordnet werden konnten.';
+$txt['errortype_critical'] = '<span class="error">Kritisch</span>';
+$txt['errortype_critical_desc'] = 'Kritische Fehler. Diese sollten unverzüglich behoben werden, da sie sonst negative Auswirkungen auf das Forum haben sowie potentielle Sicherheitsrisiken darstellen.';
+$txt['errortype_database'] = 'Datenbank';
+$txt['errortype_database_desc'] = 'Fehler aufgrund falscher Abfragen. Diese sollten untersucht und dem ElkArte-Team mitgeteilt werden.';
+$txt['errortype_undefined_vars'] = 'Undefiniert';
+$txt['errortype_undefined_vars_desc'] = 'Fehler aufgrund undefinierter Variablen, Indizies oder Offsets.';
+$txt['errortype_template'] = 'Vorlage';
+$txt['errortype_template_desc'] = 'Fehler aufgrund des Ladens von Themes.';
+$txt['errortype_user'] = 'Benutzername';
+$txt['errortype_user_desc'] = 'Fehler aufgrund eines Benutzerfehlers: Eingabe eines falschen Passwortes, Anmelden während eines Banns oder Ausführen einer Aktion ohne Berechtigung.';
+
+$txt['maintain_recount'] = 'Alle totalen Forumswerte und Statistiken neu auszählen';
+$txt['maintain_recount_info'] = 'Sollte die Gesamtzahl an Antworten eines Themas oder die Anzahl der PMs in deinem Nachrichten-Eingang inkorrekt sein: Diese Funktion zählt alle gespeicherten Zähler und Statistiken neu.';
+$txt['maintain_errors'] = 'Fehler finden und reparieren';
+$txt['maintain_errors_info'] = 'Wenn, zum Beispiel nach einem Serverabsturz, Beiträge und Themen fehlen, könnte diese Funktion dabei helfen, sie wieder aufzufinden.';
+$txt['maintain_logs'] = 'Unwichtige Protokolle leeren';
+$txt['maintain_logs_info'] = 'Diese Funktion leert alle unwichtigen Protokolle. Dies sollte vermieden werden, außer etwas stimmt nicht. Es macht jedoch auch nichts kaputt.';
+$txt['maintain_cache'] = 'Dateicache leeren';
+$txt['maintain_cache_info'] = 'Diese Funktion entfernt alle Dateien aus dem Zwischenspeicher.';
+$txt['maintain_optimize'] = 'Optimiere alle Tabellen';
+$txt['maintain_optimize_info'] = 'Diese Aufgabe erlaubt es dir, alle Tabellen zu optimieren. Dies wird Overhead entfernen, was die Tabellen kleiner und dein Forum schneller machen wird.';
+$txt['maintain_version'] = 'Alle Dateien auf neue Versionen überprüfen';
+$txt['maintain_version_info'] = 'Diese Wartungsaufgabe erlaubt es dir, eine ausführliche Versionsprüfung der einzelnen Dateien gegenüber den aktuellen Versionen durchzuführen.';
+$txt['maintain_run_now'] = 'Aufgabe jetzt ausführen';
+$txt['maintain_return'] = 'Zurück zu "Wartung des Forums"';
+
+$txt['maintain_backup'] = 'Datenbank sichern';
+$txt['maintain_backup_info'] = 'Lade eine Sicherungskopie der Datenbank für den Fall eines Notfalls herunter.';
+$txt['maintain_backup_struct'] = 'Tabellenstruktur sichern';
+$txt['maintain_backup_data'] = 'Tabellendaten speichern (die Tabelleninhalte).';
+$txt['maintain_backup_gz'] = 'Datei mit GZIP komprimieren';
+$txt['maintain_backup_save'] = 'Download';
+
+$txt['maintain_old'] = 'Alte Beiträge löschen';
+$txt['maintain_old_since_days'] = 'Alle Themen löschen, auf die seit %1$s Tagen ';
+$txt['maintain_old_nothing_else'] = 'jeglicher Art von Themen sind.';
+$txt['maintain_old_are_moved'] = 'Umleitungshinweise sind.';
+$txt['maintain_old_are_locked'] = 'geschlossen sind.';
+$txt['maintain_old_are_not_stickied'] = 'fixierte Themen ausschließen';
+$txt['maintain_old_all'] = 'Alle Boards (klicke, um spezifische Boards zu wählen)';
+$txt['maintain_old_choose'] = 'Spezifische Boards (klicke, um alle zu wählen)';
+$txt['maintain_old_remove'] = 'Entfernen';
+$txt['maintain_old_confirm'] = 'Bist du sicher, dass du alle alten Beiträge löschen möchtest?\\n\\nDies kann nicht rückgängig gemacht werden!';
+
+$txt['maintain_old_drafts'] = 'Alte Entwürfe löschen';
+$txt['maintain_old_drafts_days'] = 'Entwürfe löschen, die älter als %1$s Tage alt sind';
+$txt['maintain_old_drafts_confirm'] = 'Bist du sicher, dass du alle alten Beiträge löschen möchtest?\\n\\nDies kann nicht rückgängig gemacht werden!';
+$txt['maintain_members'] = 'Inaktive Benutzer entfernen';
+$txt['maintain_members_since'] = 'Alle Benutzer löschen, die seit {num_days} Tagen nicht {select_conditions}.';
+$txt['maintain_members_activated'] = 'ihre Zugänge nicht aktiviert haben';
+$txt['maintain_members_logged_in'] = 'nicht eingeloggt waren';
+$txt['maintain_members_all'] = 'Alle Benutzergruppen';
+$txt['maintain_members_choose'] = 'Ausgewählte Benutzergruppen';
+$txt['maintain_members_confirm'] = 'Bist du sicher, dass du diese Zugänge löschen möchtest?\\n\\nDies kann nicht rückgängig gemacht werden!';
+
+$txt['text_title'] = 'Konvertiere zu TEXT';
+$txt['mediumtext_title'] = 'Konvertiere zu MEDIUMTEXT';
+$txt['mediumtext_introduction'] = 'Die Beitrags-Tabelle kann in der Standardeinstellung Beiträge mit max. 65535 Zeichen verarbeiten. Wenn du größere Beiträge erwartest muss die Tabelle in das "MEDIUMTEXT" Format konvertiert werden. Es ist möglich, diesen Schritt wieder rückgängig zu machen (das spart Speicherplatz in der Datenbank) aber <strong>nur dann</strong>, wenn kein Beitrag die max. Zeichenlänge von 65535 Zeichen überschreitet. Das wird während der Konvertierung überprüft.';
+$txt['body_checking_introduction'] = 'Diese Funktion konvertiert das Feld für die Beiträge in der Datenbank auf das "TEXT"-Format. (Aktuell wird "MEDIUMTEXT" benutzt). Diese Operation wird dein Speicherplatz innerhalb der Datenbank reduzieren (1 Byte pro Beitrag). Wenn allerdings einer der Beiträge die max. Anzahl von 65535 Zeichen überschreitet wird dieser Beitrag entsprechend gekürzt.';
+$txt['exceeding_messages'] = 'Die folgenden Beiträge sind größer als 65535 Zeichen und werden während der Verarbeitung entsprechend eingekürzt.';
+$txt['exceeding_messages_morethan'] = 'Und andere %1$d';
+$txt['convert_to_text'] = 'Kein Beitrag ist länger als 65535 Zeichen. Du kannst die Konvertierung nutzen ohne das Beiträge abgeschnitten werden.';
+$txt['convert_to_suggest_text'] = 'Das Feld Beitragstext ist derzeit auf "MEDIUMTEXT" eingestellt, aber die maximale Anzahl Zeichen ist kleiner als 65535 Zeichen. Du kannst Speicherplatz einsparen, indem das Feld zu "TEXT" konvertiert wird.';
+$txt['convert_proceed'] = 'Fortsetzen';
+
+// Move topics out.
+$txt['move_topics_maintenance'] = 'Themen verschieben';
+$txt['move_topics_from'] = 'Verschiebe Themen von';
+$txt['move_topics_to'] = 'zu';
+$txt['move_topics_now'] = 'Jetzt verschieben';
+$txt['move_topics_confirm'] = 'Bist du sicher, dass du alle Themen von "%board_from%" zu "%board_to%" verschieben möchtest?';
+
+$txt['maintain_reattribute_posts'] = 'Beiträge zuordnen';
+$txt['reattribute_guest_posts'] = 'Gastbeiträge mit folgenden Daten zuordnen';
+$txt['reattribute_email'] = 'E-Mail-Adresse';
+$txt['reattribute_username'] = 'Benutzername';
+$txt['reattribute_current_member'] = 'Beiträge folgendem Benutzer zuordnen';
+$txt['reattribute_increase_posts'] = 'Beiträge der Anzahl des Benutzers hinzufügen';
+$txt['reattribute'] = 'Zuordnen';
+// Don't use entities in the below string.
+$txt['reattribute_confirm'] = 'Bist du sicher, dass du alle Gastbeiträge mit %type% "%find%" dem Benutzer %member_to% zuordnen möchtest?';
+$txt['reattribute_confirm_username'] = 'dem Benutzernamen';
+$txt['reattribute_confirm_email'] = 'der E-Mail-Adresse';
+$txt['reattribute_cannot_find_member'] = 'Der ausgewählte Benutzer konnte nicht gefunden werden!';
+
+$txt['maintain_recountposts'] = 'Beitragszähler der Benutzer neu berechnen';
+$txt['maintain_recountposts_info'] = 'Starte diesen Wartungsvorgang, um den Beitragszähler aller Benutzer neu zu berechnen. Dieser Vorgang wird alle (zählbaren) Beiträge, die von den Benutzern gemacht wurden neu berechnen und den Beitragszähler aller Benutzer in deren Profil aktualisieren.';
+
+$txt['safe_mode_enabled'] = '<a href="http://php.net/manual/en/features.safe-mode.php">safe_mode</a> ist auf dem Server aktiviert!<br />Das Backup kann deshalb nicht zuverlässig deine Datenbank sichern.';
+$txt['use_external_tool'] = 'Sicherheitshalber solltest du ein externes Werkzeug zur Sicherung der Datenbank nutzen.  Ein Backup mit dieser Funktion ist nicht zu 100% zuverlässig.';
+$txt['zipped_file'] = 'Wenn du möchtest, kannst du ein komprimiertes (gezipptes) Backup erstellen.';
+$txt['plain_text'] = 'Die sicherste Methode, eine Sicherung der Datenbank zu erstellen, ist eine "Nur-Text"-Datei. Ein komprimiertes Backup ist unter Umständen nicht vollständig und sollte auf jeden Fall überprüft werden.';
+$txt['enable_maintenance1'] = 'Aufgrund der Größe deines Forums sollte es in den Wartungszustand versetzt werden, bevor du fortfährst.';
+$txt['enable_maintenance2'] = 'Aufgrund der Größe deines Forums sollte es in den Wartungszustand versetzt werden, bevor du fortfährst.';
+$txt['security_database_download'] = 'Aus Sicherheitsgründen musst du zum Download des Datenbank-Backups die folgenden FTP-Informationen eingeben:';

@@ -1,14 +1,15 @@
 <?php
 
 /**
- * @package   ElkArte Forum
+ * @name      ElkArte Forum
  * @copyright ElkArte Forum contributors
- * @license   BSD http://opensource.org/licenses/BSD-3-Clause (see accompanying LICENSE.txt file)
+ * @license   BSD http://opensource.org/licenses/BSD-3-Clause
  *
  * This file contains code covered by:
- * copyright: 2011 Simple Machines (http://www.simplemachines.org)
+ * copyright:	2011 Simple Machines (http://www.simplemachines.org)
+ * license:  	BSD, See included LICENSE.TXT for terms and conditions.
  *
- * @version 2.0 dev
+ * @version 1.1
  *
  */
 
@@ -17,14 +18,14 @@
  */
 function template_mlsearch_above()
 {
-	global $context, $txt;
+	global $context, $scripturl, $txt;
 
 	$extra = '
-	<form id="mlsearch" action="' . getUrl('action', ['action' => 'memberlist', 'sa' => 'search']) . '" method="post" accept-charset="UTF-8">
-		<ul>
+	<form id="mlsearch" action="' . $scripturl . '?action=memberlist;sa=search" method="post" accept-charset="UTF-8">
+		<ul class="floatright">
 			<li>
-				<input id="mlsearch_input" class="input_text" onfocus="toggle_mlsearch_opt();" type="text" name="search" autocomplete="off" value="' . $context['old_search_value'] . '" placeholder="' . $txt['mlist_search'] . '" />
-				<button type="submit" name="search2" class="with_select"><i class="icon i-search"></i></button>
+				<input id="mlsearch_input" class="input_text" onfocus="toggle_mlsearch_opt();" type="text" name="search" value="' . $context['old_search_value'] . '" placeholder="' . $txt['mlist_search'] . '" />
+				<button type="submit" name="search2" class="with_select"><i class="icon i-search icon-shade"></i></button>
 				<ul id="mlsearch_options" class="nojs">';
 
 	foreach ($context['search_fields'] as $id => $title)
@@ -46,9 +47,9 @@ function template_mlsearch_above()
 	template_pagesection('memberlist_buttons', 'right', array('extra' => $extra));
 
 	echo '
-	<script type="module">
+	<script>
 		// Removes the nojs class to properly style the dropdown according to js availability
-		document.getElementById("mlsearch_options").classList.remove("nojs");
+		$(\'#mlsearch_options\').removeClass(\'nojs\');
 	</script>';
 }
 
@@ -65,10 +66,8 @@ function template_memberlist()
 			<span class="floatleft">', $txt['members_list'], '</span>';
 
 	if (!empty($context['letter_links']))
-	{
 		echo '
 				<span class="floatright letter_links">', $context['letter_links'], '</span>';
-	}
 
 	echo '
 		</h2>
@@ -76,9 +75,12 @@ function template_memberlist()
 			<ul class="mlist">
 				<li class="mlist_header">';
 
+	$table_span = 0;
+
 	// Display each of the column headers of the table.
 	foreach ($context['columns'] as $key => $column)
 	{
+		$table_span += isset($column['colspan']) ? $column['colspan'] : 1;
 		switch ($key)
 		{
 			case 'posts':
@@ -91,20 +93,16 @@ function template_memberlist()
 
 		// This is a selected column, so underline it or some such.
 		if ($column['selected'])
-		{
 			echo '
 					<div class="' . $column['class'] . '">
 						<a href="' . $column['href'] . '">' . $column['label'] . '<i class="icon icon-small i-sort-' . $sorticon . '-' . $context['sort_direction'] . '"></i></a>
 					</div>';
-		}
 		// This is just some column... show the link and be done with it.
 		else
-		{
 			echo '
 					<div class="' . $column['class'] . '">
 						', $column['link'], '
 					</div>';
-		}
 	}
 
 	echo '
@@ -143,10 +141,8 @@ function template_memberlist()
 						echo template_member_email($member);
 					}
 					else
-					{
 						echo '
 					', $member[$column];
-					}
 
 					echo '
 					</div>';
@@ -171,14 +167,12 @@ function template_memberlist()
 	}
 	// No members?
 	else
-	{
 		echo '
 			</ul>
 		</div>
 		<div class="infobox">
-			', $txt['find_no_results'], '
+			', $txt['search_no_results'], '
 		</div>';
-	}
 }
 
 /**
